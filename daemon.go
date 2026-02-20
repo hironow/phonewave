@@ -85,7 +85,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	// Startup scan: deliver any files that accumulated while daemon was down
 	for _, dir := range d.opts.OutboxDirs {
-		scanCtx, scanSpan := tracer.Start(context.Background(), "daemon.startup_scan",
+		scanCtx, scanSpan := tracer.Start(ctx, "daemon.startup_scan",
+			trace.WithNewRoot(),
 			trace.WithAttributes(attribute.String("outbox.dir", dir)),
 		)
 		results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir)

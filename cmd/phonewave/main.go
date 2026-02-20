@@ -416,7 +416,9 @@ func runDaemon(args []string) int {
 	defer func() {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
-		shutdownTracer(shutdownCtx)
+		if err := shutdownTracer(shutdownCtx); err != nil {
+			phonewave.LogWarn("tracer shutdown: %v", err)
+		}
 	}()
 
 	// Set up signal handling for graceful shutdown
