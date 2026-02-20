@@ -277,7 +277,7 @@ description: "Valid"
 	}
 
 	// when
-	results, errs := ScanAndDeliver(outbox, routes, stateDir)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir)
 
 	// then
 	if len(errs) != 0 {
@@ -339,7 +339,7 @@ description: "Also valid"
 	}
 
 	// when
-	results, errs := ScanAndDeliver(outbox, routes, stateDir)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir)
 
 	// then — should deliver 2, fail 1, and NOT stop on first error
 	if len(results) != 2 {
@@ -394,7 +394,7 @@ func TestDeliver_FileVanished(t *testing.T) {
 	}
 
 	// when — try to deliver a file that doesn't exist
-	_, err := Deliver(filepath.Join(outbox, "ghost.md"), routes)
+	_, err := Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes)
 
 	// then — should return error, not panic
 	if err == nil {
@@ -438,7 +438,7 @@ description: "New version"
 	}
 
 	// when
-	result, err := Deliver(filepath.Join(outbox, "spec-dup.md"), routes)
+	result, err := Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes)
 
 	// then — should succeed (atomic rename overwrites)
 	if err != nil {
@@ -486,7 +486,7 @@ description: "No inbox target"
 	}
 
 	// when
-	_, err := Deliver(dmailPath, routes)
+	_, err := Deliver(context.Background(), dmailPath, routes)
 
 	// then — should return error (can't create temp file in nonexistent dir)
 	if err == nil {
@@ -598,7 +598,7 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 	}
 
 	// when — scan an empty outbox
-	results, errs := ScanAndDeliver(outbox, routes, stateDir)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir)
 
 	// then — no results, no errors
 	if len(results) != 0 {
@@ -752,7 +752,7 @@ description: "Partial failure test"
 	}
 
 	// when
-	_, err := Deliver(dmailPath, routes)
+	_, err := Deliver(context.Background(), dmailPath, routes)
 
 	// then — should return error (partial failure)
 	if err == nil {
@@ -909,7 +909,7 @@ description: "Preserve test"
 	routes := []ResolvedRoute{}
 
 	// when
-	ScanAndDeliver(outbox, routes, stateDir)
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir)
 
 	// then — outbox file must still exist
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {

@@ -411,6 +411,16 @@ func runDaemon(args []string) int {
 		return 1
 	}
 
+	// Initialize OpenTelemetry tracer (noop unless OTEL_EXPORTER_OTLP_ENDPOINT is set)
+	shutdownTracer := phonewave.InitTracer("phonewave", version)
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := shutdownTracer(shutdownCtx); err != nil {
+			phonewave.LogWarn("tracer shutdown: %v", err)
+		}
+	}()
+
 	// Set up signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
