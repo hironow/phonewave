@@ -44,11 +44,12 @@ func snapshotEndpoints(cfg *Config) map[string]EndpointConfig {
 	return snap
 }
 
-// snapshotRoutes returns a map of "kind:from" → RouteConfig for diffing.
+// snapshotRoutes returns a map of "repoPath:kind:from" → RouteConfig for diffing.
+// Includes RepoPath to avoid collisions in multi-repo configs with overlapping kinds/paths.
 func snapshotRoutes(cfg *Config) map[string]RouteConfig {
 	snap := make(map[string]RouteConfig)
 	for _, r := range cfg.Routes {
-		key := r.Kind + ":" + r.From
+		key := r.RepoPath + ":" + r.Kind + ":" + r.From
 		snap[key] = r
 	}
 	return snap

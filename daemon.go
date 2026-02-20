@@ -330,12 +330,13 @@ func findRepoForRoute(cfg *Config, fromPath string) (*RepoConfig, error) {
 }
 
 // CollectOutboxDirs returns all absolute outbox directory paths from endpoints
-// that have at least one produces or consumes declaration.
+// that produce at least one kind. Consume-only endpoints are excluded because
+// they may not have an outbox directory.
 func CollectOutboxDirs(cfg *Config) []string {
 	var dirs []string
 	for _, repo := range cfg.Repositories {
 		for _, ep := range repo.Endpoints {
-			if len(ep.Produces) > 0 || len(ep.Consumes) > 0 {
+			if len(ep.Produces) > 0 {
 				dirs = append(dirs, filepath.Join(repo.Path, ep.Dir, "outbox"))
 			}
 		}
