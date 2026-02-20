@@ -150,6 +150,96 @@ func TestRemove_ExistingRepository(t *testing.T) {
 	}
 }
 
+func TestDiffEndpoints_DetectsAdded(t *testing.T) {
+	// given
+	old := map[string]EndpointConfig{}
+	new_ := map[string]EndpointConfig{
+		"repo-a/.siren": {Dir: ".siren", Produces: []string{"specification"}},
+	}
+
+	// when
+	diffs := diffEndpoints(old, new_)
+
+	// then
+	if len(diffs) != 1 {
+		t.Fatalf("diffs = %d, want 1", len(diffs))
+	}
+	if diffs[0].Change != "added" {
+		t.Errorf("change = %q, want added", diffs[0].Change)
+	}
+}
+
+func TestDiffEndpoints_DetectsRemoved(t *testing.T) {
+	// given
+	old := map[string]EndpointConfig{
+		"repo-a/.siren": {Dir: ".siren", Produces: []string{"specification"}},
+	}
+	new_ := map[string]EndpointConfig{}
+
+	// when
+	diffs := diffEndpoints(old, new_)
+
+	// then
+	if len(diffs) != 1 {
+		t.Fatalf("diffs = %d, want 1", len(diffs))
+	}
+	if diffs[0].Change != "removed" {
+		t.Errorf("change = %q, want removed", diffs[0].Change)
+	}
+}
+
+func TestDiffEndpoints_DetectsChanged(t *testing.T) {
+	// given
+	old := map[string]EndpointConfig{
+		"repo-a/.expedition": {Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
+	}
+	new_ := map[string]EndpointConfig{
+		"repo-a/.expedition": {Dir: ".expedition", Produces: []string{"report", "analysis"}, Consumes: []string{"specification"}},
+	}
+
+	// when
+	diffs := diffEndpoints(old, new_)
+
+	// then
+	if len(diffs) != 1 {
+		t.Fatalf("diffs = %d, want 1", len(diffs))
+	}
+	if diffs[0].Change != "changed" {
+		t.Errorf("change = %q, want changed", diffs[0].Change)
+	}
+}
+
+func TestDiffRoutes_DetectsAddedAndRemoved(t *testing.T) {
+	// given
+	old := map[string]RouteConfig{
+		"specification:.siren/outbox": {Kind: "specification", From: ".siren/outbox"},
+	}
+	new_ := map[string]RouteConfig{
+		"report:.expedition/outbox": {Kind: "report", From: ".expedition/outbox"},
+	}
+
+	// when
+	diffs := diffRoutes(old, new_)
+
+	// then
+	if len(diffs) != 2 {
+		t.Fatalf("diffs = %d, want 2 (1 added, 1 removed)", len(diffs))
+	}
+
+	var added, removed int
+	for _, d := range diffs {
+		switch d.Change {
+		case "added":
+			added++
+		case "removed":
+			removed++
+		}
+	}
+	if added != 1 || removed != 1 {
+		t.Errorf("added=%d removed=%d, want 1 each", added, removed)
+	}
+}
+
 func TestSync_UpdatesEndpoints(t *testing.T) {
 	repo := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
 		".siren": {produces: []string{"specification"}, consumes: []string{"feedback"}},
@@ -161,7 +251,7 @@ func TestSync_UpdatesEndpoints(t *testing.T) {
 	}
 
 	// when — sync (even if nothing changed, should still work)
-	orphans, err := Sync(result.Config)
+	report, err := Sync(result.Config)
 
 	// then
 	if err != nil {
@@ -170,5 +260,14 @@ func TestSync_UpdatesEndpoints(t *testing.T) {
 	if len(result.Config.Repositories) != 1 {
 		t.Errorf("repositories = %d, want 1", len(result.Config.Repositories))
 	}
-	_ = orphans
+	if report.RepoCount != 1 {
+		t.Errorf("report.RepoCount = %d, want 1", report.RepoCount)
+	}
+	// No changes expected since nothing changed on disk
+	if len(report.EndpointChanges) != 0 {
+		t.Errorf("endpoint changes = %d, want 0", len(report.EndpointChanges))
+	}
+	if len(report.RouteChanges) != 0 {
+		t.Errorf("route changes = %d, want 0", len(report.RouteChanges))
+	}
 }
