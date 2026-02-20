@@ -116,10 +116,16 @@ func DeliverData(dmailPath string, data []byte, routes []ResolvedRoute) (*Delive
 		Kind:       kind,
 	}
 
-	// Copy to all target inboxes (atomic: write temp → rename)
+	// Copy to all target inboxes (atomic: write temp → rename).
+	// On failure, roll back already-written files to prevent duplicates on retry.
 	for _, inbox := range matchedRoute.ToInboxes {
 		targetPath := filepath.Join(inbox, fileName)
 		if err := atomicWrite(targetPath, data); err != nil {
+			// Roll back all previously written inbox files
+			for _, written := range result.DeliveredTo {
+				os.Remove(written)
+			}
+			result.DeliveredTo = nil
 			return result, fmt.Errorf("deliver to %s: %w", inbox, err)
 		}
 		result.DeliveredTo = append(result.DeliveredTo, targetPath)
