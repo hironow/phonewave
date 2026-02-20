@@ -42,8 +42,8 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	retryInterval, _ := cmd.Flags().GetDuration("retry-interval")
 	maxRetries, _ := cmd.Flags().GetInt("max-retries")
 
-	configPath := filepath.Join(".", phonewave.ConfigFile)
-	cfg, err := phonewave.LoadConfig(configPath)
+	cfgPath := configPath(cmd)
+	cfg, err := phonewave.LoadConfig(cfgPath)
 	if err != nil {
 		phonewave.LogInfo("Run 'phonewave init' first")
 		return fmt.Errorf("load config: %w", err)

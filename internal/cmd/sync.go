@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/hironow/phonewave"
 	"github.com/spf13/cobra"
@@ -16,8 +15,8 @@ func newSyncCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		Example: `  phonewave sync`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			configPath := filepath.Join(".", phonewave.ConfigFile)
-			cfg, err := phonewave.LoadConfig(configPath)
+			cfgPath := configPath(cmd)
+			cfg, err := phonewave.LoadConfig(cfgPath)
 			if err != nil {
 				phonewave.LogInfo("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
@@ -28,7 +27,7 @@ func newSyncCmd() *cobra.Command {
 				return fmt.Errorf("sync: %w", err)
 			}
 
-			if err := phonewave.WriteConfig(configPath, cfg); err != nil {
+			if err := phonewave.WriteConfig(cfgPath, cfg); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 

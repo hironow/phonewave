@@ -22,8 +22,8 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 
-			configPath := filepath.Join(".", phonewave.ConfigFile)
-			if err := phonewave.WriteConfig(configPath, result.Config); err != nil {
+			cfgPath := configPath(cmd)
+			if err := phonewave.WriteConfig(cfgPath, result.Config); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 
@@ -44,7 +44,7 @@ func newInitCmd() *cobra.Command {
 
 			printOrphanWarnings(result.Orphans)
 
-			phonewave.LogOK("Config written to %s", configPath)
+			phonewave.LogOK("Config written to %s", cfgPath)
 			return nil
 		},
 	}

@@ -85,6 +85,9 @@ func TestRootCommand_PersistentFlags(t *testing.T) {
 	if rootCmd.PersistentFlags().Lookup("verbose") == nil {
 		t.Error("root command missing persistent flag 'verbose'")
 	}
+	if rootCmd.PersistentFlags().Lookup("config") == nil {
+		t.Error("root command missing persistent flag 'config'")
+	}
 }
 
 func TestVersionCommand_Output(t *testing.T) {

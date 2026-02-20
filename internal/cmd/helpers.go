@@ -1,6 +1,14 @@
 package cmd
 
-import "github.com/hironow/phonewave"
+import (
+	"github.com/hironow/phonewave"
+	"github.com/spf13/cobra"
+)
+
+func configPath(cmd *cobra.Command) string {
+	p, _ := cmd.Flags().GetString("config")
+	return p
+}
 
 func printOrphanWarnings(orphans phonewave.OrphanReport) {
 	for _, kind := range orphans.UnconsumedKinds {

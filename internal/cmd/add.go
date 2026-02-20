@@ -17,8 +17,8 @@ func newAddCmd() *cobra.Command {
 		Example: `  phonewave add ./new-repo
   phonewave add /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			configPath := filepath.Join(".", phonewave.ConfigFile)
-			cfg, err := phonewave.LoadConfig(configPath)
+			cfgPath := configPath(cmd)
+			cfg, err := phonewave.LoadConfig(cfgPath)
 			if err != nil {
 				phonewave.LogInfo("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
@@ -29,7 +29,7 @@ func newAddCmd() *cobra.Command {
 				return err
 			}
 
-			if err := phonewave.WriteConfig(configPath, cfg); err != nil {
+			if err := phonewave.WriteConfig(cfgPath, cfg); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 

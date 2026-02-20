@@ -16,8 +16,8 @@ func newDoctorCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		Example: `  phonewave doctor`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			configPath := filepath.Join(".", phonewave.ConfigFile)
-			cfg, err := phonewave.LoadConfig(configPath)
+			cfgPath := configPath(cmd)
+			cfg, err := phonewave.LoadConfig(cfgPath)
 			if err != nil {
 				phonewave.LogInfo("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
