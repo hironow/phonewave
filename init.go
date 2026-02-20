@@ -31,13 +31,13 @@ type SyncReport struct {
 	TotalRoutes     int
 }
 
-// snapshotEndpoints returns a map of "repoBase/dir" → EndpointConfig for diffing.
+// snapshotEndpoints returns a map of "repoPath/dir" → EndpointConfig for diffing.
+// Uses full repo path to avoid collisions between repos with the same basename.
 func snapshotEndpoints(cfg *Config) map[string]EndpointConfig {
 	snap := make(map[string]EndpointConfig)
 	for _, repo := range cfg.Repositories {
-		base := filepath.Base(repo.Path)
 		for _, ep := range repo.Endpoints {
-			key := base + "/" + ep.Dir
+			key := repo.Path + "/" + ep.Dir
 			snap[key] = ep
 		}
 	}
@@ -59,26 +59,31 @@ func diffEndpoints(old, new_ map[string]EndpointConfig) []EndpointDiff {
 	var diffs []EndpointDiff
 
 	for key, newEp := range new_ {
+		repo, dir := splitEndpointKey(key)
 		if oldEp, exists := old[key]; !exists {
-			parts := strings.SplitN(key, "/", 2)
-			repo, dir := parts[0], parts[1]
 			diffs = append(diffs, EndpointDiff{Repo: repo, Dir: dir, Change: "added"})
 		} else if !endpointEqual(oldEp, newEp) {
-			parts := strings.SplitN(key, "/", 2)
-			repo, dir := parts[0], parts[1]
 			diffs = append(diffs, EndpointDiff{Repo: repo, Dir: dir, Change: "changed"})
 		}
 	}
 
 	for key := range old {
 		if _, exists := new_[key]; !exists {
-			parts := strings.SplitN(key, "/", 2)
-			repo, dir := parts[0], parts[1]
+			repo, dir := splitEndpointKey(key)
 			diffs = append(diffs, EndpointDiff{Repo: repo, Dir: dir, Change: "removed"})
 		}
 	}
 
 	return diffs
+}
+
+// splitEndpointKey splits a "repoPath/dir" key into repo basename and dir.
+func splitEndpointKey(key string) (repo, dir string) {
+	lastSlash := strings.LastIndex(key, "/")
+	if lastSlash < 0 {
+		return key, ""
+	}
+	return filepath.Base(key[:lastSlash]), key[lastSlash+1:]
 }
 
 // endpointEqual checks if two EndpointConfigs have the same produces/consumes.

@@ -112,8 +112,8 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 		}
 	}
 
-	// Check orphaned routes
-	orphans := DetectOrphans(cfg.AllEndpoints())
+	// Check orphaned routes (per-repo to match routing scope)
+	orphans := DetectOrphansPerRepo(cfg)
 	for _, kind := range orphans.UnconsumedKinds {
 		report.addWarn("", fmt.Sprintf("Orphaned: kind=%q is produced but not consumed", kind))
 	}
