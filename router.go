@@ -102,29 +102,59 @@ func DetectOrphansPerRepo(cfg *Config) OrphanReport {
 }
 
 // DetectOrphans finds kinds that are produced but not consumed, or consumed
-// but not produced, within the given endpoints.
+// but not produced, within the given endpoints. A kind that is only consumed
+// by the same endpoint(s) that produce it is treated as unconsumed, because
+// DeriveRoutes filters out self-delivery.
 func DetectOrphans(endpoints []Endpoint) OrphanReport {
-	produced := make(map[string]bool)
-	consumed := make(map[string]bool)
+	producers := make(map[string]map[string]bool) // kind → set of endpoint dirs
+	consumers := make(map[string]map[string]bool) // kind → set of endpoint dirs
 
 	for _, ep := range endpoints {
 		for _, kind := range ep.Produces {
-			produced[kind] = true
+			if producers[kind] == nil {
+				producers[kind] = make(map[string]bool)
+			}
+			producers[kind][ep.Dir] = true
 		}
 		for _, kind := range ep.Consumes {
-			consumed[kind] = true
+			if consumers[kind] == nil {
+				consumers[kind] = make(map[string]bool)
+			}
+			consumers[kind][ep.Dir] = true
 		}
 	}
 
 	var report OrphanReport
 
-	for kind := range produced {
-		if !consumed[kind] {
+	for kind, producerDirs := range producers {
+		consumerDirs, hasConsumers := consumers[kind]
+		if !hasConsumers {
+			report.UnconsumedKinds = append(report.UnconsumedKinds, kind)
+			continue
+		}
+
+		// Check if any (producer, consumer) pair has different endpoints.
+		// If all consumers are also producers of this kind, self-delivery
+		// filtering leaves no route — effectively unconsumed.
+		hasExternalRoute := false
+		for pDir := range producerDirs {
+			for cDir := range consumerDirs {
+				if pDir != cDir {
+					hasExternalRoute = true
+					break
+				}
+			}
+			if hasExternalRoute {
+				break
+			}
+		}
+		if !hasExternalRoute {
 			report.UnconsumedKinds = append(report.UnconsumedKinds, kind)
 		}
 	}
-	for kind := range consumed {
-		if !produced[kind] {
+
+	for kind := range consumers {
+		if _, hasProducer := producers[kind]; !hasProducer {
 			report.UnproducedKinds = append(report.UnproducedKinds, kind)
 		}
 	}

@@ -165,6 +165,40 @@ func TestDetectOrphans_PerRepo_NoFalsePositivesSingleRepo(t *testing.T) {
 	}
 }
 
+func TestDetectOrphans_SelfOnlyConsumer(t *testing.T) {
+	// given — an endpoint that both produces and consumes the same kind,
+	// and no other endpoint consumes it. DeriveRoutes will filter out
+	// self-delivery, so this kind has no route. DetectOrphans must flag it.
+	endpoints := []Endpoint{
+		{Dir: ".siren", Produces: []string{"internal"}, Consumes: []string{"internal"}},
+	}
+
+	// when
+	orphans := DetectOrphans(endpoints)
+
+	// then — "internal" should be unconsumed (self-only consumer is effectively no consumer)
+	if len(orphans.UnconsumedKinds) != 1 || orphans.UnconsumedKinds[0] != "internal" {
+		t.Errorf("unconsumed = %v, want [internal] (self-only consumer should be flagged)", orphans.UnconsumedKinds)
+	}
+}
+
+func TestDetectOrphans_SelfConsumerWithExternalConsumer(t *testing.T) {
+	// given — endpoint produces and consumes the same kind, but another endpoint
+	// also consumes it. A route exists (producer → other consumer). NOT orphaned.
+	endpoints := []Endpoint{
+		{Dir: ".siren", Produces: []string{"data"}, Consumes: []string{"data"}},
+		{Dir: ".expedition", Produces: nil, Consumes: []string{"data"}},
+	}
+
+	// when
+	orphans := DetectOrphans(endpoints)
+
+	// then — "data" should NOT be unconsumed (external consumer .expedition exists)
+	if len(orphans.UnconsumedKinds) != 0 {
+		t.Errorf("unconsumed = %v, want none (external consumer exists)", orphans.UnconsumedKinds)
+	}
+}
+
 func TestDeriveRoutes_SameKindMultipleProducers(t *testing.T) {
 	// Two endpoints produce the same kind — each gets its own route
 	endpoints := []Endpoint{
