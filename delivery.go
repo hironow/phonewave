@@ -80,14 +80,18 @@ func findFrontmatterEnd(content string) int {
 	return -1
 }
 
-// Deliver processes a single D-Mail file: reads it, routes by kind,
-// copies to all target inboxes atomically, then removes the source.
+// Deliver reads a D-Mail file and delivers it to all matching inboxes.
 func Deliver(dmailPath string, routes []ResolvedRoute) (*DeliveryResult, error) {
 	data, err := os.ReadFile(dmailPath)
 	if err != nil {
 		return nil, fmt.Errorf("read D-Mail: %w", err)
 	}
+	return DeliverData(dmailPath, data, routes)
+}
 
+// DeliverData processes pre-read D-Mail data: routes by kind,
+// copies to all target inboxes atomically, then removes the source.
+func DeliverData(dmailPath string, data []byte, routes []ResolvedRoute) (*DeliveryResult, error) {
 	kind, err := ExtractDMailKind(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
@@ -121,8 +125,10 @@ func Deliver(dmailPath string, routes []ResolvedRoute) (*DeliveryResult, error) 
 		result.DeliveredTo = append(result.DeliveredTo, targetPath)
 	}
 
-	// Remove source only after all deliveries succeed (at-least-once)
-	if err := os.Remove(dmailPath); err != nil {
+	// Remove source only after all deliveries succeed (at-least-once).
+	// Ignore ErrNotExist: the source may already have been cleaned up
+	// (e.g. retry delivery from error queue).
+	if err := os.Remove(dmailPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return result, fmt.Errorf("remove source %s: %w", dmailPath, err)
 	}
 

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // DeliveryLog writes append-only delivery records to .phonewave/delivery.log.
@@ -42,21 +44,99 @@ func (l *DeliveryLog) Failed(kind, from, reason string) {
 	l.write("FAILED", fmt.Sprintf("kind=%s from=%s reason=%s", kind, from, reason))
 }
 
+// Retried records a successful retry delivery.
+func (l *DeliveryLog) Retried(kind, from, to string) {
+	l.write("RETRIED", fmt.Sprintf("kind=%s from=%s to=%s", kind, from, to))
+}
+
 func (l *DeliveryLog) write(action, details string) {
 	ts := time.Now().UTC().Format(time.RFC3339)
 	fmt.Fprintf(l.file, "%s %-9s %s\n", ts, action, details)
 }
 
-// SaveToErrorQueue copies a failed D-Mail to .phonewave/errors/ for later retry.
-func SaveToErrorQueue(stateDir, sourcePath string, data []byte) error {
+// ErrorMetadata holds metadata for a failed D-Mail stored as a .err sidecar.
+type ErrorMetadata struct {
+	SourceOutbox string    `yaml:"source_outbox"`
+	Kind         string    `yaml:"kind"`
+	OriginalName string    `yaml:"original_name"`
+	Attempts     int       `yaml:"attempts"`
+	Error        string    `yaml:"error"`
+	Timestamp    time.Time `yaml:"timestamp"`
+}
+
+// SaveToErrorQueue saves a failed D-Mail to .phonewave/errors/ with a .err sidecar.
+// Filename format: {timestamp}-{kind}-{original_name}
+func SaveToErrorQueue(stateDir string, meta ErrorMetadata, data []byte) error {
 	errorsDir := filepath.Join(stateDir, "errors")
 	if err := os.MkdirAll(errorsDir, 0755); err != nil {
 		return err
 	}
 
-	ts := time.Now().UTC().Format("2006-01-02T1504")
-	baseName := filepath.Base(sourcePath)
-	errorFile := filepath.Join(errorsDir, fmt.Sprintf("%s-%s", ts, baseName))
+	ts := meta.Timestamp.Format("2006-01-02T1504")
+	errorFile := filepath.Join(errorsDir, fmt.Sprintf("%s-%s-%s", ts, meta.Kind, meta.OriginalName))
 
-	return os.WriteFile(errorFile, data, 0644)
+	if err := os.WriteFile(errorFile, data, 0644); err != nil {
+		return fmt.Errorf("write error file: %w", err)
+	}
+
+	sidecarData, err := yaml.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("marshal error metadata: %w", err)
+	}
+
+	sidecarPath := errorFile + ".err"
+	if err := os.WriteFile(sidecarPath, sidecarData, 0644); err != nil {
+		return fmt.Errorf("write error sidecar: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateErrorMetadata increments the attempts counter and updates the error message
+// in an existing .err sidecar file.
+func UpdateErrorMetadata(sidecarPath string, newError string) error {
+	meta, err := LoadErrorMetadata(sidecarPath)
+	if err != nil {
+		return err
+	}
+
+	meta.Attempts++
+	meta.Error = newError
+	meta.Timestamp = time.Now().UTC()
+
+	data, err := yaml.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("marshal error metadata: %w", err)
+	}
+
+	if err := os.WriteFile(sidecarPath, data, 0644); err != nil {
+		return fmt.Errorf("write error sidecar: %w", err)
+	}
+	return nil
+}
+
+// RemoveErrorEntry removes a D-Mail file and its .err sidecar from the error queue.
+func RemoveErrorEntry(dmailPath string) error {
+	if err := os.Remove(dmailPath); err != nil {
+		return fmt.Errorf("remove error entry: %w", err)
+	}
+	sidecarPath := dmailPath + ".err"
+	if err := os.Remove(sidecarPath); err != nil {
+		return fmt.Errorf("remove error sidecar: %w", err)
+	}
+	return nil
+}
+
+// LoadErrorMetadata reads and parses a .err sidecar file.
+func LoadErrorMetadata(sidecarPath string) (*ErrorMetadata, error) {
+	data, err := os.ReadFile(sidecarPath)
+	if err != nil {
+		return nil, fmt.Errorf("read error sidecar: %w", err)
+	}
+
+	var meta ErrorMetadata
+	if err := yaml.Unmarshal(data, &meta); err != nil {
+		return nil, fmt.Errorf("parse error sidecar: %w", err)
+	}
+	return &meta, nil
 }
