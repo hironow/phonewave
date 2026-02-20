@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,6 +16,7 @@ func main() {
 	defer stop()
 
 	if err := cmd.NewRootCommand().ExecuteContext(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }

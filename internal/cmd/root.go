@@ -24,9 +24,10 @@ func NewRootCommand() *cobra.Command {
 	cobra.EnableTraverseRunHooks = true
 
 	rootCmd := &cobra.Command{
-		Use:   "phonewave",
-		Short: "D-Mail courier daemon",
-		Long:  "Phonewave routes D-Mails between AI agent tool repositories via file-based message passing.",
+		Use:     "phonewave",
+		Short:   "D-Mail courier daemon",
+		Long:    "Phonewave routes D-Mails between AI agent tool repositories via file-based message passing.",
+		Version: Version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			shutdownTracer = phonewave.InitTracer("phonewave", Version)
 			return nil

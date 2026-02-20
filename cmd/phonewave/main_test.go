@@ -90,6 +90,24 @@ func TestRootCommand_PersistentFlags(t *testing.T) {
 	}
 }
 
+func TestRootCommand_VersionFlag(t *testing.T) {
+	rootCmd := cmd.NewRootCommand()
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"--version"})
+
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "phonewave version") {
+		t.Errorf("--version output should contain 'phonewave version', got %q", output)
+	}
+}
+
 func TestVersionCommand_Output(t *testing.T) {
 	rootCmd := cmd.NewRootCommand()
 	buf := new(bytes.Buffer)
