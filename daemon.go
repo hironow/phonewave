@@ -14,11 +14,13 @@ import (
 
 // DaemonOptions configures the daemon behavior.
 type DaemonOptions struct {
-	Routes     []ResolvedRoute
-	OutboxDirs []string
-	StateDir   string
-	Verbose    bool
-	DryRun     bool
+	Routes        []ResolvedRoute
+	OutboxDirs    []string
+	StateDir      string
+	Verbose       bool
+	DryRun        bool
+	RetryInterval time.Duration // 0 = disabled (default)
+	MaxRetries    int           // default 10
 }
 
 // Daemon watches outbox directories and delivers D-Mails.
@@ -70,9 +72,16 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	defer os.Remove(pidPath)
 
+	// Write start timestamp for uptime tracking
+	startedPath := filepath.Join(d.opts.StateDir, "watch.started")
+	if err := os.WriteFile(startedPath, []byte(time.Now().UTC().Format(time.RFC3339)), 0644); err != nil {
+		return fmt.Errorf("write started file: %w", err)
+	}
+	defer os.Remove(startedPath)
+
 	// Startup scan: deliver any files that accumulated while daemon was down
 	for _, dir := range d.opts.OutboxDirs {
-		results, errs := ScanAndDeliver(dir, d.opts.Routes)
+		results, errs := ScanAndDeliver(dir, d.opts.Routes, d.opts.StateDir)
 		for _, r := range results {
 			if d.opts.Verbose {
 				LogOK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
@@ -85,6 +94,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	if d.opts.Verbose {
 		LogOK("Daemon started (PID %d), watching %d outbox directories", os.Getpid(), len(d.opts.OutboxDirs))
+	}
+
+	// Optional retry ticker (nil channel disables the case)
+	var retryCh <-chan time.Time
+	if d.opts.RetryInterval > 0 {
+		ticker := time.NewTicker(d.opts.RetryInterval)
+		retryCh = ticker.C
+		defer ticker.Stop()
 	}
 
 	// Event loop
@@ -107,6 +124,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 				return nil
 			}
 			LogWarn("Watcher error: %v", err)
+
+		case <-retryCh:
+			d.retryPending()
 		}
 	}
 }
@@ -135,12 +155,35 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	result, err := Deliver(event.Name, d.opts.Routes)
+	// Read file content upfront (needed for error queue on failure)
+	data, readErr := os.ReadFile(event.Name)
+	if readErr != nil {
+		LogError("Read %s: %v", event.Name, readErr)
+		return
+	}
+
+	result, err := DeliverData(event.Name, data, d.opts.Routes)
 	if err != nil {
+		kind := extractKindOrUnknown(data)
 		LogError("Deliver %s: %v", event.Name, err)
 		if d.dlog != nil {
-			d.dlog.Failed("unknown", event.Name, err.Error())
+			d.dlog.Failed(kind, event.Name, err.Error())
 		}
+
+		meta := ErrorMetadata{
+			SourceOutbox: filepath.Dir(event.Name),
+			Kind:         kind,
+			OriginalName: filepath.Base(event.Name),
+			Attempts:     1,
+			Error:        err.Error(),
+			Timestamp:    time.Now().UTC(),
+		}
+		if saveErr := SaveToErrorQueue(d.opts.StateDir, meta, data); saveErr != nil {
+			LogError("Save to error queue: %v", saveErr)
+		}
+
+		// Remove from outbox to prevent infinite fsnotify re-delivery
+		os.Remove(event.Name)
 		return
 	}
 
@@ -154,6 +197,85 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	if d.opts.Verbose {
 		LogOK("Delivered %s (kind=%s) to %v", result.SourcePath, result.Kind, result.DeliveredTo)
 	}
+}
+
+// retryPending scans the error queue and attempts to re-deliver entries
+// that have not exceeded MaxRetries.
+func (d *Daemon) retryPending() {
+	errorsDir := filepath.Join(d.opts.StateDir, "errors")
+	entries, err := os.ReadDir(errorsDir)
+	if err != nil {
+		return // no error queue directory yet
+	}
+
+	maxRetries := d.opts.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 10
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".err") {
+			continue
+		}
+
+		sidecarPath := filepath.Join(errorsDir, entry.Name())
+		meta, err := LoadErrorMetadata(sidecarPath)
+		if err != nil {
+			LogWarn("Retry: load metadata %s: %v", sidecarPath, err)
+			continue
+		}
+
+		if meta.Attempts >= maxRetries {
+			continue
+		}
+
+		// Read the D-Mail data file (sidecar path minus ".err")
+		dmailPath := strings.TrimSuffix(sidecarPath, ".err")
+		data, err := os.ReadFile(dmailPath)
+		if err != nil {
+			LogWarn("Retry: read %s: %v", dmailPath, err)
+			continue
+		}
+
+		// Reconstruct the original outbox path for DeliverData
+		originalPath := filepath.Join(meta.SourceOutbox, meta.OriginalName)
+
+		result, deliverErr := DeliverData(originalPath, data, d.opts.Routes)
+		if deliverErr != nil {
+			if err := UpdateErrorMetadata(sidecarPath, deliverErr.Error()); err != nil {
+				LogWarn("Retry: update metadata: %v", err)
+			}
+			if d.opts.Verbose {
+				LogWarn("Retry failed for %s (attempt %d): %v", meta.OriginalName, meta.Attempts+1, deliverErr)
+			}
+			continue
+		}
+
+		// Success — remove from error queue and log
+		if err := RemoveErrorEntry(dmailPath); err != nil {
+			LogWarn("Retry: remove error entry: %v", err)
+		}
+
+		if d.dlog != nil {
+			for _, target := range result.DeliveredTo {
+				d.dlog.Retried(result.Kind, originalPath, target)
+			}
+		}
+
+		if d.opts.Verbose {
+			LogOK("Retry: delivered %s (kind=%s) to %v", meta.OriginalName, result.Kind, result.DeliveredTo)
+		}
+	}
+}
+
+// extractKindOrUnknown attempts to extract the kind from D-Mail data,
+// returning "unknown" if parsing fails.
+func extractKindOrUnknown(data []byte) string {
+	kind, err := ExtractDMailKind(data)
+	if err != nil {
+		return "unknown"
+	}
+	return kind
 }
 
 // ResolveRoutes converts Config routes (relative paths) into ResolvedRoutes
@@ -222,8 +344,9 @@ func CollectOutboxDirs(cfg *Config) []string {
 }
 
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
-// delivering each one according to the provided routes.
-func ScanAndDeliver(outboxDir string, routes []ResolvedRoute) ([]*DeliveryResult, []error) {
+// delivering each one according to the provided routes. Failed deliveries are
+// saved to the error queue in stateDir.
+func ScanAndDeliver(outboxDir string, routes []ResolvedRoute, stateDir string) ([]*DeliveryResult, []error) {
 	entries, err := os.ReadDir(outboxDir)
 	if err != nil {
 		return nil, []error{fmt.Errorf("scan outbox %s: %w", outboxDir, err)}
@@ -244,9 +367,30 @@ func ScanAndDeliver(outboxDir string, routes []ResolvedRoute) ([]*DeliveryResult
 		}
 
 		dmailPath := filepath.Join(outboxDir, entry.Name())
-		result, err := Deliver(dmailPath, routes)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, err))
+
+		data, readErr := os.ReadFile(dmailPath)
+		if readErr != nil {
+			errs = append(errs, fmt.Errorf("read %s: %w", dmailPath, readErr))
+			continue
+		}
+
+		result, deliverErr := DeliverData(dmailPath, data, routes)
+		if deliverErr != nil {
+			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
+
+			kind := extractKindOrUnknown(data)
+			meta := ErrorMetadata{
+				SourceOutbox: outboxDir,
+				Kind:         kind,
+				OriginalName: entry.Name(),
+				Attempts:     1,
+				Error:        deliverErr.Error(),
+				Timestamp:    time.Now().UTC(),
+			}
+			if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
+				LogError("Save to error queue: %v", saveErr)
+			}
+			os.Remove(dmailPath)
 			continue
 		}
 		results = append(results, result)

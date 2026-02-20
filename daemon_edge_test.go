@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -153,9 +154,31 @@ description: "Unknown kind"
 		t.Errorf("inbox should be empty for unknown kind, got %d files", len(entries))
 	}
 
-	// Source file should still exist (delivery failed, so source not removed)
-	if _, err := os.Stat(filepath.Join(outbox, "mystery-001.md")); os.IsNotExist(err) {
-		t.Error("source should NOT be removed when delivery fails")
+	// Source file should be removed from outbox (moved to error queue)
+	if _, err := os.Stat(filepath.Join(outbox, "mystery-001.md")); err == nil {
+		t.Error("source should be removed from outbox on delivery failure (moved to error queue)")
+	}
+
+	// Error queue should contain the failed D-Mail
+	errorsDir := filepath.Join(stateDir, "errors")
+	errEntries, readErr := os.ReadDir(errorsDir)
+	if readErr != nil {
+		t.Fatalf("read errors dir: %v", readErr)
+	}
+	var mdCount int
+	var errCount int
+	for _, e := range errEntries {
+		if strings.HasSuffix(e.Name(), ".err") {
+			errCount++
+		} else {
+			mdCount++
+		}
+	}
+	if mdCount != 1 {
+		t.Errorf("error queue .md files = %d, want 1", mdCount)
+	}
+	if errCount != 1 {
+		t.Errorf("error queue .err sidecars = %d, want 1", errCount)
 	}
 
 	cancel()
@@ -224,7 +247,8 @@ func TestScanAndDeliver_IgnoresTempFiles(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
 	inbox := filepath.Join(repoDir, ".expedition", "inbox")
-	for _, dir := range []string{outbox, inbox} {
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, inbox, stateDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -251,7 +275,7 @@ description: "Valid"
 	}
 
 	// when
-	results, errs := ScanAndDeliver(outbox, routes)
+	results, errs := ScanAndDeliver(outbox, routes, stateDir)
 
 	// then
 	if len(errs) != 0 {
@@ -276,7 +300,8 @@ func TestScanAndDeliver_MixedValidInvalid(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
 	inbox := filepath.Join(repoDir, ".expedition", "inbox")
-	for _, dir := range []string{outbox, inbox} {
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, inbox, stateDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -312,7 +337,7 @@ description: "Also valid"
 	}
 
 	// when
-	results, errs := ScanAndDeliver(outbox, routes)
+	results, errs := ScanAndDeliver(outbox, routes, stateDir)
 
 	// then — should deliver 2, fail 1, and NOT stop on first error
 	if len(results) != 2 {
@@ -330,9 +355,22 @@ description: "Also valid"
 		t.Error("spec-003.md should be in inbox")
 	}
 
-	// Invalid file should still be in outbox (not delivered, not removed)
-	if _, err := os.Stat(filepath.Join(outbox, "bad-002.md")); os.IsNotExist(err) {
-		t.Error("bad-002.md should still be in outbox (delivery failed)")
+	// Invalid file should be removed from outbox (moved to error queue)
+	if _, err := os.Stat(filepath.Join(outbox, "bad-002.md")); !os.IsNotExist(err) {
+		t.Error("bad-002.md should be removed from outbox (moved to error queue)")
+	}
+
+	// Verify it's in the error queue
+	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
+	foundInErrorQueue := false
+	for _, e := range errorEntries {
+		if strings.Contains(e.Name(), "bad-002.md") && !strings.HasSuffix(e.Name(), ".err") {
+			foundInErrorQueue = true
+			break
+		}
+	}
+	if !foundInErrorQueue {
+		t.Error("bad-002.md should be in the error queue")
 	}
 }
 
@@ -552,12 +590,13 @@ allDelivered:
 
 func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 	outbox := t.TempDir()
+	stateDir := t.TempDir()
 	routes := []ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
 	// when — scan an empty outbox
-	results, errs := ScanAndDeliver(outbox, routes)
+	results, errs := ScanAndDeliver(outbox, routes, stateDir)
 
 	// then — no results, no errors
 	if len(results) != 0 {
@@ -769,4 +808,242 @@ func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
 	if lines != 2 {
 		t.Errorf("log lines = %d, want 2 (across restarts)", lines)
 	}
+}
+
+// --- Retry mechanism tests ---
+
+func TestDaemon_RetrySucceeds(t *testing.T) {
+	// given — an error queue entry and a daemon with RetryInterval
+	// The error entry was created when no route existed, but now a route is available.
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, inbox, stateDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Place a D-Mail in the error queue (simulating a prior failure)
+	dmailData := []byte("---\nname: spec-retry\nkind: specification\ndescription: \"Retry test\"\n---\n\n# Retry Test\n")
+	meta := ErrorMetadata{
+		SourceOutbox: outbox,
+		Kind:         "specification",
+		OriginalName: "spec-retry.md",
+		Attempts:     1,
+		Error:        "no route for kind",
+		Timestamp:    time.Now().UTC(),
+	}
+	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+		t.Fatal(err)
+	}
+
+	// Now provide the route that was previously missing
+	routes := []ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+
+	d, err := NewDaemon(DaemonOptions{
+		Routes:        routes,
+		OutboxDirs:    []string{outbox},
+		StateDir:      stateDir,
+		Verbose:       true,
+		RetryInterval: 100 * time.Millisecond,
+		MaxRetries:    10,
+	})
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Wait for retry to fire and deliver
+	deadline := time.After(3 * time.Second)
+	delivered := false
+	for !delivered {
+		select {
+		case <-deadline:
+			t.Fatal("timeout waiting for retry delivery")
+		default:
+			if _, err := os.Stat(filepath.Join(inbox, "spec-retry.md")); err == nil {
+				delivered = true
+			} else {
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
+	}
+
+	// then — file should be in inbox
+	if _, err := os.Stat(filepath.Join(inbox, "spec-retry.md")); os.IsNotExist(err) {
+		t.Error("D-Mail not found in inbox after retry")
+	}
+
+	// Error queue entry should be removed
+	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
+	mdCount := 0
+	for _, e := range errorEntries {
+		if !strings.HasSuffix(e.Name(), ".err") {
+			mdCount++
+		}
+	}
+	if mdCount != 0 {
+		t.Errorf("error queue still has %d files, want 0", mdCount)
+	}
+
+	// Delivery log should contain RETRIED
+	logData, _ := os.ReadFile(filepath.Join(stateDir, "delivery.log"))
+	if !strings.Contains(string(logData), "RETRIED") {
+		t.Error("delivery log should contain RETRIED entry")
+	}
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
+	// given — an error queue entry with attempts already at max
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, stateDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailData := []byte("---\nname: spec-maxed\nkind: specification\ndescription: \"Max retry\"\n---\n")
+	meta := ErrorMetadata{
+		SourceOutbox: outbox,
+		Kind:         "specification",
+		OriginalName: "spec-maxed.md",
+		Attempts:     10, // already at max
+		Error:        "no route for kind",
+		Timestamp:    time.Now().UTC(),
+	}
+	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+		t.Fatal(err)
+	}
+
+	// No routes — retry would fail anyway, but it shouldn't even try
+	d, err := NewDaemon(DaemonOptions{
+		Routes:        []ResolvedRoute{},
+		OutboxDirs:    []string{outbox},
+		StateDir:      stateDir,
+		RetryInterval: 100 * time.Millisecond,
+		MaxRetries:    10,
+	})
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Wait for a couple retry ticks
+	time.Sleep(350 * time.Millisecond)
+
+	// then — error queue entry should still be there (skipped, not retried)
+	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
+	mdCount := 0
+	for _, e := range errorEntries {
+		if !strings.HasSuffix(e.Name(), ".err") {
+			mdCount++
+		}
+	}
+	if mdCount != 1 {
+		t.Errorf("error queue .md files = %d, want 1 (should be skipped)", mdCount)
+	}
+
+	// Sidecar should NOT have incremented (attempts still 10)
+	for _, e := range errorEntries {
+		if strings.HasSuffix(e.Name(), ".err") {
+			loaded, err := LoadErrorMetadata(filepath.Join(stateDir, "errors", e.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if loaded.Attempts != 10 {
+				t.Errorf("attempts = %d, want 10 (should not have been retried)", loaded.Attempts)
+			}
+		}
+	}
+
+	cancel()
+	<-errCh
+}
+
+func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
+	// given — error queue has an entry, but RetryInterval is 0 (disabled)
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, inbox, stateDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailData := []byte("---\nname: spec-nope\nkind: specification\ndescription: \"No retry\"\n---\n")
+	meta := ErrorMetadata{
+		SourceOutbox: outbox,
+		Kind:         "specification",
+		OriginalName: "spec-nope.md",
+		Attempts:     1,
+		Error:        "no route for kind",
+		Timestamp:    time.Now().UTC(),
+	}
+	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+
+	d, err := NewDaemon(DaemonOptions{
+		Routes:        routes,
+		OutboxDirs:    []string{outbox},
+		StateDir:      stateDir,
+		RetryInterval: 0, // disabled
+	})
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Wait — if retry were enabled with 0 interval, it would fire immediately
+	time.Sleep(300 * time.Millisecond)
+
+	// then — file should NOT be in inbox (retry disabled)
+	if _, err := os.Stat(filepath.Join(inbox, "spec-nope.md")); err == nil {
+		t.Error("D-Mail should NOT be in inbox (retry disabled)")
+	}
+
+	// Error queue should still have the entry
+	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
+	mdCount := 0
+	for _, e := range errorEntries {
+		if !strings.HasSuffix(e.Name(), ".err") {
+			mdCount++
+		}
+	}
+	if mdCount != 1 {
+		t.Errorf("error queue .md files = %d, want 1 (retry disabled)", mdCount)
+	}
+
+	cancel()
+	<-errCh
 }
