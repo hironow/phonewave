@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 )
@@ -39,12 +40,14 @@ func newUpdateCmd() *cobra.Command {
 			}
 
 			currentVer := Version
-			if currentVer == "dev" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Running dev build. Latest release: %s\n", latest.Version())
+			currentSemver, parseErr := semver.NewVersion(currentVer)
+			if parseErr != nil {
+				// Non-semver build (dev, commit hash, dirty tag, etc.)
+				fmt.Fprintf(cmd.OutOrStdout(), "Running non-release build (%s). Latest release: %s\n", currentVer, latest.Version())
 				if checkOnly {
 					return ErrUpdateAvailable
 				}
-			} else if latest.LessOrEqual(currentVer) {
+			} else if !latest.GreaterThan(currentSemver.String()) {
 				fmt.Fprintf(cmd.OutOrStdout(), "Already up to date (%s).\n", currentVer)
 				return nil
 			}
