@@ -45,7 +45,8 @@ func ExtractDMailKind(data []byte) (string, error) {
 // parseDMailFrontmatter extracts the YAML frontmatter from a D-Mail file.
 func parseDMailFrontmatter(data []byte) (*DMailFrontmatter, error) {
 	// Reuse the same frontmatter extraction logic as SKILL.md
-	skill, err := ParseSkillFrontmatter(data)
+	// Validate the frontmatter is parseable via shared SKILL.md logic
+	_, err := ParseSkillFrontmatter(data)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +62,6 @@ func parseDMailFrontmatter(data []byte) (*DMailFrontmatter, error) {
 	if err := yaml.Unmarshal([]byte(content[3:idx]), &fm); err != nil {
 		return nil, err
 	}
-	_ = skill
 	return &fm, nil
 }
 

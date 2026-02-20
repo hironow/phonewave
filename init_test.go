@@ -12,7 +12,7 @@ func setupTestRepo(t *testing.T, tools map[string]struct{ produces, consumes []s
 	repoDir := t.TempDir()
 
 	for dotDir, caps := range tools {
-		for _, kind := range caps.produces {
+		if len(caps.produces) > 0 {
 			dir := filepath.Join(repoDir, dotDir, "skills", "dmail-sendable")
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				t.Fatal(err)
@@ -25,10 +25,8 @@ func setupTestRepo(t *testing.T, tools map[string]struct{ produces, consumes []s
 			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644); err != nil {
 				t.Fatal(err)
 			}
-			_ = kind
-			break // write once for all produces
 		}
-		for _, kind := range caps.consumes {
+		if len(caps.consumes) > 0 {
 			dir := filepath.Join(repoDir, dotDir, "skills", "dmail-readable")
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				t.Fatal(err)
@@ -41,8 +39,6 @@ func setupTestRepo(t *testing.T, tools map[string]struct{ produces, consumes []s
 			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644); err != nil {
 				t.Fatal(err)
 			}
-			_ = kind
-			break // write once for all consumes
 		}
 	}
 
