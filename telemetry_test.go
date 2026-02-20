@@ -49,12 +49,12 @@ func TestInitTracer_NoopWhenEndpointUnset(t *testing.T) {
 	}
 }
 
-func TestInitTracer_ShutdownFlushesSpans(t *testing.T) {
-	// given — test tracer with in-memory exporter
+func TestSetupTestTracer_SpansAvailableImmediately(t *testing.T) {
+	// given — test tracer with in-memory exporter (sync processor)
 	exp := setupTestTracer(t)
 
 	// when — create and end a span
-	_, span := tracer.Start(context.Background(), "flushed-span")
+	_, span := tracer.Start(context.Background(), "sync-span")
 	span.End()
 
 	// then — span should appear in exporter immediately (sync processor)
@@ -62,8 +62,8 @@ func TestInitTracer_ShutdownFlushesSpans(t *testing.T) {
 	if len(spans) == 0 {
 		t.Fatal("expected at least 1 span in InMemoryExporter after span.End()")
 	}
-	if spans[0].Name != "flushed-span" {
-		t.Errorf("span name = %q, want %q", spans[0].Name, "flushed-span")
+	if spans[0].Name != "sync-span" {
+		t.Errorf("span name = %q, want %q", spans[0].Name, "sync-span")
 	}
 }
 
@@ -86,7 +86,7 @@ func spanNames(spans tracetest.SpanStubs) []string {
 	return names
 }
 
-func TestDaemon_Run_CreatesRootSpan(t *testing.T) {
+func TestDaemon_Run_CreatesStartupScanSpan(t *testing.T) {
 	exp := setupTestTracer(t)
 
 	// given — minimal daemon setup
@@ -115,11 +115,19 @@ func TestDaemon_Run_CreatesRootSpan(t *testing.T) {
 	cancel()
 	<-errCh
 
-	// then — should have a "daemon.run" span
+	// then — should have "daemon.startup_scan" as an independent root span (no parent)
 	spans := exp.GetSpans()
-	s := findSpanByName(spans, "daemon.run")
+	s := findSpanByName(spans, "daemon.startup_scan")
 	if s == nil {
-		t.Errorf("expected 'daemon.run' span, got: %v", spanNames(spans))
+		t.Fatalf("expected 'daemon.startup_scan' span, got: %v", spanNames(spans))
+	}
+	// Verify it is a root span (no parent)
+	if s.Parent.IsValid() {
+		t.Error("startup_scan span should be a root span (no parent), but has a parent")
+	}
+	// Verify no long-lived daemon.run span exists
+	if findSpanByName(spans, "daemon.run") != nil {
+		t.Error("daemon.run span should not exist (anti-pattern: long-lived root span)")
 	}
 }
 

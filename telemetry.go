@@ -34,6 +34,7 @@ func InitTracer(serviceName, ver string) func(context.Context) error {
 
 	exp, err := otlptracehttp.New(context.Background())
 	if err != nil {
+		LogWarn("Failed to create OTLP exporter, tracing disabled: %v", err)
 		return func(context.Context) error { return nil }
 	}
 

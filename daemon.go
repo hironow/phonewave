@@ -49,14 +49,6 @@ func NewDaemon(opts DaemonOptions) (*Daemon, error) {
 
 // Run starts the daemon event loop. It blocks until ctx is cancelled.
 func (d *Daemon) Run(ctx context.Context) error {
-	ctx, runSpan := tracer.Start(ctx, "daemon.run",
-		trace.WithAttributes(
-			attribute.Int("outbox.count", len(d.opts.OutboxDirs)),
-			attribute.Int("route.count", len(d.opts.Routes)),
-		),
-	)
-	defer runSpan.End()
-
 	defer d.watcher.Close()
 
 	// Open delivery log
@@ -93,7 +85,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	// Startup scan: deliver any files that accumulated while daemon was down
 	for _, dir := range d.opts.OutboxDirs {
-		scanCtx, scanSpan := tracer.Start(ctx, "daemon.startup_scan",
+		scanCtx, scanSpan := tracer.Start(context.Background(), "daemon.startup_scan",
 			trace.WithAttributes(attribute.String("outbox.dir", dir)),
 		)
 		results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir)
