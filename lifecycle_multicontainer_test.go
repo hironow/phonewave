@@ -155,7 +155,7 @@ func TestLifecycleDocker_MultiContainer(t *testing.T) {
 	// Phase 8: Writer sends feedback (multi-target: siren + expedition)
 	// =====================================================================
 	fbContent := "---\nname: fb-cross\nkind: feedback\ndescription: Cross-container feedback\n---\n\n# Feedback\n"
-	heredocWrite(t, ctx, writerContainer, repoPath+"/.divergence/outbox/fb-cross.md", fbContent)
+	heredocWrite(t, ctx, writerContainer, repoPath+"/.gate/outbox/fb-cross.md", fbContent)
 
 	waitForFileInContainer(t, ctx, daemonContainer,
 		repoPath+"/.siren/inbox/fb-cross.md", 15*time.Second)

@@ -54,7 +54,7 @@ func TestInit_FullEcosystem(t *testing.T) {
 	repo := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
 		".siren":      {produces: []string{"specification"}, consumes: []string{"feedback"}},
 		".expedition": {produces: []string{"report"}, consumes: []string{"specification", "feedback"}},
-		".divergence": {produces: []string{"feedback"}, consumes: []string{"report"}},
+		".gate": {produces: []string{"feedback"}, consumes: []string{"report"}},
 	})
 
 	// when

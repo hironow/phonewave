@@ -18,9 +18,9 @@ func TestDeliveryLog_Append(t *testing.T) {
 	defer log.Close()
 
 	// when
-	log.Delivered("feedback", "/repo/.divergence/outbox/feedback-001.md", "/repo/.siren/inbox/feedback-001.md")
-	log.Delivered("feedback", "/repo/.divergence/outbox/feedback-001.md", "/repo/.expedition/inbox/feedback-001.md")
-	log.Removed("/repo/.divergence/outbox/feedback-001.md")
+	log.Delivered("feedback", "/repo/.gate/outbox/feedback-001.md", "/repo/.siren/inbox/feedback-001.md")
+	log.Delivered("feedback", "/repo/.gate/outbox/feedback-001.md", "/repo/.expedition/inbox/feedback-001.md")
+	log.Removed("/repo/.gate/outbox/feedback-001.md")
 
 	// then — read the log file
 	data, err := os.ReadFile(filepath.Join(stateDir, "delivery.log"))
@@ -191,7 +191,7 @@ func TestLoadErrorMetadata_RoundTrip(t *testing.T) {
 	// given — save a D-Mail to error queue, then load its sidecar
 	stateDir := t.TempDir()
 	original := ErrorMetadata{
-		SourceOutbox: "/repo/.divergence/outbox",
+		SourceOutbox: "/repo/.gate/outbox",
 		Kind:         "feedback",
 		OriginalName: "feedback-001.md",
 		Attempts:     3,

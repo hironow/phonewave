@@ -15,13 +15,13 @@ import (
 //
 //	.siren:      produces=specification, consumes=feedback
 //	.expedition: produces=report,        consumes=specification,feedback
-//	.divergence: produces=feedback,      consumes=report
+//	.gate: produces=feedback,      consumes=report
 //
 // Routes derived:
 //
 //	specification: .siren/outbox      → .expedition/inbox
-//	report:        .expedition/outbox  → .divergence/inbox
-//	feedback:      .divergence/outbox  → .siren/inbox, .expedition/inbox
+//	report:        .expedition/outbox  → .gate/inbox
+//	feedback:      .gate/outbox  → .siren/inbox, .expedition/inbox
 func setupEcosystemDir(t *testing.T) string {
 	t.Helper()
 	repoDir := t.TempDir()
@@ -33,7 +33,7 @@ func setupEcosystemDir(t *testing.T) string {
 	}{
 		{".siren", []string{"specification"}, []string{"feedback"}},
 		{".expedition", []string{"report"}, []string{"specification", "feedback"}},
-		{".divergence", []string{"feedback"}, []string{"report"}},
+		{".gate", []string{"feedback"}, []string{"report"}},
 	}
 
 	for _, tool := range tools {
@@ -219,7 +219,7 @@ description: "Runtime specification"
 	// =====================================================================
 	// Phase 5: Multi-target delivery — feedback → siren + expedition
 	// =====================================================================
-	feedbackPath := filepath.Join(repoDir, ".divergence", "outbox", "fb-lifecycle.md")
+	feedbackPath := filepath.Join(repoDir, ".gate", "outbox", "fb-lifecycle.md")
 	if err := os.WriteFile(feedbackPath, []byte(`---
 name: fb-lifecycle
 kind: feedback
@@ -363,8 +363,8 @@ description: "After restart"
 		t.Fatal(err)
 	}
 
-	divergenceInbox := filepath.Join(repoDir, ".divergence", "inbox")
-	waitForFile(t, filepath.Join(divergenceInbox, "report-restart.md"), 5*time.Second)
+	gateInbox := filepath.Join(repoDir, ".gate", "inbox")
+	waitForFile(t, filepath.Join(gateInbox, "report-restart.md"), 5*time.Second)
 
 	cancel2()
 	if err := <-errCh2; err != nil {

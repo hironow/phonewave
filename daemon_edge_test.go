@@ -641,7 +641,7 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 func TestDaemon_MultipleOutboxes(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox1 := filepath.Join(repoDir, ".siren", "outbox")
-	outbox2 := filepath.Join(repoDir, ".divergence", "outbox")
+	outbox2 := filepath.Join(repoDir, ".gate", "outbox")
 	inbox1 := filepath.Join(repoDir, ".expedition", "inbox")
 	inbox2 := filepath.Join(repoDir, ".siren", "inbox")
 	stateDir := filepath.Join(repoDir, ".phonewave")
@@ -725,7 +725,7 @@ bothDelivered:
 
 func TestDeliver_PartialFailure_RollsBackDeliveredInboxes(t *testing.T) {
 	repoDir := t.TempDir()
-	outbox := filepath.Join(repoDir, ".divergence", "outbox")
+	outbox := filepath.Join(repoDir, ".gate", "outbox")
 	inbox1 := filepath.Join(repoDir, ".siren", "inbox")
 	// inbox2 does NOT exist — will cause partial failure
 	inbox2 := filepath.Join(repoDir, ".expedition", "inbox-nonexistent")

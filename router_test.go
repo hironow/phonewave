@@ -10,7 +10,7 @@ func TestDeriveRoutes_ThreeToolEcosystem(t *testing.T) {
 	endpoints := []Endpoint{
 		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 		{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
-		{Dir: ".divergence", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+		{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 	}
 
 	// when
@@ -38,7 +38,7 @@ func TestDeriveRoutes_ThreeToolEcosystem(t *testing.T) {
 		t.Errorf("specification.to = %v, want [.expedition/inbox]", spec.To)
 	}
 
-	// report: .expedition/outbox → [.divergence/inbox]
+	// report: .expedition/outbox → [.gate/inbox]
 	rep, ok := routeMap["report"]
 	if !ok {
 		t.Fatal("missing route for kind=report")
@@ -46,17 +46,17 @@ func TestDeriveRoutes_ThreeToolEcosystem(t *testing.T) {
 	if rep.From != ".expedition/outbox" {
 		t.Errorf("report.from = %q, want %q", rep.From, ".expedition/outbox")
 	}
-	if len(rep.To) != 1 || rep.To[0] != ".divergence/inbox" {
-		t.Errorf("report.to = %v, want [.divergence/inbox]", rep.To)
+	if len(rep.To) != 1 || rep.To[0] != ".gate/inbox" {
+		t.Errorf("report.to = %v, want [.gate/inbox]", rep.To)
 	}
 
-	// feedback: .divergence/outbox → [.siren/inbox, .expedition/inbox]
+	// feedback: .gate/outbox → [.siren/inbox, .expedition/inbox]
 	fb, ok := routeMap["feedback"]
 	if !ok {
 		t.Fatal("missing route for kind=feedback")
 	}
-	if fb.From != ".divergence/outbox" {
-		t.Errorf("feedback.from = %q, want %q", fb.From, ".divergence/outbox")
+	if fb.From != ".gate/outbox" {
+		t.Errorf("feedback.from = %q, want %q", fb.From, ".gate/outbox")
 	}
 	sort.Strings(fb.To)
 	if len(fb.To) != 2 {
@@ -147,7 +147,7 @@ func TestDetectOrphans_PerRepo_NoFalsePositivesSingleRepo(t *testing.T) {
 				Endpoints: []EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
-					{Dir: ".divergence", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},
@@ -204,7 +204,7 @@ func TestDeriveRoutes_SameKindMultipleProducers(t *testing.T) {
 	endpoints := []Endpoint{
 		{Dir: ".siren", Produces: []string{"notification"}, Consumes: nil},
 		{Dir: ".expedition", Produces: []string{"notification"}, Consumes: nil},
-		{Dir: ".divergence", Produces: nil, Consumes: []string{"notification"}},
+		{Dir: ".gate", Produces: nil, Consumes: []string{"notification"}},
 	}
 
 	routes := DeriveRoutes(endpoints)
@@ -212,13 +212,13 @@ func TestDeriveRoutes_SameKindMultipleProducers(t *testing.T) {
 		t.Fatalf("want 2 routes (one per producer), got %d: %+v", len(routes), routes)
 	}
 
-	// Both should route to .divergence/inbox
+	// Both should route to .gate/inbox
 	for _, r := range routes {
 		if r.Kind != "notification" {
 			t.Errorf("route.kind = %q, want notification", r.Kind)
 		}
-		if len(r.To) != 1 || r.To[0] != ".divergence/inbox" {
-			t.Errorf("route.to = %v, want [.divergence/inbox]", r.To)
+		if len(r.To) != 1 || r.To[0] != ".gate/inbox" {
+			t.Errorf("route.to = %v, want [.gate/inbox]", r.To)
 		}
 	}
 }

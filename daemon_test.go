@@ -15,14 +15,14 @@ func TestResolveRoutes(t *testing.T) {
 	// Create outbox and inbox directories
 	siren := filepath.Join(repoDir, ".siren")
 	expedition := filepath.Join(repoDir, ".expedition")
-	divergence := filepath.Join(repoDir, ".divergence")
+	gate := filepath.Join(repoDir, ".gate")
 	for _, dir := range []string{
 		filepath.Join(siren, "outbox"),
 		filepath.Join(siren, "inbox"),
 		filepath.Join(expedition, "outbox"),
 		filepath.Join(expedition, "inbox"),
-		filepath.Join(divergence, "outbox"),
-		filepath.Join(divergence, "inbox"),
+		filepath.Join(gate, "outbox"),
+		filepath.Join(gate, "inbox"),
 	} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
@@ -36,14 +36,14 @@ func TestResolveRoutes(t *testing.T) {
 				Endpoints: []EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
-					{Dir: ".divergence", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},
 		Routes: []RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository"},
-			{Kind: "report", From: ".expedition/outbox", To: []string{".divergence/inbox"}, Scope: "same_repository"},
-			{Kind: "feedback", From: ".divergence/outbox", To: []string{".siren/inbox", ".expedition/inbox"}, Scope: "same_repository"},
+			{Kind: "report", From: ".expedition/outbox", To: []string{".gate/inbox"}, Scope: "same_repository"},
+			{Kind: "feedback", From: ".gate/outbox", To: []string{".siren/inbox", ".expedition/inbox"}, Scope: "same_repository"},
 		},
 	}
 
@@ -103,7 +103,7 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 		filepath.Join(repoA, ".siren", "outbox"),
 		filepath.Join(repoA, ".expedition", "inbox"),
 		filepath.Join(repoB, ".siren", "outbox"),
-		filepath.Join(repoB, ".divergence", "inbox"),
+		filepath.Join(repoB, ".gate", "inbox"),
 	} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
@@ -123,7 +123,7 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 				Path: repoB,
 				Endpoints: []EndpointConfig{
 					{Dir: ".siren", Produces: []string{"alert"}, Consumes: nil},
-					{Dir: ".divergence", Produces: nil, Consumes: []string{"alert"}},
+					{Dir: ".gate", Produces: nil, Consumes: []string{"alert"}},
 				},
 			},
 		},
@@ -160,7 +160,7 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 	if alertRoute.FromOutbox != wantAlertFrom {
 		t.Errorf("alert FromOutbox = %q, want %q (repo B)", alertRoute.FromOutbox, wantAlertFrom)
 	}
-	wantAlertTo := filepath.Join(repoB, ".divergence", "inbox")
+	wantAlertTo := filepath.Join(repoB, ".gate", "inbox")
 	if len(alertRoute.ToInboxes) != 1 || alertRoute.ToInboxes[0] != wantAlertTo {
 		t.Errorf("alert ToInboxes = %v, want [%s] (repo B)", alertRoute.ToInboxes, wantAlertTo)
 	}
@@ -181,7 +181,7 @@ func TestResolveRoutes_CollectsOutboxDirs(t *testing.T) {
 	for _, dir := range []string{
 		filepath.Join(repoDir, ".siren", "outbox"),
 		filepath.Join(repoDir, ".expedition", "outbox"),
-		filepath.Join(repoDir, ".divergence", "outbox"),
+		filepath.Join(repoDir, ".gate", "outbox"),
 	} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
@@ -195,7 +195,7 @@ func TestResolveRoutes_CollectsOutboxDirs(t *testing.T) {
 				Endpoints: []EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
-					{Dir: ".divergence", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},

@@ -103,7 +103,7 @@ func setupEcosystemInContainer(t *testing.T, ctx context.Context, c testcontaine
 	tools := []toolDef{
 		{".siren", "specification", "feedback"},
 		{".expedition", "report", "specification\n  - kind: feedback"},
-		{".divergence", "feedback", "report"},
+		{".gate", "feedback", "report"},
 	}
 
 	for _, tool := range tools {
@@ -218,7 +218,7 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 	// Phase 7: Multi-target delivery — feedback → siren + expedition
 	// =====================================================================
 	feedbackContent := "---\nname: fb-docker\nkind: feedback\ndescription: Docker feedback\n---\n\n# Feedback\n"
-	heredocWrite(t, ctx, container, repoPath+"/.divergence/outbox/fb-docker.md", feedbackContent)
+	heredocWrite(t, ctx, container, repoPath+"/.gate/outbox/fb-docker.md", feedbackContent)
 
 	waitForFileInContainer(t, ctx, container,
 		repoPath+"/.siren/inbox/fb-docker.md", 10*time.Second)
