@@ -91,10 +91,10 @@ func Status(cfg *Config, stateDir string) StatusReport {
 		RepoCount:  len(cfg.Repositories),
 	}
 
-	// Count outbox directories (endpoints with produces or consumes)
+	// Count outbox directories (only endpoints that produce, matching CollectOutboxDirs)
 	for _, repo := range cfg.Repositories {
 		for _, ep := range repo.Endpoints {
-			if len(ep.Produces) > 0 || len(ep.Consumes) > 0 {
+			if len(ep.Produces) > 0 {
 				report.OutboxCount++
 			}
 		}
