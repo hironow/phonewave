@@ -2,6 +2,7 @@ package phonewave
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -133,8 +134,10 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 // handleEvent processes a single fsnotify event.
 func (d *Daemon) handleEvent(event fsnotify.Event) {
-	// Only react to Create events for .md files
-	if !event.Has(fsnotify.Create) {
+	// React to Create and Rename events for .md files.
+	// Rename is needed because producers using atomic temp+rename
+	// may only emit Rename (not Create) on some platforms (e.g. Linux inotify).
+	if !event.Has(fsnotify.Create) && !event.Has(fsnotify.Rename) {
 		return
 	}
 
@@ -155,9 +158,14 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	// Read file content upfront (needed for error queue on failure)
+	// Read file content upfront (needed for error queue on failure).
+	// Silently ignore ErrNotExist: Rename events fire for both the
+	// source (gone) and target (arrived) paths.
 	data, readErr := os.ReadFile(event.Name)
 	if readErr != nil {
+		if errors.Is(readErr, os.ErrNotExist) {
+			return
+		}
 		LogError("Read %s: %v", event.Name, readErr)
 		return
 	}

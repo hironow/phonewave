@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 // --- Edge Case: malformed D-Mail in outbox ---
@@ -719,9 +721,9 @@ bothDelivered:
 	<-errCh
 }
 
-// --- Edge Case: delivery to multiple inboxes, partial failure ---
+// --- Edge Case: delivery to multiple inboxes, partial failure with rollback ---
 
-func TestDeliver_PartialFailure_MultipleTargets(t *testing.T) {
+func TestDeliver_PartialFailure_RollsBackDeliveredInboxes(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".divergence", "outbox")
 	inbox1 := filepath.Join(repoDir, ".siren", "inbox")
@@ -750,24 +752,21 @@ description: "Partial failure test"
 	}
 
 	// when
-	result, err := Deliver(dmailPath, routes)
+	_, err := Deliver(dmailPath, routes)
 
 	// then — should return error (partial failure)
 	if err == nil {
 		t.Fatal("expected error for partial failure")
 	}
 
-	// First target should have received the file
-	if result == nil {
-		t.Fatal("result should not be nil even on partial failure")
-	}
-	if len(result.DeliveredTo) != 1 {
-		t.Errorf("delivered to %d targets, want 1 (partial success)", len(result.DeliveredTo))
+	// inbox1 should be cleaned up (rolled back) to prevent duplicates on retry
+	if _, err := os.Stat(filepath.Join(inbox1, "fb-partial.md")); !os.IsNotExist(err) {
+		t.Error("inbox1 should be rolled back on partial delivery failure to prevent duplicates on retry")
 	}
 
-	// Source should still exist (not all targets succeeded)
+	// Source should still exist (delivery failed)
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
-		t.Error("source should still exist after partial delivery failure")
+		t.Error("source should still exist after delivery failure")
 	}
 }
 
@@ -808,6 +807,103 @@ func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
 	if lines != 2 {
 		t.Errorf("log lines = %d, want 2 (across restarts)", lines)
 	}
+}
+
+// --- Edge Case: Rename event from atomic temp+rename ---
+
+func TestDaemon_HandleRenameEvent(t *testing.T) {
+	// given — a daemon with a valid route and a .md file in outbox.
+	// Producers using temp+rename semantics emit Rename (not Create) on some platforms.
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, inbox, stateDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+name: spec-rename
+kind: specification
+description: "Rename event test"
+---
+
+# Rename Test
+`
+	dmailPath := filepath.Join(outbox, "spec-rename.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+
+	d, err := NewDaemon(DaemonOptions{
+		Routes:     routes,
+		OutboxDirs: []string{outbox},
+		StateDir:   stateDir,
+	})
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	// Initialize delivery log (normally done in Run)
+	dlog, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.dlog = dlog
+	defer dlog.Close()
+
+	// when — simulate a Rename event (as if producer used temp+rename)
+	d.handleEvent(fsnotify.Event{
+		Name: dmailPath,
+		Op:   fsnotify.Rename,
+	})
+
+	// then — file should be delivered to inbox
+	if _, err := os.Stat(filepath.Join(inbox, "spec-rename.md")); os.IsNotExist(err) {
+		t.Error("D-Mail not delivered to inbox on Rename event")
+	}
+}
+
+func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
+	// given — a Rename event for a file that was renamed AWAY (source side).
+	// The daemon should silently ignore it (no error log spam).
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, stateDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	d, err := NewDaemon(DaemonOptions{
+		Routes:     []ResolvedRoute{},
+		OutboxDirs: []string{outbox},
+		StateDir:   stateDir,
+	})
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	dlog, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.dlog = dlog
+	defer dlog.Close()
+
+	// when — simulate a Rename event for a non-existent file (renamed away)
+	// then — should not panic or log error (silent ignore)
+	d.handleEvent(fsnotify.Event{
+		Name: filepath.Join(outbox, "gone.md"),
+		Op:   fsnotify.Rename,
+	})
 }
 
 // --- Retry mechanism tests ---
