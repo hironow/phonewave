@@ -104,6 +104,67 @@ func TestDetectOrphans(t *testing.T) {
 	}
 }
 
+func TestDetectOrphans_PerRepoScope(t *testing.T) {
+	// given — repo A produces "specification", repo B consumes "specification"
+	// Since routing is same_repository, no route can connect them.
+	// DetectOrphans should report "specification" as BOTH unconsumed (in A)
+	// and unproduced (in B), not silently suppress the warning.
+	cfg := &Config{
+		Repositories: []RepoConfig{
+			{
+				Path: "/repo-a",
+				Endpoints: []EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: nil},
+				},
+			},
+			{
+				Path: "/repo-b",
+				Endpoints: []EndpointConfig{
+					{Dir: ".expedition", Produces: nil, Consumes: []string{"specification"}},
+				},
+			},
+		},
+	}
+
+	// when — detect orphans respecting per-repo scope
+	orphans := DetectOrphansPerRepo(cfg)
+
+	// then — specification should be flagged in BOTH directions
+	if len(orphans.UnconsumedKinds) != 1 || orphans.UnconsumedKinds[0] != "specification" {
+		t.Errorf("unconsumed = %v, want [specification] (produced in repo A, no consumer in same repo)", orphans.UnconsumedKinds)
+	}
+	if len(orphans.UnproducedKinds) != 1 || orphans.UnproducedKinds[0] != "specification" {
+		t.Errorf("unproduced = %v, want [specification] (consumed in repo B, no producer in same repo)", orphans.UnproducedKinds)
+	}
+}
+
+func TestDetectOrphans_PerRepo_NoFalsePositivesSingleRepo(t *testing.T) {
+	// given — single repo where produces/consumes match perfectly
+	cfg := &Config{
+		Repositories: []RepoConfig{
+			{
+				Path: "/repo",
+				Endpoints: []EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
+					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
+					{Dir: ".divergence", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+				},
+			},
+		},
+	}
+
+	// when
+	orphans := DetectOrphansPerRepo(cfg)
+
+	// then — no orphans
+	if len(orphans.UnconsumedKinds) != 0 {
+		t.Errorf("unconsumed = %v, want none", orphans.UnconsumedKinds)
+	}
+	if len(orphans.UnproducedKinds) != 0 {
+		t.Errorf("unproduced = %v, want none", orphans.UnproducedKinds)
+	}
+}
+
 func TestDeriveRoutes_SameKindMultipleProducers(t *testing.T) {
 	// Two endpoints produce the same kind — each gets its own route
 	endpoints := []Endpoint{

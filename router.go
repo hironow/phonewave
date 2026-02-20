@@ -64,6 +64,43 @@ func DeriveRoutes(endpoints []Endpoint) []Route {
 	return routes
 }
 
+// DetectOrphansPerRepo runs orphan detection per repository, matching the
+// same_repository routing scope. A kind produced in repo A and consumed
+// only in repo B will be reported as orphaned in both.
+func DetectOrphansPerRepo(cfg *Config) OrphanReport {
+	unconsumedSet := make(map[string]bool)
+	unproducedSet := make(map[string]bool)
+
+	for _, repo := range cfg.Repositories {
+		var endpoints []Endpoint
+		for _, ep := range repo.Endpoints {
+			endpoints = append(endpoints, Endpoint{
+				Dir:      ep.Dir,
+				Produces: ep.Produces,
+				Consumes: ep.Consumes,
+			})
+		}
+		report := DetectOrphans(endpoints)
+		for _, kind := range report.UnconsumedKinds {
+			unconsumedSet[kind] = true
+		}
+		for _, kind := range report.UnproducedKinds {
+			unproducedSet[kind] = true
+		}
+	}
+
+	var result OrphanReport
+	for kind := range unconsumedSet {
+		result.UnconsumedKinds = append(result.UnconsumedKinds, kind)
+	}
+	for kind := range unproducedSet {
+		result.UnproducedKinds = append(result.UnproducedKinds, kind)
+	}
+	sort.Strings(result.UnconsumedKinds)
+	sort.Strings(result.UnproducedKinds)
+	return result
+}
+
 // DetectOrphans finds kinds that are produced but not consumed, or consumed
 // but not produced, within the given endpoints.
 func DetectOrphans(endpoints []Endpoint) OrphanReport {

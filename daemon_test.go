@@ -92,6 +92,80 @@ func TestResolveRoutes(t *testing.T) {
 	}
 }
 
+func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
+	// given — two repos, both containing .siren
+	// Repo A: .siren produces "specification"
+	// Repo B: .siren produces "alert"
+	repoA := t.TempDir()
+	repoB := t.TempDir()
+
+	for _, dir := range []string{
+		filepath.Join(repoA, ".siren", "outbox"),
+		filepath.Join(repoA, ".expedition", "inbox"),
+		filepath.Join(repoB, ".siren", "outbox"),
+		filepath.Join(repoB, ".divergence", "inbox"),
+	} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cfg := &Config{
+		Repositories: []RepoConfig{
+			{
+				Path: repoA,
+				Endpoints: []EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: nil},
+					{Dir: ".expedition", Produces: nil, Consumes: []string{"specification"}},
+				},
+			},
+			{
+				Path: repoB,
+				Endpoints: []EndpointConfig{
+					{Dir: ".siren", Produces: []string{"alert"}, Consumes: nil},
+					{Dir: ".divergence", Produces: nil, Consumes: []string{"alert"}},
+				},
+			},
+		},
+	}
+	cfg.UpdateRoutes()
+
+	// when
+	resolved, err := ResolveRoutes(cfg)
+
+	// then
+	if err != nil {
+		t.Fatalf("ResolveRoutes: %v", err)
+	}
+	if len(resolved) != 2 {
+		t.Fatalf("resolved routes = %d, want 2", len(resolved))
+	}
+
+	// specification route must resolve to repo A paths
+	specRoute := findResolvedRoute(resolved, "specification")
+	if specRoute == nil {
+		t.Fatal("specification route not found")
+	}
+	wantSpecFrom := filepath.Join(repoA, ".siren", "outbox")
+	if specRoute.FromOutbox != wantSpecFrom {
+		t.Errorf("specification FromOutbox = %q, want %q (repo A)", specRoute.FromOutbox, wantSpecFrom)
+	}
+
+	// alert route must resolve to repo B paths, NOT repo A
+	alertRoute := findResolvedRoute(resolved, "alert")
+	if alertRoute == nil {
+		t.Fatal("alert route not found")
+	}
+	wantAlertFrom := filepath.Join(repoB, ".siren", "outbox")
+	if alertRoute.FromOutbox != wantAlertFrom {
+		t.Errorf("alert FromOutbox = %q, want %q (repo B)", alertRoute.FromOutbox, wantAlertFrom)
+	}
+	wantAlertTo := filepath.Join(repoB, ".divergence", "inbox")
+	if len(alertRoute.ToInboxes) != 1 || alertRoute.ToInboxes[0] != wantAlertTo {
+		t.Errorf("alert ToInboxes = %v, want [%s] (repo B)", alertRoute.ToInboxes, wantAlertTo)
+	}
+}
+
 func findResolvedRoute(routes []ResolvedRoute, kind string) *ResolvedRoute {
 	for i := range routes {
 		if routes[i].Kind == kind {

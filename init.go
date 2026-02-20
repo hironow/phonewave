@@ -35,7 +35,7 @@ func Init(repoPaths []string) (*InitResult, error) {
 
 	cfg.UpdateRoutes()
 
-	orphans := DetectOrphans(cfg.AllEndpoints())
+	orphans := DetectOrphansPerRepo(cfg)
 
 	return &InitResult{
 		Config:    cfg,
@@ -67,7 +67,7 @@ func Add(cfg *Config, repoPath string) (*OrphanReport, error) {
 	cfg.UpdateRoutes()
 	cfg.LastSynced = time.Now().UTC()
 
-	orphans := DetectOrphans(cfg.AllEndpoints())
+	orphans := DetectOrphansPerRepo(cfg)
 	return &orphans, nil
 }
 
@@ -85,7 +85,7 @@ func Remove(cfg *Config, repoPath string) (*OrphanReport, error) {
 	cfg.UpdateRoutes()
 	cfg.LastSynced = time.Now().UTC()
 
-	orphans := DetectOrphans(cfg.AllEndpoints())
+	orphans := DetectOrphansPerRepo(cfg)
 	return &orphans, nil
 }
 
@@ -114,6 +114,6 @@ func Sync(cfg *Config) (*OrphanReport, error) {
 	cfg.UpdateRoutes()
 	cfg.LastSynced = time.Now().UTC()
 
-	orphans := DetectOrphans(cfg.AllEndpoints())
+	orphans := DetectOrphansPerRepo(cfg)
 	return &orphans, nil
 }

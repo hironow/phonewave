@@ -30,10 +30,11 @@ type EndpointConfig struct {
 
 // RouteConfig holds a derived routing rule.
 type RouteConfig struct {
-	Kind  string   `yaml:"kind"`
-	From  string   `yaml:"from"`
-	To    []string `yaml:"to,flow"`
-	Scope string   `yaml:"scope"`
+	Kind     string   `yaml:"kind"`
+	From     string   `yaml:"from"`
+	To       []string `yaml:"to,flow"`
+	Scope    string   `yaml:"scope"`
+	RepoPath string   `yaml:"repo_path"`
 }
 
 // LoadConfig reads and parses a phonewave.yaml file.
@@ -115,10 +116,11 @@ func (c *Config) UpdateRoutes() {
 		routes := DeriveRoutes(endpoints)
 		for _, r := range routes {
 			allRoutes = append(allRoutes, RouteConfig{
-				Kind:  r.Kind,
-				From:  r.From,
-				To:    r.To,
-				Scope: r.Scope,
+				Kind:     r.Kind,
+				From:     r.From,
+				To:       r.To,
+				Scope:    r.Scope,
+				RepoPath: repo.Path,
 			})
 		}
 	}

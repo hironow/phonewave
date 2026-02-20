@@ -162,15 +162,20 @@ func ResolveRoutes(cfg *Config) ([]ResolvedRoute, error) {
 	var resolved []ResolvedRoute
 
 	for _, route := range cfg.Routes {
-		repo, err := findRepoForRoute(cfg, route.From)
-		if err != nil {
-			return nil, err
+		repoPath := route.RepoPath
+		if repoPath == "" {
+			// Fallback for legacy configs without RepoPath
+			repo, err := findRepoForRoute(cfg, route.From)
+			if err != nil {
+				return nil, err
+			}
+			repoPath = repo.Path
 		}
 
-		fromAbs := filepath.Join(repo.Path, route.From)
+		fromAbs := filepath.Join(repoPath, route.From)
 		var toAbs []string
 		for _, to := range route.To {
-			toAbs = append(toAbs, filepath.Join(repo.Path, to))
+			toAbs = append(toAbs, filepath.Join(repoPath, to))
 		}
 
 		resolved = append(resolved, ResolvedRoute{
