@@ -1,11 +1,17 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 )
+
+// ErrUpdateAvailable is returned by update --check when a newer version exists.
+// Callers can check for this sentinel to distinguish "update available" (exit 1)
+// from real errors.
+var ErrUpdateAvailable = errors.New("update available")
 
 const repoSlug = "hironow/phonewave"
 
@@ -36,7 +42,7 @@ func newUpdateCmd() *cobra.Command {
 			if currentVer == "dev" {
 				fmt.Fprintf(cmd.OutOrStdout(), "Running dev build. Latest release: %s\n", latest.Version())
 				if checkOnly {
-					return nil
+					return ErrUpdateAvailable
 				}
 			} else if latest.LessOrEqual(currentVer) {
 				fmt.Fprintf(cmd.OutOrStdout(), "Already up to date (%s).\n", currentVer)
@@ -45,7 +51,7 @@ func newUpdateCmd() *cobra.Command {
 
 			if checkOnly {
 				fmt.Fprintf(cmd.OutOrStdout(), "Update available: %s → %s\n", currentVer, latest.Version())
-				return nil
+				return ErrUpdateAvailable
 			}
 
 			fmt.Fprintf(cmd.OutOrStdout(), "Updating to %s ...\n", latest.Version())
