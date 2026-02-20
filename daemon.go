@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // DaemonOptions configures the daemon behavior.
@@ -46,6 +49,14 @@ func NewDaemon(opts DaemonOptions) (*Daemon, error) {
 
 // Run starts the daemon event loop. It blocks until ctx is cancelled.
 func (d *Daemon) Run(ctx context.Context) error {
+	ctx, runSpan := tracer.Start(ctx, "daemon.run",
+		trace.WithAttributes(
+			attribute.Int("outbox.count", len(d.opts.OutboxDirs)),
+			attribute.Int("route.count", len(d.opts.Routes)),
+		),
+	)
+	defer runSpan.End()
+
 	defer d.watcher.Close()
 
 	// Open delivery log
@@ -82,7 +93,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	// Startup scan: deliver any files that accumulated while daemon was down
 	for _, dir := range d.opts.OutboxDirs {
-		results, errs := ScanAndDeliver(dir, d.opts.Routes, d.opts.StateDir)
+		scanCtx, scanSpan := tracer.Start(ctx, "daemon.startup_scan",
+			trace.WithAttributes(attribute.String("outbox.dir", dir)),
+		)
+		results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir)
+		scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
+		scanSpan.End()
 		for _, r := range results {
 			if d.dlog != nil {
 				for _, target := range r.DeliveredTo {
@@ -156,6 +172,14 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
+	ctx, span := tracer.Start(context.Background(), "daemon.handle_event",
+		trace.WithAttributes(
+			attribute.String("event.name", event.Name),
+			attribute.String("event.op", event.Op.String()),
+		),
+	)
+	defer span.End()
+
 	// Small delay to let the file be fully written
 	time.Sleep(50 * time.Millisecond)
 
@@ -173,13 +197,17 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 			return
 		}
 		LogError("Read %s: %v", event.Name, readErr)
+		span.RecordError(readErr)
+		span.SetStatus(codes.Error, readErr.Error())
 		return
 	}
 
-	result, err := DeliverData(event.Name, data, d.opts.Routes)
+	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes)
 	if err != nil {
 		kind := extractKindOrUnknown(data)
 		LogError("Deliver %s: %v", event.Name, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		if d.dlog != nil {
 			d.dlog.Failed(kind, event.Name, err.Error())
 		}
@@ -218,6 +246,9 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 // retryPending scans the error queue and attempts to re-deliver entries
 // that have not exceeded MaxRetries.
 func (d *Daemon) retryPending() {
+	ctx, retrySpan := tracer.Start(context.Background(), "daemon.retry_pending")
+	defer retrySpan.End()
+
 	errorsDir := filepath.Join(d.opts.StateDir, "errors")
 	entries, err := os.ReadDir(errorsDir)
 	if err != nil {
@@ -256,7 +287,7 @@ func (d *Daemon) retryPending() {
 		// Reconstruct the original outbox path for DeliverData
 		originalPath := filepath.Join(meta.SourceOutbox, meta.OriginalName)
 
-		result, deliverErr := DeliverData(originalPath, data, d.opts.Routes)
+		result, deliverErr := DeliverData(ctx, originalPath, data, d.opts.Routes)
 		if deliverErr != nil {
 			if err := UpdateErrorMetadata(sidecarPath, deliverErr.Error()); err != nil {
 				LogWarn("Retry: update metadata: %v", err)
@@ -363,7 +394,7 @@ func CollectOutboxDirs(cfg *Config) []string {
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
 // delivering each one according to the provided routes. Failed deliveries are
 // saved to the error queue in stateDir.
-func ScanAndDeliver(outboxDir string, routes []ResolvedRoute, stateDir string) ([]*DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRoute, stateDir string) ([]*DeliveryResult, []error) {
 	entries, err := os.ReadDir(outboxDir)
 	if err != nil {
 		return nil, []error{fmt.Errorf("scan outbox %s: %w", outboxDir, err)}
@@ -391,7 +422,7 @@ func ScanAndDeliver(outboxDir string, routes []ResolvedRoute, stateDir string) (
 			continue
 		}
 
-		result, deliverErr := DeliverData(dmailPath, data, routes)
+		result, deliverErr := DeliverData(ctx, dmailPath, data, routes)
 		if deliverErr != nil {
 			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
 

@@ -251,7 +251,7 @@ description: "Pre-existing spec"
 	}
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(outbox, routes, stateDir)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir)
 
 	// then
 	if len(errs) != 0 {

@@ -1,11 +1,15 @@
 package phonewave
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/yaml.v3"
 )
 
@@ -81,21 +85,29 @@ func findFrontmatterEnd(content string) int {
 }
 
 // Deliver reads a D-Mail file and delivers it to all matching inboxes.
-func Deliver(dmailPath string, routes []ResolvedRoute) (*DeliveryResult, error) {
+func Deliver(ctx context.Context, dmailPath string, routes []ResolvedRoute) (*DeliveryResult, error) {
 	data, err := os.ReadFile(dmailPath)
 	if err != nil {
 		return nil, fmt.Errorf("read D-Mail: %w", err)
 	}
-	return DeliverData(dmailPath, data, routes)
+	return DeliverData(ctx, dmailPath, data, routes)
 }
 
 // DeliverData processes pre-read D-Mail data: routes by kind,
 // copies to all target inboxes atomically, then removes the source.
-func DeliverData(dmailPath string, data []byte, routes []ResolvedRoute) (*DeliveryResult, error) {
+func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ResolvedRoute) (*DeliveryResult, error) {
 	kind, err := ExtractDMailKind(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
 	}
+
+	ctx, span := tracer.Start(ctx, "delivery.deliver",
+		trace.WithAttributes(
+			attribute.String("dmail.path", dmailPath),
+			attribute.String("dmail.kind", kind),
+		),
+	)
+	defer span.End()
 
 	// Find matching route
 	sourceDir := filepath.Dir(dmailPath)
@@ -107,7 +119,10 @@ func DeliverData(dmailPath string, data []byte, routes []ResolvedRoute) (*Delive
 		}
 	}
 	if matchedRoute == nil {
-		return nil, fmt.Errorf("no route for kind=%q from %s", kind, sourceDir)
+		err := fmt.Errorf("no route for kind=%q from %s", kind, sourceDir)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return nil, err
 	}
 
 	fileName := filepath.Base(dmailPath)
@@ -126,7 +141,10 @@ func DeliverData(dmailPath string, data []byte, routes []ResolvedRoute) (*Delive
 				os.Remove(written)
 			}
 			result.DeliveredTo = nil
-			return result, fmt.Errorf("deliver to %s: %w", inbox, err)
+			deliverErr := fmt.Errorf("deliver to %s: %w", inbox, err)
+			span.RecordError(deliverErr)
+			span.SetStatus(codes.Error, deliverErr.Error())
+			return result, deliverErr
 		}
 		result.DeliveredTo = append(result.DeliveredTo, targetPath)
 	}
@@ -135,9 +153,13 @@ func DeliverData(dmailPath string, data []byte, routes []ResolvedRoute) (*Delive
 	// Ignore ErrNotExist: the source may already have been cleaned up
 	// (e.g. retry delivery from error queue).
 	if err := os.Remove(dmailPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return result, fmt.Errorf("remove source %s: %w", dmailPath, err)
+		removeErr := fmt.Errorf("remove source %s: %w", dmailPath, err)
+		span.RecordError(removeErr)
+		span.SetStatus(codes.Error, removeErr.Error())
+		return result, removeErr
 	}
 
+	span.SetAttributes(attribute.Int("inbox.count", len(result.DeliveredTo)))
 	return result, nil
 }
 

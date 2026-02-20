@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -106,7 +107,7 @@ description: "Test spec"
 	}
 
 	// when
-	result, err := Deliver(dmailPath, routes)
+	result, err := Deliver(context.Background(), dmailPath, routes)
 
 	// then
 	if err != nil {
@@ -161,7 +162,7 @@ description: "Corrective feedback"
 	}
 
 	// when
-	result, err := Deliver(dmailPath, routes)
+	result, err := Deliver(context.Background(), dmailPath, routes)
 
 	// then
 	if err != nil {
@@ -206,7 +207,7 @@ kind: unknown_type
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
-	_, err := Deliver(dmailPath, routes)
+	_, err := Deliver(context.Background(), dmailPath, routes)
 	if err == nil {
 		t.Fatal("expected error for unknown kind")
 	}
