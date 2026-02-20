@@ -1,0 +1,155 @@
+# phonewave File & Directory Structure
+
+phonewave manages configuration, daemon state, and error recovery across two locations:
+the working directory (where `phonewave init` is run) and each monitored repository's endpoint directories.
+
+## Working Directory Tree
+
+```
+./
+  phonewave.yaml              # routing config (auto-generated)
+  .phonewave/                 # daemon state directory
+    watch.pid                 # daemon PID (ephemeral)
+    watch.started             # daemon start timestamp (ephemeral)
+    delivery.log              # append-only delivery audit log
+    errors/                   # dead letter queue
+      {ts}-{kind}-{name}.md  # failed D-Mail data
+      {ts}-{kind}-{name}.md.err  # YAML sidecar (metadata)
+```
+
+## Repository Endpoint Tree
+
+phonewave discovers endpoints by scanning dot-directories (`.siren`, `.expedition`, etc.)
+in each repository for SKILL.md files.
+
+```
+<repo>/
+  .<endpoint>/                 # e.g. .siren, .expedition
+    skills/
+      dmail-sendable/
+        SKILL.md              # declares produces: kinds (read-only, user-created)
+      dmail-readable/
+        SKILL.md              # declares consumes: kinds (read-only, user-created)
+    outbox/                   # producer writes D-Mails here
+      *.md                    # pending D-Mails (removed after delivery)
+      .phonewave-tmp-*        # atomic write temp files (transient)
+    inbox/                    # consumer reads D-Mails here
+      *.md                    # delivered D-Mails
+      .phonewave-tmp-*        # atomic write temp files (transient)
+```
+
+## File Descriptions
+
+### Working Directory
+
+| File | Purpose |
+|------|---------|
+| `phonewave.yaml` | Top-level configuration: repository list, endpoint declarations, derived routing table, last-synced timestamp |
+| `.phonewave/` | Daemon state directory. Created by `phonewave init` or `phonewave run` |
+| `.phonewave/watch.pid` | Running daemon's PID. Used by `status` and `doctor` to check liveness (signal 0). Removed on shutdown |
+| `.phonewave/watch.started` | RFC3339 timestamp of daemon start. Used by `status` to compute uptime. Removed on shutdown |
+| `.phonewave/delivery.log` | Append-only log of delivery events. Each line: `{RFC3339} {ACTION} {details}`. Actions: `DELIVERED`, `REMOVED`, `FAILED`, `RETRIED`. Parsed by `ParseDeliveryStats` for 24h status |
+| `.phonewave/errors/` | Dead letter queue. Failed D-Mails are moved here from outbox for retry |
+| `.phonewave/errors/{ts}-{kind}-{name}.md` | Copy of the failed D-Mail data. Timestamp format: `2006-01-02T150405.000000000` |
+| `.phonewave/errors/{ts}-{kind}-{name}.md.err` | YAML sidecar containing `ErrorMetadata`: source_outbox, kind, original_name, attempts, error, timestamp |
+
+### Repository Endpoints
+
+| File | Purpose |
+|------|---------|
+| `.<endpoint>/skills/dmail-sendable/SKILL.md` | YAML frontmatter declares `produces:` — list of D-Mail kinds this endpoint sends |
+| `.<endpoint>/skills/dmail-readable/SKILL.md` | YAML frontmatter declares `consumes:` — list of D-Mail kinds this endpoint receives |
+| `.<endpoint>/outbox/*.md` | D-Mail files awaiting delivery. Daemon watches these directories via fsnotify. Removed after successful delivery or moved to error queue on failure |
+| `.<endpoint>/inbox/*.md` | Delivered D-Mail files. Written atomically (temp → rename) by the delivery pipeline |
+| `.phonewave-tmp-*` | Temporary files created during atomic writes. Appear briefly in inbox directories, then renamed to final filename. Ignored by daemon event handler |
+
+## D-Mail Delivery Lifecycle
+
+```
+Producer                  phonewave daemon               Consumer
+   |                           |                            |
+   | writes .md to outbox/     |                            |
+   |-------------------------->|                            |
+   |                           | fsnotify CREATE event      |
+   |                           | (or startup scan)          |
+   |                           |                            |
+   |                           | ExtractDMailKind()         |
+   |                           | match route by kind+outbox |
+   |                           |                            |
+   |                  success: | atomicWrite() to inbox/    |
+   |                           |--------------------------->|
+   |                           | os.Remove(outbox/file)     |
+   |                           | log DELIVERED + REMOVED    |
+   |                           |                            |
+   |                  failure: | SaveToErrorQueue()         |
+   |                           |    -> .phonewave/errors/   |
+   |                           | os.Remove(outbox/file)     |
+   |                           | log FAILED                 |
+   |                           |                            |
+   |              retry tick:  | retryPending()             |
+   |                           | load .err sidecar          |
+   |                           | DeliverData() again        |
+   |                  success: |--------------------------->|
+   |                           | RemoveErrorEntry()         |
+   |                           | log RETRIED                |
+```
+
+## File Creators
+
+| File | Created By | When |
+|------|-----------|------|
+| `phonewave.yaml` | `WriteConfig` | `phonewave init`, `phonewave add`, `phonewave remove`, `phonewave sync` |
+| `.phonewave/` | `EnsureStateDir` | `phonewave init`, `phonewave run` |
+| `.phonewave/errors/` | `EnsureStateDir` | `phonewave init`, `phonewave run` |
+| `.phonewave/watch.pid` | `Daemon.Run` | Daemon startup (removed on shutdown) |
+| `.phonewave/watch.started` | `Daemon.Run` | Daemon startup (removed on shutdown) |
+| `.phonewave/delivery.log` | `NewDeliveryLog` | Daemon startup (append-only, persists across restarts) |
+| `.phonewave/errors/*.md` | `SaveToErrorQueue` | Delivery failure (handleEvent or ScanAndDeliver) |
+| `.phonewave/errors/*.md.err` | `SaveToErrorQueue` | Delivery failure (sidecar written alongside data file) |
+| `<endpoint>/outbox/*.md` | External tool (producer) | Before delivery |
+| `<endpoint>/inbox/*.md` | `atomicWrite` | Successful delivery |
+| `.phonewave-tmp-*` | `atomicWrite` (os.CreateTemp) | During delivery (renamed immediately, never persists) |
+
+## Error Queue Sidecar Format
+
+`.err` files are YAML with the following structure:
+
+```yaml
+source_outbox: /absolute/path/to/<endpoint>/outbox
+kind: specification
+original_name: my-dmail.md
+attempts: 3
+error: "no route for kind=\"specification\" from /path/to/outbox"
+timestamp: 2026-02-20T12:34:56Z
+```
+
+`attempts` is incremented by `retryPending()` on each failed retry. Entries are skipped when `attempts >= MaxRetries` (default: 10).
+
+## Delivery Log Format
+
+Each line in `delivery.log` follows the format:
+
+```
+{RFC3339}  {ACTION}   {key=value details}
+```
+
+Examples:
+
+```
+2026-02-20T12:00:00Z DELIVERED kind=specification from=/repo/.siren/outbox/spec.md to=/repo/.expedition/inbox/spec.md
+2026-02-20T12:00:00Z REMOVED   from=/repo/.siren/outbox/spec.md
+2026-02-20T12:00:01Z FAILED    kind=specification from=/repo/.siren/outbox/bad.md reason=no route
+2026-02-20T12:01:00Z RETRIED   kind=specification from=/repo/.siren/outbox/bad.md to=/repo/.expedition/inbox/bad.md
+```
+
+## Scanner Discovery Rules
+
+`ScanRepository` discovers endpoints by:
+
+1. Listing all entries in the repository root
+2. Filtering for dot-prefixed directories (`.siren`, `.expedition`, etc.)
+3. Skipping `.git`, `.github`, `.phonewave`
+4. Checking for `skills/dmail-sendable/SKILL.md` (produces) and `skills/dmail-readable/SKILL.md` (consumes)
+5. Parsing YAML frontmatter to extract `kind` declarations
+
+Only endpoints with at least one SKILL.md file are registered. Endpoints with `produces:` generate outbox watches; endpoints with only `consumes:` are delivery targets only.
