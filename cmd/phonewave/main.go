@@ -6,8 +6,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/hironow/phonewave"
 )
@@ -257,7 +259,7 @@ func runSync(_ []string) int {
 		return 1
 	}
 
-	orphans, err := phonewave.Sync(cfg)
+	report, err := phonewave.Sync(cfg)
 	if err != nil {
 		phonewave.LogError("sync: %v", err)
 		return 1
@@ -268,8 +270,28 @@ func runSync(_ []string) int {
 		return 1
 	}
 
-	phonewave.LogOK("Synced %d repositories, %d routes", len(cfg.Repositories), len(cfg.Routes))
-	printOrphanWarnings(*orphans)
+	phonewave.LogOK("Synced %d repositories, %d routes", report.RepoCount, report.TotalRoutes)
+
+	for _, d := range report.EndpointChanges {
+		switch d.Change {
+		case "added":
+			phonewave.LogOK("  + endpoint %s/%s", d.Repo, d.Dir)
+		case "removed":
+			phonewave.LogWarn("  - endpoint %s/%s", d.Repo, d.Dir)
+		case "changed":
+			phonewave.LogInfo("  ~ endpoint %s/%s", d.Repo, d.Dir)
+		}
+	}
+	for _, d := range report.RouteChanges {
+		switch d.Change {
+		case "added":
+			phonewave.LogOK("  + route %s from %s", d.Kind, d.From)
+		case "removed":
+			phonewave.LogWarn("  - route %s from %s", d.Kind, d.From)
+		}
+	}
+
+	printOrphanWarnings(report.Orphans)
 
 	return 0
 }
@@ -317,13 +339,36 @@ func runDoctor(_ []string) int {
 func runDaemon(args []string) int {
 	verbose := false
 	dryRun := false
-	for _, arg := range args {
-		switch arg {
+	retryIntervalStr := "60s"
+	maxRetriesStr := "10"
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
 		case "--verbose", "-v":
 			verbose = true
 		case "--dry-run":
 			dryRun = true
+		case "--retry-interval":
+			if i+1 < len(args) {
+				retryIntervalStr = args[i+1]
+				i++
+			}
+		case "--max-retries":
+			if i+1 < len(args) {
+				maxRetriesStr = args[i+1]
+				i++
+			}
 		}
+	}
+
+	retryInterval, err := time.ParseDuration(retryIntervalStr)
+	if err != nil {
+		phonewave.LogError("invalid --retry-interval: %v", err)
+		return 1
+	}
+	maxRetries, err := strconv.Atoi(maxRetriesStr)
+	if err != nil {
+		phonewave.LogError("invalid --max-retries: %v", err)
+		return 1
 	}
 
 	configPath := filepath.Join(".", phonewave.ConfigFile)
@@ -353,11 +398,13 @@ func runDaemon(args []string) int {
 	}
 
 	d, err := phonewave.NewDaemon(phonewave.DaemonOptions{
-		Routes:     routes,
-		OutboxDirs: outboxDirs,
-		StateDir:   stateDir,
-		Verbose:    verbose,
-		DryRun:     dryRun,
+		Routes:        routes,
+		OutboxDirs:    outboxDirs,
+		StateDir:      stateDir,
+		Verbose:       verbose,
+		DryRun:        dryRun,
+		RetryInterval: retryInterval,
+		MaxRetries:    maxRetries,
 	})
 	if err != nil {
 		phonewave.LogError("create daemon: %v", err)
@@ -407,9 +454,14 @@ func runStatus(_ []string) int {
 	} else {
 		fmt.Fprintf(os.Stderr, "  Daemon:    stopped\n")
 	}
+	if status.Uptime > 0 {
+		fmt.Fprintf(os.Stderr, "  Uptime:    %s\n", status.Uptime.Truncate(time.Second))
+	}
 	fmt.Fprintf(os.Stderr, "  Watching:  %d outbox directories across %d repositories\n", status.OutboxCount, status.RepoCount)
 	fmt.Fprintf(os.Stderr, "  Routes:    %d\n", status.RouteCount)
 	fmt.Fprintf(os.Stderr, "  Pending:   %d items in error queue\n", status.PendingErrors)
+	fmt.Fprintf(os.Stderr, "  Last 24h:  %d delivered, %d failed, %d retried\n",
+		status.DeliveredCount24h, status.FailedCount24h, status.RetriedCount24h)
 
 	return 0
 }
