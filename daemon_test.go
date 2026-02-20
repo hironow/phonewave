@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -354,6 +355,74 @@ description: "Watch test"
 	}
 
 	// Shutdown
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Errorf("daemon error: %v", err)
+	}
+}
+
+func TestDaemon_StartupScan_LogsToDeliveryLog(t *testing.T) {
+	// given — a repo with a pre-existing file in outbox before daemon starts
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, inbox, stateDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailPath := filepath.Join(outbox, "spec-log-test.md")
+	if err := os.WriteFile(dmailPath, []byte(`---
+name: spec-log-test
+kind: specification
+description: "Startup log test"
+---
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+
+	d, err := NewDaemon(DaemonOptions{
+		Routes:     routes,
+		OutboxDirs: []string{outbox},
+		StateDir:   stateDir,
+		Verbose:    true,
+	})
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	// when — start daemon (startup scan should deliver the file)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Wait for startup scan to deliver
+	waitForFile(t, filepath.Join(inbox, "spec-log-test.md"), 5*time.Second)
+
+	// then — delivery.log should contain DELIVERED and REMOVED entries from startup scan
+	logData, err := os.ReadFile(filepath.Join(stateDir, "delivery.log"))
+	if err != nil {
+		t.Fatalf("read delivery log: %v", err)
+	}
+	logContent := string(logData)
+
+	if !strings.Contains(logContent, "DELIVERED") {
+		t.Error("delivery log missing DELIVERED entry from startup scan")
+	}
+	if !strings.Contains(logContent, "kind=specification") {
+		t.Error("delivery log missing kind=specification from startup scan")
+	}
+	if !strings.Contains(logContent, "REMOVED") {
+		t.Error("delivery log missing REMOVED entry from startup scan")
+	}
+
 	cancel()
 	if err := <-errCh; err != nil {
 		t.Errorf("daemon error: %v", err)

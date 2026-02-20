@@ -84,6 +84,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	for _, dir := range d.opts.OutboxDirs {
 		results, errs := ScanAndDeliver(dir, d.opts.Routes, d.opts.StateDir)
 		for _, r := range results {
+			if d.dlog != nil {
+				for _, target := range r.DeliveredTo {
+					d.dlog.Delivered(r.Kind, r.SourcePath, target)
+				}
+				d.dlog.Removed(r.SourcePath)
+			}
 			if d.opts.Verbose {
 				LogOK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
 			}

@@ -258,13 +258,13 @@ description: "Lifecycle feedback"
 		t.Error("delivery log missing kind=feedback")
 	}
 
-	// Count DELIVERED lines — at least 3:
+	// Count DELIVERED lines — at least 4:
+	//   spec-preexist → expedition (1) (startup scan)
 	//   spec-runtime → expedition (1)
 	//   fb-lifecycle → siren + expedition (2)
-	// Note: startup scan (spec-preexist) does not log to delivery.log
 	deliveredCount := strings.Count(logContent, "DELIVERED")
-	if deliveredCount < 3 {
-		t.Errorf("DELIVERED count = %d, want >= 3", deliveredCount)
+	if deliveredCount < 4 {
+		t.Errorf("DELIVERED count = %d, want >= 4", deliveredCount)
 	}
 
 	// =====================================================================
