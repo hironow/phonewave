@@ -1,0 +1,14 @@
+# build files
+# 
+# test
+coverage.out
+# paintress runtime state on target repository
+# .?/
+# claude local settings
+.claude/*.local.*
+# git worktrees
+.worktrees/
+# plan drafts (ephemeral)
+docs/plans/
+# golang
+.gocache/

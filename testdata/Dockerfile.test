@@ -1,0 +1,18 @@
+# Multi-stage build for phonewave lifecycle tests.
+# Usage: testcontainers-go builds this automatically via FromDockerfile.
+
+# Stage 1: Build
+FROM golang:1.26-bookworm AS builder
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags "-X main.version=test" -o /phonewave ./cmd/phonewave/
+
+# Stage 2: Runtime
+FROM debian:bookworm-slim
+
+COPY --from=builder /phonewave /usr/local/bin/phonewave
+WORKDIR /workspace
+CMD ["sleep", "infinity"]
