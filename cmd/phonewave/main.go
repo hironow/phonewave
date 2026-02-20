@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -16,6 +17,9 @@ func main() {
 	defer stop()
 
 	if err := cmd.NewRootCommand().ExecuteContext(ctx); err != nil {
+		if errors.Is(err, cmd.ErrUpdateAvailable) {
+			os.Exit(1)
+		}
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
