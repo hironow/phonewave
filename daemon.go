@@ -188,9 +188,11 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		}
 		if saveErr := SaveToErrorQueue(d.opts.StateDir, meta, data); saveErr != nil {
 			LogError("Save to error queue: %v", saveErr)
+			// Do NOT remove from outbox — startup scan will retry on next restart
+			return
 		}
 
-		// Remove from outbox to prevent infinite fsnotify re-delivery
+		// Error queue write succeeded — safe to remove from outbox
 		os.Remove(event.Name)
 		return
 	}
@@ -398,6 +400,8 @@ func ScanAndDeliver(outboxDir string, routes []ResolvedRoute, stateDir string) (
 			}
 			if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
 				LogError("Save to error queue: %v", saveErr)
+				// Do NOT remove from outbox — preserve for future retry
+				continue
 			}
 			os.Remove(dmailPath)
 			continue

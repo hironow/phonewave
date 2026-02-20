@@ -809,6 +809,114 @@ func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
 	}
 }
 
+// --- Edge Case: preserve D-Mail when error queue write fails ---
+
+func TestDaemon_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
+	// given — a daemon where the error queue directory is broken (file instead of dir).
+	// If SaveToErrorQueue fails, the outbox file must NOT be deleted.
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	if err := os.MkdirAll(outbox, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(inbox, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Sabotage: create "errors" as a regular file so MkdirAll inside SaveToErrorQueue fails
+	errorsBlocker := filepath.Join(stateDir, "errors")
+	if err := os.WriteFile(errorsBlocker, []byte("blocker"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// No route for "specification" from this outbox — delivery WILL fail
+	routes := []ResolvedRoute{}
+
+	dmailContent := `---
+name: spec-preserve
+kind: specification
+description: "Preserve test"
+---
+`
+	dmailPath := filepath.Join(outbox, "spec-preserve.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	d, err := NewDaemon(DaemonOptions{
+		Routes:     routes,
+		OutboxDirs: []string{outbox},
+		StateDir:   stateDir,
+	})
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	dlog, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.dlog = dlog
+	defer dlog.Close()
+
+	// when — handleEvent fires for a file that will fail delivery AND error queue save
+	d.handleEvent(fsnotify.Event{
+		Name: dmailPath,
+		Op:   fsnotify.Create,
+	})
+
+	// then — outbox file must still exist (not deleted)
+	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
+		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
+	}
+}
+
+func TestScanAndDeliver_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
+	// given — same sabotage for ScanAndDeliver path
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	if err := os.MkdirAll(outbox, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Sabotage error queue
+	errorsBlocker := filepath.Join(stateDir, "errors")
+	if err := os.WriteFile(errorsBlocker, []byte("blocker"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	dmailContent := `---
+name: spec-scan-preserve
+kind: specification
+description: "Preserve test"
+---
+`
+	dmailPath := filepath.Join(outbox, "spec-scan-preserve.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// No routes — delivery will fail
+	routes := []ResolvedRoute{}
+
+	// when
+	ScanAndDeliver(outbox, routes, stateDir)
+
+	// then — outbox file must still exist
+	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
+		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
+	}
+}
+
 // --- Edge Case: Rename event from atomic temp+rename ---
 
 func TestDaemon_HandleRenameEvent(t *testing.T) {
