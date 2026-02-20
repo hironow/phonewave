@@ -20,12 +20,15 @@ import (
 var tracer trace.Tracer = noop.NewTracerProvider().Tracer("phonewave")
 
 // InitTracer sets up the OpenTelemetry TracerProvider.
-// If OTEL_EXPORTER_OTLP_ENDPOINT is set, it creates an OTLP HTTP exporter
-// with a BatchSpanProcessor. Otherwise, it keeps the noop TracerProvider.
+// If OTEL_EXPORTER_OTLP_ENDPOINT or OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is
+// set, it creates an OTLP HTTP exporter with a BatchSpanProcessor.
+// Otherwise, it keeps the noop TracerProvider.
 // Returns a shutdown function that flushes and closes the exporter.
 func InitTracer(serviceName, ver string) func(context.Context) error {
-	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	if endpoint == "" {
+	// Respect both the generic and trace-specific OTLP endpoint variables.
+	// otlptracehttp.New() honours both internally, but we need to gate on
+	// them here to decide whether to create a real provider or stay noop.
+	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" && os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") == "" {
 		return func(context.Context) error { return nil }
 	}
 

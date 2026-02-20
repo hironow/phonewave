@@ -32,8 +32,9 @@ func setupTestTracer(t *testing.T) *tracetest.InMemoryExporter {
 }
 
 func TestInitTracer_NoopWhenEndpointUnset(t *testing.T) {
-	// given — no OTLP endpoint configured
+	// given — no OTLP endpoint configured (neither generic nor trace-specific)
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
 
 	// when
 	shutdown := InitTracer("test-svc", "0.0.1")
