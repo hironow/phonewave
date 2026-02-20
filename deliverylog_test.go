@@ -370,6 +370,53 @@ func TestRemoveErrorEntry_RemovesBothFiles(t *testing.T) {
 	}
 }
 
+func TestSaveToErrorQueue_SanitizesPathTraversal(t *testing.T) {
+	// given — Kind and OriginalName contain path traversal sequences
+	stateDir := t.TempDir()
+	meta := ErrorMetadata{
+		SourceOutbox: "/repo/.siren/outbox",
+		Kind:         "../../etc",
+		OriginalName: "../../../passwd",
+		Attempts:     1,
+		Error:        "path traversal attempt",
+		Timestamp:    time.Now().UTC(),
+	}
+
+	// when
+	err := SaveToErrorQueue(stateDir, meta, []byte("malicious"))
+
+	// then — file must be written inside errors/ directory, not escaped
+	if err != nil {
+		t.Fatalf("SaveToErrorQueue: %v", err)
+	}
+
+	errorsDir := filepath.Join(stateDir, "errors")
+	entries, err := os.ReadDir(errorsDir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+
+	// Should have exactly 1 .md + 1 .err = 2 entries, all inside errors/
+	if len(entries) != 2 {
+		t.Fatalf("entries = %d, want 2 (data + sidecar)", len(entries))
+	}
+
+	for _, e := range entries {
+		// Verify no path separator in filenames
+		if strings.Contains(e.Name(), "/") || strings.Contains(e.Name(), "..") {
+			t.Errorf("filename %q contains path traversal characters", e.Name())
+		}
+	}
+
+	// Verify nothing was written outside errors/
+	parentEntries, _ := os.ReadDir(stateDir)
+	for _, e := range parentEntries {
+		if e.Name() != "errors" {
+			t.Errorf("unexpected file outside errors/: %s", e.Name())
+		}
+	}
+}
+
 func TestSaveToErrorQueue_CreatesErrorsDir(t *testing.T) {
 	// given — stateDir exists but errors/ does not
 	stateDir := t.TempDir()

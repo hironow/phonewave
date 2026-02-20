@@ -73,7 +73,10 @@ func SaveToErrorQueue(stateDir string, meta ErrorMetadata, data []byte) error {
 	}
 
 	ts := meta.Timestamp.Format("2006-01-02T150405.000000000")
-	errorFile := filepath.Join(errorsDir, fmt.Sprintf("%s-%s-%s", ts, meta.Kind, meta.OriginalName))
+	// Sanitize Kind and OriginalName to prevent path traversal
+	safeKind := filepath.Base(meta.Kind)
+	safeName := filepath.Base(meta.OriginalName)
+	errorFile := filepath.Join(errorsDir, fmt.Sprintf("%s-%s-%s", ts, safeKind, safeName))
 
 	if err := os.WriteFile(errorFile, data, 0644); err != nil {
 		return fmt.Errorf("write error file: %w", err)
