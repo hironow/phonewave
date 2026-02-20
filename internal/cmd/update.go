@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/creativeprojects/go-selfupdate"
@@ -57,8 +58,13 @@ func newUpdateCmd() *cobra.Command {
 				return ErrUpdateAvailable
 			}
 
+			exe, err := os.Executable()
+			if err != nil {
+				return fmt.Errorf("locate executable: %w", err)
+			}
+
 			fmt.Fprintf(cmd.OutOrStdout(), "Updating to %s ...\n", latest.Version())
-			if err := selfupdate.UpdateTo(cmd.Context(), latest.AssetURL, latest.AssetName, ""); err != nil {
+			if err := selfupdate.UpdateTo(cmd.Context(), latest.AssetURL, latest.AssetName, exe); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Updated to %s\n", latest.Version())
