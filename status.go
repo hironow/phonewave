@@ -119,12 +119,12 @@ func Status(cfg *Config, stateDir string) StatusReport {
 	report.FailedCount24h = stats.Failed
 	report.RetriedCount24h = stats.Retried
 
-	// Count pending error files
+	// Count pending error files (exclude .err sidecars to avoid 2x count)
 	errorsDir := filepath.Join(stateDir, "errors")
 	entries, err := os.ReadDir(errorsDir)
 	if err == nil {
 		for _, entry := range entries {
-			if !entry.IsDir() {
+			if !entry.IsDir() && !strings.HasSuffix(entry.Name(), ".err") {
 				report.PendingErrors++
 			}
 		}
