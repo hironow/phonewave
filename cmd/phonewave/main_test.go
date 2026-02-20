@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	cmd "github.com/hironow/phonewave/internal/cmd"
@@ -42,7 +43,7 @@ func TestRootCommand_UnknownSubcommand(t *testing.T) {
 func TestSubcommands_Exist(t *testing.T) {
 	rootCmd := cmd.NewRootCommand()
 
-	expected := []string{"init", "add", "remove", "sync", "doctor", "run", "status"}
+	expected := []string{"init", "add", "remove", "sync", "doctor", "run", "status", "version", "update"}
 	for _, name := range expected {
 		found := false
 		for _, c := range rootCmd.Commands() {
@@ -83,5 +84,65 @@ func TestRootCommand_PersistentFlags(t *testing.T) {
 
 	if rootCmd.PersistentFlags().Lookup("verbose") == nil {
 		t.Error("root command missing persistent flag 'verbose'")
+	}
+}
+
+func TestVersionCommand_Output(t *testing.T) {
+	rootCmd := cmd.NewRootCommand()
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"version"})
+
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "phonewave") {
+		t.Error("version output should contain 'phonewave'")
+	}
+	if !strings.Contains(output, "commit:") {
+		t.Error("version output should contain 'commit:'")
+	}
+}
+
+func TestVersionCommand_JSONFlag(t *testing.T) {
+	rootCmd := cmd.NewRootCommand()
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"version", "--json"})
+
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, `"version"`) {
+		t.Error("JSON output should contain 'version' key")
+	}
+	if !strings.Contains(output, `"commit"`) {
+		t.Error("JSON output should contain 'commit' key")
+	}
+}
+
+func TestUpdateCommand_HasCheckFlag(t *testing.T) {
+	rootCmd := cmd.NewRootCommand()
+	var updateCmd *cobra.Command
+	for _, c := range rootCmd.Commands() {
+		if c.Name() == "update" {
+			updateCmd = c
+			break
+		}
+	}
+	if updateCmd == nil {
+		t.Fatal("update subcommand not found")
+	}
+
+	if updateCmd.Flags().Lookup("check") == nil {
+		t.Error("update subcommand missing flag 'check'")
 	}
 }
