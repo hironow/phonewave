@@ -24,7 +24,7 @@ func newUpdateCmd() *cobra.Command {
 		Long:  "Check for and install the latest version of phonewave from GitHub releases.",
 		Args:  cobra.NoArgs,
 		Example: `  # Check for updates without installing
-  phonewave update --check
+  phonewave update -C
 
   # Update to latest version
   phonewave update`,
@@ -72,7 +72,7 @@ func newUpdateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Bool("check", false, "Check for updates without installing")
+	cmd.Flags().BoolP("check", "C", false, "Check for updates without installing")
 
 	return cmd
 }

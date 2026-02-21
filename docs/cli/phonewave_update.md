@@ -14,7 +14,7 @@ phonewave update [flags]
 
 ```
   # Check for updates without installing
-  phonewave update --check
+  phonewave update -C
 
   # Update to latest version
   phonewave update
@@ -23,14 +23,14 @@ phonewave update [flags]
 ### Options
 
 ```
-      --check   Check for updates without installing
+  -C, --check   Check for updates without installing
   -h, --help    help for update
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --config string   Path to phonewave config file (default "phonewave.yaml")
+  -c, --config string   Path to phonewave config file (default "phonewave.yaml")
   -v, --verbose         Log all delivery events to stderr
 ```
 

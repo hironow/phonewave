@@ -9,7 +9,7 @@ Phonewave routes D-Mails between AI agent tool repositories via file-based messa
 ### Options
 
 ```
-      --config string   Path to phonewave config file (default "phonewave.yaml")
+  -c, --config string   Path to phonewave config file (default "phonewave.yaml")
   -h, --help            help for phonewave
   -v, --verbose         Log all delivery events to stderr
 ```

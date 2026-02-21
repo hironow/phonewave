@@ -14,7 +14,7 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print build version information",
 		Args:  cobra.NoArgs,
 		Example: `  phonewave version
-  phonewave version --json`,
+  phonewave version -j`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonFlag, _ := cmd.Flags().GetBool("json")
 
@@ -42,7 +42,7 @@ func newVersionCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Bool("json", false, "Output version info as JSON")
+	cmd.Flags().BoolP("json", "j", false, "Output version info as JSON")
 
 	return cmd
 }

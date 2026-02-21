@@ -16,22 +16,22 @@ func newRunCmd() *cobra.Command {
 		Long:  "Start the phonewave courier daemon. Watches outbox directories for new D-Mails and delivers them to the correct inbox(es) based on the routing table.",
 		Args:  cobra.NoArgs,
 		Example: `  # Start daemon (foreground, verbose)
-  phonewave run --verbose
+  phonewave run -v
 
   # Dry run (detect events, don't deliver)
-  phonewave run --dry-run
+  phonewave run -n
 
   # With retry interval
-  phonewave run --retry-interval 120s
+  phonewave run -r 120s
 
   # With tracing enabled
-  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run --verbose`,
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run -v`,
 		RunE: runDaemon,
 	}
 
-	cmd.Flags().Bool("dry-run", false, "Detect events without delivering")
-	cmd.Flags().Duration("retry-interval", 60*time.Second, "Error queue retry interval (0 to disable)")
-	cmd.Flags().Int("max-retries", 10, "Maximum retry attempts per failed D-Mail")
+	cmd.Flags().BoolP("dry-run", "n", false, "Detect events without delivering")
+	cmd.Flags().DurationP("retry-interval", "r", 60*time.Second, "Error queue retry interval (0 to disable)")
+	cmd.Flags().IntP("max-retries", "m", 10, "Maximum retry attempts per failed D-Mail")
 
 	return cmd
 }

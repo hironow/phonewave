@@ -10,20 +10,20 @@ phonewave version [flags]
 
 ```
   phonewave version
-  phonewave version --json
+  phonewave version -j
 ```
 
 ### Options
 
 ```
   -h, --help   help for version
-      --json   Output version info as JSON
+  -j, --json   Output version info as JSON
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --config string   Path to phonewave config file (default "phonewave.yaml")
+  -c, --config string   Path to phonewave config file (default "phonewave.yaml")
   -v, --verbose         Log all delivery events to stderr
 ```
 
