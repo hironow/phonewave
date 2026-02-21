@@ -23,7 +23,7 @@ func newDoctorCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			stateDir := filepath.Join(".", phonewave.StateDir)
+			stateDir := filepath.Join(configBase(cmd), phonewave.StateDir)
 			report := phonewave.Doctor(cfg, stateDir)
 
 			for _, issue := range report.Issues {

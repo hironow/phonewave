@@ -60,8 +60,9 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	stateDir := filepath.Join(".", phonewave.StateDir)
-	if err := phonewave.EnsureStateDir("."); err != nil {
+	base := configBase(cmd)
+	stateDir := filepath.Join(base, phonewave.StateDir)
+	if err := phonewave.EnsureStateDir(base); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
 

@@ -24,7 +24,7 @@ func newStatusCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			stateDir := filepath.Join(".", phonewave.StateDir)
+			stateDir := filepath.Join(configBase(cmd), phonewave.StateDir)
 			status := phonewave.Status(cfg, stateDir)
 
 			w := cmd.OutOrStdout()

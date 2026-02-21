@@ -27,7 +27,7 @@ func newInitCmd() *cobra.Command {
 				return fmt.Errorf("write config: %w", err)
 			}
 
-			if err := phonewave.EnsureStateDir("."); err != nil {
+			if err := phonewave.EnsureStateDir(configBase(cmd)); err != nil {
 				return fmt.Errorf("create state dir: %w", err)
 			}
 
