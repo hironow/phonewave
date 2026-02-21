@@ -71,10 +71,22 @@ func TestRunCommand_HasFlags(t *testing.T) {
 		t.Fatal("run subcommand not found")
 	}
 
-	flags := []string{"dry-run", "retry-interval", "max-retries"}
-	for _, name := range flags {
-		if runCmd.Flags().Lookup(name) == nil {
-			t.Errorf("run subcommand missing flag %q", name)
+	flags := []struct {
+		long  string
+		short string
+	}{
+		{"dry-run", "n"},
+		{"retry-interval", "r"},
+		{"max-retries", "m"},
+	}
+	for _, f := range flags {
+		flag := runCmd.Flags().Lookup(f.long)
+		if flag == nil {
+			t.Errorf("run subcommand missing flag %q", f.long)
+			continue
+		}
+		if flag.Shorthand != f.short {
+			t.Errorf("flag %q: shorthand = %q, want %q", f.long, flag.Shorthand, f.short)
 		}
 	}
 }
@@ -82,11 +94,22 @@ func TestRunCommand_HasFlags(t *testing.T) {
 func TestRootCommand_PersistentFlags(t *testing.T) {
 	rootCmd := cmd.NewRootCommand()
 
-	if rootCmd.PersistentFlags().Lookup("verbose") == nil {
-		t.Error("root command missing persistent flag 'verbose'")
+	flags := []struct {
+		long  string
+		short string
+	}{
+		{"verbose", "v"},
+		{"config", "c"},
 	}
-	if rootCmd.PersistentFlags().Lookup("config") == nil {
-		t.Error("root command missing persistent flag 'config'")
+	for _, f := range flags {
+		flag := rootCmd.PersistentFlags().Lookup(f.long)
+		if flag == nil {
+			t.Errorf("root command missing persistent flag %q", f.long)
+			continue
+		}
+		if flag.Shorthand != f.short {
+			t.Errorf("flag %q: shorthand = %q, want %q", f.long, flag.Shorthand, f.short)
+		}
 	}
 }
 
@@ -130,23 +153,27 @@ func TestVersionCommand_Output(t *testing.T) {
 }
 
 func TestVersionCommand_JSONFlag(t *testing.T) {
-	rootCmd := cmd.NewRootCommand()
-	buf := new(bytes.Buffer)
-	rootCmd.SetOut(buf)
-	rootCmd.SetErr(buf)
-	rootCmd.SetArgs([]string{"version", "--json"})
+	for _, flag := range []string{"--json", "-j"} {
+		t.Run(flag, func(t *testing.T) {
+			rootCmd := cmd.NewRootCommand()
+			buf := new(bytes.Buffer)
+			rootCmd.SetOut(buf)
+			rootCmd.SetErr(buf)
+			rootCmd.SetArgs([]string{"version", flag})
 
-	err := rootCmd.Execute()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+			err := rootCmd.Execute()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
-	output := buf.String()
-	if !strings.Contains(output, `"version"`) {
-		t.Error("JSON output should contain 'version' key")
-	}
-	if !strings.Contains(output, `"commit"`) {
-		t.Error("JSON output should contain 'commit' key")
+			output := buf.String()
+			if !strings.Contains(output, `"version"`) {
+				t.Error("JSON output should contain 'version' key")
+			}
+			if !strings.Contains(output, `"commit"`) {
+				t.Error("JSON output should contain 'commit' key")
+			}
+		})
 	}
 }
 
@@ -163,7 +190,11 @@ func TestUpdateCommand_HasCheckFlag(t *testing.T) {
 		t.Fatal("update subcommand not found")
 	}
 
-	if updateCmd.Flags().Lookup("check") == nil {
-		t.Error("update subcommand missing flag 'check'")
+	flag := updateCmd.Flags().Lookup("check")
+	if flag == nil {
+		t.Fatal("update subcommand missing flag 'check'")
+	}
+	if flag.Shorthand != "C" {
+		t.Errorf("flag 'check': shorthand = %q, want %q", flag.Shorthand, "C")
 	}
 }

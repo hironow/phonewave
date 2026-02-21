@@ -103,16 +103,16 @@ phonewave init ./sightjack-repo ./paintress-repo ./amadeus-repo
 phonewave doctor
 
 # Start daemon (foreground, verbose)
-phonewave run --verbose
+phonewave run -v
 
 # Dry run (detect events, don't deliver)
-phonewave run --dry-run
+phonewave run -n
 
 # With retry interval (check error queue every 120s)
-phonewave run --retry-interval 120s
+phonewave run -r 120s
 
 # With tracing enabled
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run --verbose
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run -v
 
 # Check daemon status
 phonewave status
@@ -128,12 +128,12 @@ phonewave sync
 
 ### `run` command
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--verbose` | `false` | Log all delivery events to stderr |
-| `--dry-run` | `false` | Detect events without delivering |
-| `--retry-interval` | `0` (disabled) | Error queue retry interval (e.g. `60s`, `5m`) |
-| `--max-retries` | `10` | Maximum retry attempts per failed D-Mail |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--verbose` | `-v` | `false` | Log all delivery events to stderr |
+| `--dry-run` | `-n` | `false` | Detect events without delivering |
+| `--retry-interval` | `-r` | `0` (disabled) | Error queue retry interval (e.g. `60s`, `5m`) |
+| `--max-retries` | `-m` | `10` | Maximum retry attempts per failed D-Mail |
 
 ## Tracing (OpenTelemetry)
 
