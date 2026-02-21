@@ -21,7 +21,7 @@ writer() { docker compose -f "$COMPOSE_FILE" exec -T writer "$@"; }
 
 assert_contains() {
   local output="$1" substr="$2" label="$3"
-  if echo "$output" | grep -q "$substr"; then pass "$label"; else fail "$label (missing: $substr)"; fi
+  if echo "$output" | grep -Eq "$substr"; then pass "$label"; else fail "$label (missing: $substr)"; fi
 }
 
 assert_file() {
@@ -83,7 +83,7 @@ pw sh -c "printf '%s' '---
 name: dmail-readable
 consumes:
   - kind: specification
-    - kind: feedback
+  - kind: feedback
 ---
 ' > $REPO/.expedition/skills/dmail-readable/SKILL.md"
 
