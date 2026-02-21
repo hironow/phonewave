@@ -219,6 +219,10 @@ just lint-md        # Lint markdown files only
 just check          # fmt + vet + test (pre-commit check)
 just clean          # Clean build artifacts
 just test-docker    # Docker lifecycle tests
+just test-docker-cli    # Docker CLI subcommand tests only
+just test-docker-daemon # Docker daemon behaviour tests only
+just test-docker-otel   # Docker OTel tracing test only
+just test-e2e-manual    # Manual E2E script (docker compose)
 just test-all       # All tests including Docker
 just jaeger         # Start Jaeger trace viewer
 just jaeger-down    # Stop Jaeger
@@ -266,12 +270,14 @@ just prek-run       # Run all prek hooks
 |   +-- release.yaml           Release via GoReleaser
 +-- docker/
 |   +-- compose.yaml           Jaeger v2 for trace viewing
+|   +-- compose-e2e.yaml       Manual E2E test (Jaeger + phonewave + writer)
 |   +-- jaeger-v2-config.yaml
 +-- docs/
 |   +-- cli/                   Auto-generated CLI reference (markdown)
 |   +-- phonewave-directory.md
 +-- testdata/
     +-- Dockerfile.test        Docker lifecycle test image
+    +-- manual-e2e.sh          Manual 20-phase E2E script
 ```
 
 ## Prerequisites
