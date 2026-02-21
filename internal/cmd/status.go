@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -28,19 +27,20 @@ func newStatusCmd() *cobra.Command {
 			stateDir := filepath.Join(".", phonewave.StateDir)
 			status := phonewave.Status(cfg, stateDir)
 
-			fmt.Fprintf(os.Stderr, "phonewave status:\n")
+			w := cmd.OutOrStdout()
+			fmt.Fprintf(w, "phonewave status:\n")
 			if status.DaemonRunning {
-				fmt.Fprintf(os.Stderr, "  Daemon:    running (PID %d)\n", status.DaemonPID)
+				fmt.Fprintf(w, "  Daemon:    running (PID %d)\n", status.DaemonPID)
 			} else {
-				fmt.Fprintf(os.Stderr, "  Daemon:    stopped\n")
+				fmt.Fprintf(w, "  Daemon:    stopped\n")
 			}
 			if status.Uptime > 0 {
-				fmt.Fprintf(os.Stderr, "  Uptime:    %s\n", status.Uptime.Truncate(time.Second))
+				fmt.Fprintf(w, "  Uptime:    %s\n", status.Uptime.Truncate(time.Second))
 			}
-			fmt.Fprintf(os.Stderr, "  Watching:  %d outbox directories across %d repositories\n", status.OutboxCount, status.RepoCount)
-			fmt.Fprintf(os.Stderr, "  Routes:    %d\n", status.RouteCount)
-			fmt.Fprintf(os.Stderr, "  Pending:   %d items in error queue\n", status.PendingErrors)
-			fmt.Fprintf(os.Stderr, "  Last 24h:  %d delivered, %d failed, %d retried\n",
+			fmt.Fprintf(w, "  Watching:  %d outbox directories across %d repositories\n", status.OutboxCount, status.RepoCount)
+			fmt.Fprintf(w, "  Routes:    %d\n", status.RouteCount)
+			fmt.Fprintf(w, "  Pending:   %d items in error queue\n", status.PendingErrors)
+			fmt.Fprintf(w, "  Last 24h:  %d delivered, %d failed, %d retried\n",
 				status.DeliveredCount24h, status.FailedCount24h, status.RetriedCount24h)
 
 			return nil

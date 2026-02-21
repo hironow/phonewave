@@ -45,7 +45,7 @@ brews:
       name: homebrew-tap
     homepage: "https://github.com/hironow/phonewave"
     description: "D-Mail courier daemon for AI agent tool repositories"
-    license: "MIT"
+    license: "Apache-2.0"
     install: |
       bin.install "phonewave"
     test: |
