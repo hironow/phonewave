@@ -36,7 +36,11 @@ type Daemon struct {
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
+// If logger is nil, a silent logger (io.Discard) is used.
 func NewDaemon(opts DaemonOptions, logger *Logger) (*Daemon, error) {
+	if logger == nil {
+		logger = NewLogger(nil, false)
+	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("create watcher: %w", err)
@@ -390,6 +394,9 @@ func CollectOutboxDirs(cfg *Config) []string {
 // delivering each one according to the provided routes. Failed deliveries are
 // saved to the error queue in stateDir.
 func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRoute, stateDir string, logger *Logger) ([]*DeliveryResult, []error) {
+	if logger == nil {
+		logger = NewLogger(nil, false)
+	}
 	entries, err := os.ReadDir(outboxDir)
 	if err != nil {
 		return nil, []error{fmt.Errorf("scan outbox %s: %w", outboxDir, err)}
