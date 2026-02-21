@@ -15,21 +15,41 @@ builds:
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - amd64
       - arm64
     ldflags:
       - -s -w
       - -X github.com/hironow/phonewave/internal/cmd.Version={{.Version}}
-      - -X github.com/hironow/phonewave/internal/cmd.Commit={{.Commit}}
+      - -X github.com/hironow/phonewave/internal/cmd.Commit={{.ShortCommit}}
       - -X github.com/hironow/phonewave/internal/cmd.Date={{.Date}}
 
 archives:
-  - format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
 
 checksum:
-  name_template: "checksums.txt"
+  name_template: checksums.txt
+  algorithm: sha256
+
+signs:
+  - cmd: cosign
+    args:
+      - sign-blob
+      - --yes
+      - --output-signature=${signature}
+      - ${artifact}
+    artifacts: checksum
 
 changelog:
   sort: asc
@@ -37,6 +57,7 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+      - "^ci:"
       - "^chore:"
 
 brews:
@@ -44,7 +65,7 @@ brews:
       owner: hironow
       name: homebrew-tap
     homepage: "https://github.com/hironow/phonewave"
-    description: "D-Mail courier daemon for AI agent tool repositories"
+    description: "D-Mail courier daemon"
     license: "Apache-2.0"
     install: |
       bin.install "phonewave"

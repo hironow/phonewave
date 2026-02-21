@@ -6,7 +6,7 @@ Phonewave watches outbox directories via fsnotify, reads YAML frontmatter to det
 
 ```bash
 phonewave init ./repo-a ./repo-b ./repo-c
-phonewave run --verbose
+phonewave run -v
 ```
 
 These two commands make Phonewave:
@@ -91,7 +91,8 @@ Repository A                   Repository B
 | `phonewave doctor` | Verify ecosystem health (paths, endpoints, PID conflicts) |
 | `phonewave run` | Start the courier daemon (foreground) |
 | `phonewave status` | Show daemon state, uptime, and 24h delivery statistics |
-| `phonewave --version` | Show version and exit |
+| `phonewave version` | Print build version information |
+| `phonewave update` | Update phonewave to the latest version |
 
 ## Usage
 
@@ -126,14 +127,32 @@ phonewave sync
 
 ## Options
 
-### `run` command
+### Global flags
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--verbose` | `-v` | `false` | Log all delivery events to stderr |
+| `--config` | `-c` | `./phonewave.yaml` | Path to phonewave config file |
+
+### `run` command
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
 | `--dry-run` | `-n` | `false` | Detect events without delivering |
-| `--retry-interval` | `-r` | `0` (disabled) | Error queue retry interval (e.g. `60s`, `5m`) |
+| `--retry-interval` | `-r` | `60s` | Error queue retry interval (0 to disable) |
 | `--max-retries` | `-m` | `10` | Maximum retry attempts per failed D-Mail |
+
+### `version` command
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--json` | `-j` | `false` | Output version info as JSON |
+
+### `update` command
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--check` | `-C` | `false` | Check for updates without installing |
 
 ## Tracing (OpenTelemetry)
 
@@ -157,7 +176,7 @@ daemon.retry_pending (root, per ticker fire)
 just jaeger
 
 # Run with tracing
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run --verbose
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run -v
 
 # View traces at http://localhost:16686
 
@@ -178,7 +197,7 @@ phonewave init /path/to/repo-a /path/to/repo-b
 phonewave doctor
 
 # Run daemon
-phonewave run --verbose
+phonewave run -v
 ```
 
 ## Development
@@ -194,6 +213,7 @@ just cover          # Coverage report
 just cover-html     # Open coverage in browser
 just fmt            # Format code (gofmt)
 just vet            # Run go vet
+just semgrep        # Run semgrep rules (.semgrep/)
 just lint           # fmt check + vet + markdown lint
 just lint-md        # Lint markdown files only
 just check          # fmt + vet + test (pre-commit check)
@@ -210,34 +230,53 @@ just prek-run       # Run all prek hooks
 
 ```
 +-- cmd/phonewave/
-|   +-- main.go              CLI entry point + subcommand routing
-|   +-- main_test.go         CLI arg parsing tests
-+-- phonewave.go             Init/Add/Remove/Sync orchestration (library)
-+-- scanner.go               SKILL.md parser + endpoint discovery
-+-- router.go                Route derivation engine (produces/consumes matching)
-+-- config.go                phonewave.yaml read/write/merge
-+-- daemon.go                fsnotify daemon + event loop + retry
-+-- delivery.go              D-Mail delivery pipeline (atomic write)
-+-- deliverylog.go           Append-only delivery log + error queue
-+-- status.go                Daemon status + 24h statistics
-+-- doctor.go                Ecosystem health checker
-+-- telemetry.go             OpenTelemetry tracer setup (noop default)
-+-- logger.go                Colored logging
-+-- init.go                  Multi-repo init flow
-+-- *_test.go                Tests
-+-- justfile                 Task runner
+|   +-- main.go                CLI entry point (signal handling, tracer init)
+|   +-- main_test.go           CLI arg parsing + flag tests
++-- internal/cmd/
+|   +-- root.go                Root cobra command + global flags
+|   +-- run.go                 run subcommand + daemon startup
+|   +-- init.go                init subcommand
+|   +-- add.go                 add subcommand
+|   +-- remove.go              remove subcommand
+|   +-- sync.go                sync subcommand
+|   +-- doctor.go              doctor subcommand
+|   +-- status.go              status subcommand
+|   +-- version.go             version subcommand (text/JSON output)
+|   +-- update.go              update subcommand (self-update via GitHub)
+|   +-- helpers.go             Shared CLI helpers (config path resolution)
++-- phonewave.go               Init/Add/Remove/Sync orchestration (library)
++-- scanner.go                 SKILL.md parser + endpoint discovery
++-- router.go                  Route derivation engine (produces/consumes matching)
++-- config.go                  phonewave.yaml read/write/merge
++-- daemon.go                  fsnotify daemon + event loop + retry
++-- delivery.go                D-Mail delivery pipeline (atomic write)
++-- deliverylog.go             Append-only delivery log + error queue
++-- status.go                  Daemon status + 24h statistics
++-- doctor.go                  Ecosystem health checker
++-- telemetry.go               OpenTelemetry tracer setup (noop default)
++-- logger.go                  Colored logging
++-- init.go                    Multi-repo init flow
++-- *_test.go                  Tests
++-- justfile                   Task runner
++-- .goreleaser.yaml           GoReleaser config (cross-platform builds)
++-- .semgrep/
+|   +-- cobra.yaml             Semgrep rules for cobra/pflag conventions
++-- .github/workflows/
+|   +-- ci.yaml                CI (test, vet, lint)
+|   +-- release.yaml           Release via GoReleaser
 +-- docker/
-|   +-- compose.yaml         Jaeger v2 for trace viewing
+|   +-- compose.yaml           Jaeger v2 for trace viewing
 |   +-- jaeger-v2-config.yaml
 +-- docs/
+|   +-- cli/                   Auto-generated CLI reference (markdown)
 |   +-- phonewave-directory.md
 +-- testdata/
-    +-- Dockerfile.test      Docker lifecycle test image
+    +-- Dockerfile.test        Docker lifecycle test image
 ```
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.26+
 - [just](https://just.systems) for task automation
 - [Docker](https://www.docker.com/) for tracing (Jaeger) and lifecycle tests
 

@@ -3,15 +3,21 @@
 
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
+# Tool name
+TOOL := "phonewave"
+
+# External commands
+MARKDOWNLINT := "bunx markdownlint-cli2"
+
+# Version from git tags
+VERSION := `git describe --tags --always --dirty 2>/dev/null || echo "dev"`
+
 # Default: show help
 default: help
 
 # Help: list available recipes
 help:
     @just --list --unsorted
-
-# Define specific commands
-MARKDOWNLINT := "bunx markdownlint-cli2"
 
 # Install prek hooks (pre-commit + pre-push) with quiet mode
 prek-install:
@@ -28,16 +34,13 @@ prek-run:
 lint-md:
     @{{MARKDOWNLINT}} --fix "*.md" "docs/**/*.md"
 
-# Version from git tags
-VERSION := `git describe --tags --always --dirty 2>/dev/null || echo "dev"`
-
 # Build the binary with version info
 build:
-    go build -ldflags "-s -w -X github.com/hironow/phonewave/internal/cmd.Version={{VERSION}}" -o phonewave ./cmd/phonewave/
+    go build -ldflags "-s -w -X github.com/hironow/{{TOOL}}/internal/cmd.Version={{VERSION}}" -o {{TOOL}} ./cmd/{{TOOL}}/
 
 # Build and install to /usr/local/bin
 install: build
-    mv phonewave /usr/local/bin/
+    mv {{TOOL}} /usr/local/bin/
 
 # Run all tests
 test:
@@ -79,10 +82,6 @@ lint: vet lint-md
 # Format, vet, test — full check before commit
 check: fmt vet test
 
-# Run phonewave doctor (quick smoke test after build)
-doctor: build
-    ./phonewave doctor
-
 # Run Docker lifecycle tests (requires Docker)
 test-docker:
     go test ./... -tags=docker -count=1 -timeout=600s -v -run TestLifecycleDocker
@@ -97,14 +96,14 @@ jaeger:
     @echo "OTLP endpoint:  http://localhost:4318"
     @echo "MCP endpoint:   http://localhost:16687/mcp"
     @echo ""
-    @echo "Run phonewave with tracing:"
-    @echo "  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave ./your-repo"
+    @echo "Run {{TOOL}} with tracing:"
+    @echo "  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 {{TOOL}} run -v"
 
 # Stop Jaeger
 jaeger-down:
     docker compose -f docker/compose.yaml down
 
-# Generate CLI markdown docs (for LLM consumption)
+# Generate CLI documentation in Markdown
 docgen:
     go run ./internal/tools/docgen/
 
@@ -114,6 +113,6 @@ release-snapshot:
 
 # Clean build artifacts
 clean:
-    rm -f phonewave coverage.out
+    rm -f {{TOOL}} coverage.out
     rm -rf dist/
     go clean
