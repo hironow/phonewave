@@ -4,10 +4,10 @@ package phonewave
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -147,10 +147,15 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 
-			bodyStr := string(body)
-			// Jaeger API returns {"data": [...traces...]}
-			// If data array is non-empty, traces exist
-			if strings.Contains(bodyStr, "\"data\"") && !strings.Contains(bodyStr, "\"data\":[]") {
+			// Parse Jaeger API response: {"data": [...traces...]}
+			var result struct {
+				Data []json.RawMessage `json:"data"`
+			}
+			if err := json.Unmarshal(body, &result); err != nil {
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			if len(result.Data) > 0 {
 				traceFound = true
 			} else {
 				time.Sleep(2 * time.Second)
