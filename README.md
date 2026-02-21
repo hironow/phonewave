@@ -254,7 +254,7 @@ just prek-run       # Run all prek hooks
 +-- status.go                  Daemon status + 24h statistics
 +-- doctor.go                  Ecosystem health checker
 +-- telemetry.go               OpenTelemetry tracer setup (noop default)
-+-- logger.go                  Colored logging
++-- logger.go                  Struct-based logger (timestamped prefixes)
 +-- init.go                    Multi-repo init flow
 +-- *_test.go                  Tests
 +-- justfile                   Task runner
