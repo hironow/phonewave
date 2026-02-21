@@ -14,6 +14,10 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() (exitCode int) {
 	ctx, stop := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -28,10 +32,10 @@ func main() {
 	}()
 
 	if err := cmd.NewRootCommand().ExecuteContext(ctx); err != nil {
-		if errors.Is(err, cmd.ErrUpdateAvailable) {
-			os.Exit(1)
+		if !errors.Is(err, cmd.ErrUpdateAvailable) {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
