@@ -33,7 +33,7 @@ VERSION := `git describe --tags --always --dirty 2>/dev/null || echo "dev"`
 
 # Build the binary with version info
 build:
-    go build -ldflags "-X main.version={{VERSION}}" -o phonewave ./cmd/phonewave/
+    go build -ldflags "-s -w -X github.com/hironow/phonewave/internal/cmd.Version={{VERSION}}" -o phonewave ./cmd/phonewave/
 
 # Build and install to /usr/local/bin
 install: build
@@ -68,6 +68,10 @@ fmt:
 vet:
     go vet ./...
 
+# Run semgrep rules
+semgrep:
+    semgrep scan --config .semgrep/ --error --severity ERROR .
+
 # Lint (fmt check + vet + markdown lint)
 lint: vet lint-md
     @gofmt -l . | grep . && echo "gofmt: files need formatting" && exit 1 || true
@@ -100,7 +104,16 @@ jaeger:
 jaeger-down:
     docker compose -f docker/compose.yaml down
 
+# Generate CLI markdown docs (for LLM consumption)
+docgen:
+    go run ./internal/tools/docgen/
+
+# Snapshot GoReleaser build (no publish)
+release-snapshot:
+    goreleaser release --snapshot --clean
+
 # Clean build artifacts
 clean:
     rm -f phonewave coverage.out
+    rm -rf dist/
     go clean
