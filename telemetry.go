@@ -29,11 +29,17 @@ func InitTracer(serviceName, ver string) func(context.Context) error {
 	// otlptracehttp.New() honours both internally, but we need to gate on
 	// them here to decide whether to create a real provider or stay noop.
 	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" && os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") == "" {
+		np := noop.NewTracerProvider()
+		otel.SetTracerProvider(np)
+		tracer = np.Tracer(serviceName)
 		return func(context.Context) error { return nil }
 	}
 
 	exp, err := otlptracehttp.New(context.Background())
 	if err != nil {
+		np := noop.NewTracerProvider()
+		otel.SetTracerProvider(np)
+		tracer = np.Tracer(serviceName)
 		return func(context.Context) error { return nil }
 	}
 
