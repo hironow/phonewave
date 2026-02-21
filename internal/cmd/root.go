@@ -14,10 +14,12 @@ var (
 	Date    = "unknown"
 )
 
+func init() {
+	cobra.EnableTraverseRunHooks = true
+}
+
 // NewRootCommand creates the root cobra command for phonewave.
 func NewRootCommand() *cobra.Command {
-	cobra.EnableTraverseRunHooks = true
-
 	rootCmd := &cobra.Command{
 		Use:           "phonewave",
 		Short:         "D-Mail courier daemon",
