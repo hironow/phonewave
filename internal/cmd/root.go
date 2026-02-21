@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"context"
 	"path/filepath"
-	"time"
 
 	"github.com/hironow/phonewave"
 	"github.com/spf13/cobra"
@@ -20,28 +18,11 @@ var (
 func NewRootCommand() *cobra.Command {
 	cobra.EnableTraverseRunHooks = true
 
-	var shutdownTracer func(context.Context) error
-
 	rootCmd := &cobra.Command{
-		Use:     "phonewave",
-		Short:   "D-Mail courier daemon",
-		Long:    "Phonewave routes D-Mails between AI agent tool repositories via file-based message passing.",
-		Version: Version,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			shutdownTracer = phonewave.InitTracer("phonewave", Version)
-			return nil
-		},
-		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-			if shutdownTracer != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := shutdownTracer(ctx); err != nil {
-					phonewave.LogWarn("tracer shutdown: %v", err)
-				}
-				shutdownTracer = nil
-			}
-			return nil
-		},
+		Use:           "phonewave",
+		Short:         "D-Mail courier daemon",
+		Long:          "Phonewave routes D-Mails between AI agent tool repositories via file-based message passing.",
+		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

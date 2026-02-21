@@ -20,6 +20,7 @@ func newRemoveCmd() *cobra.Command {
 			cfgPath := configPath(cmd)
 			cfg, err := phonewave.LoadConfig(cfgPath)
 			if err != nil {
+				phonewave.LogInfo("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
