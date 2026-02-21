@@ -88,11 +88,11 @@ test-docker:
 
 # Run Docker CLI tests only
 test-docker-cli:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(Multi|Add|Remove|Sync|Doctor|Status|Config|Version)'
+    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(MultiRepo|AddRepo|RemoveRepo|Sync$|Doctor_|Status|ConfigFlag|Version$)'
 
 # Run Docker daemon behaviour tests only
 test-docker-daemon:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(DryRun|ErrorQueue|MaxRetries|Rollback|Shutdown|Burst|Malformed|NonMd|DeliveryLog|Uptime|StartupScan)'
+    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(DryRun|ErrorQueue|MaxRetries|PartialDelivery|GracefulShutdown|BurstDelivery|MalformedDMail|NonMdFiles|DeliveryLog|Uptime|StartupScan)'
 
 # Run Docker OTel tracing test only
 test-docker-otel:

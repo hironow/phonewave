@@ -272,8 +272,8 @@ description: otel test
 ' > $REPO/.siren/outbox/spec-otel.md"
 sleep 8
 # Query Jaeger API from host
-traces=$(curl -sf "http://localhost:16686/api/traces?service=phonewave&limit=10" 2>/dev/null || echo '{"data":[]}')
-if echo "$traces" | grep -q '"traceID"'; then
+trace_count=$(curl -sf "http://localhost:16686/api/traces?service=phonewave&limit=10" 2>/dev/null | jq '.data | length' 2>/dev/null || echo "0")
+if [ "$trace_count" -gt 0 ]; then
   pass "Traces found in Jaeger"
 else
   check "Traces may take longer to flush — open http://localhost:16686 to verify manually"
