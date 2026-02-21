@@ -116,7 +116,7 @@ assert_file phonewave "/workspace/phonewave.yaml" "phonewave.yaml created"
 section "Phase 4: phonewave doctor"
 # ---------------------------------------------------------------
 doctor_out=$(pw sh -c "cd /workspace && phonewave doctor" 2>&1)
-assert_contains "$doctor_out" "healthy\|Healthy" "doctor says healthy"
+assert_contains "$doctor_out" "healthy|Healthy" "doctor says healthy"
 
 # ---------------------------------------------------------------
 section "Phase 5: phonewave status (stopped)"
@@ -252,7 +252,7 @@ produces:
 ---
 ' > $REPO/.oracle/skills/dmail-sendable/SKILL.md"
 sync_out=$(pw sh -c "cd /workspace && phonewave sync" 2>&1)
-assert_contains "$sync_out" "Synced\|synced\|routes" "sync reports results"
+assert_contains "$sync_out" "Synced|synced|routes" "sync reports results"
 
 # ---------------------------------------------------------------
 section "Phase 16: phonewave remove"
