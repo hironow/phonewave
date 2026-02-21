@@ -46,6 +46,13 @@ func fileExistsInContainer(t *testing.T, ctx context.Context, c testcontainers.C
 	return code == 0
 }
 
+// dirExistsInContainer checks if a directory exists inside the container.
+func dirExistsInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, path string) bool {
+	t.Helper()
+	code, _ := execInContainerNoFail(t, ctx, c, []string{"test", "-d", path})
+	return code == 0
+}
+
 // waitForFileInContainer polls until a file exists inside the container.
 func waitForFileInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, path string, timeout time.Duration) {
 	t.Helper()

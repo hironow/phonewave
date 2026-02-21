@@ -42,7 +42,7 @@ func TestLifecycleDocker_MultiRepoInit(t *testing.T) {
 	}
 
 	// Verify state directory created
-	if !fileExistsInContainer(t, ctx, c, "/workspace/.phonewave") {
+	if !dirExistsInContainer(t, ctx, c, "/workspace/.phonewave") {
 		t.Error("state directory .phonewave not created")
 	}
 }
