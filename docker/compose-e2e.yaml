@@ -1,0 +1,29 @@
+services:
+  jaeger:
+    image: jaegertracing/jaeger:2.15.1
+    ports:
+      - "16686:16686" # Jaeger UI + API
+      - "4318:4318"   # OTLP HTTP receiver
+    volumes:
+      - ./jaeger-v2-config.yaml:/etc/jaeger/config.yaml:ro
+    command: ["--config", "/etc/jaeger/config.yaml"]
+
+  phonewave:
+    build:
+      context: ..
+      dockerfile: testdata/Dockerfile.test
+    volumes:
+      - workspace:/workspace
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    depends_on:
+      - jaeger
+
+  writer:
+    image: alpine:latest
+    command: ["sleep", "infinity"]
+    volumes:
+      - workspace:/workspace
+
+volumes:
+  workspace:

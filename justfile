@@ -86,6 +86,22 @@ check: fmt vet test
 test-docker:
     go test ./... -tags=docker -count=1 -timeout=600s -v -run TestLifecycleDocker
 
+# Run Docker CLI tests only
+test-docker-cli:
+    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(Multi|Add|Remove|Sync|Doctor|Status|Config|Version)'
+
+# Run Docker daemon behaviour tests only
+test-docker-daemon:
+    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(DryRun|ErrorQueue|MaxRetries|Rollback|Shutdown|Burst|Malformed|NonMd|DeliveryLog|Uptime|StartupScan)'
+
+# Run Docker OTel tracing test only
+test-docker-otel:
+    go test ./... -tags=docker -count=1 -timeout=600s -v -run TestLifecycleDocker_OTelTracing
+
+# Run manual E2E test script (docker compose)
+test-e2e-manual:
+    bash testdata/manual-e2e.sh
+
 # Run all tests including Docker tests
 test-all: test test-docker
 

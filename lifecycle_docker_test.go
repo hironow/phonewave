@@ -90,6 +90,135 @@ func heredocWrite(t *testing.T, ctx context.Context, c testcontainers.Container,
 	execInContainer(t, ctx, c, cmd)
 }
 
+// buildTestContainer creates and starts a phonewave test container.
+func buildTestContainer(t *testing.T, ctx context.Context) testcontainers.Container {
+	t.Helper()
+	req := testcontainers.ContainerRequest{
+		FromDockerfile: testcontainers.FromDockerfile{
+			Context:    ".",
+			Dockerfile: "testdata/Dockerfile.test",
+		},
+		WaitingFor: wait.ForExec([]string{"phonewave", "--version"}).
+			WithStartupTimeout(120 * time.Second),
+	}
+	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		t.Fatalf("start container: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := c.Terminate(ctx); err != nil {
+			t.Errorf("terminate container: %v", err)
+		}
+	})
+	return c
+}
+
+// readFileInContainer reads a file's content inside the container.
+func readFileInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, path string) string {
+	t.Helper()
+	_, output := execInContainerNoFail(t, ctx, c, []string{"cat", path})
+	return output
+}
+
+// countFilesInContainer counts non-directory entries in a directory.
+// Pass a suffix (e.g. ".md", ".err") to filter, or "" for all files.
+func countFilesInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, dir, suffix string) int {
+	t.Helper()
+	code, output := execInContainerNoFail(t, ctx, c, []string{"sh", "-c",
+		fmt.Sprintf("ls -1 '%s' 2>/dev/null | wc -l", dir)})
+	if code != 0 {
+		return 0
+	}
+	n := 0
+	fmt.Sscanf(strings.TrimSpace(output), "%d", &n)
+	if suffix == "" {
+		return n
+	}
+	// Count with suffix filter
+	code2, output2 := execInContainerNoFail(t, ctx, c, []string{"sh", "-c",
+		fmt.Sprintf("ls -1 '%s' 2>/dev/null | grep -c '%s$' || true", dir, suffix)})
+	if code2 != 0 {
+		return 0
+	}
+	n2 := 0
+	fmt.Sscanf(strings.TrimSpace(output2), "%d", &n2)
+	return n2
+}
+
+// waitForStringInFile polls until a file in the container contains a substring.
+func waitForStringInFile(t *testing.T, ctx context.Context, c testcontainers.Container, path, substr string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.After(timeout)
+	for {
+		select {
+		case <-deadline:
+			content := readFileInContainer(t, ctx, c, path)
+			t.Fatalf("timeout waiting for %q in %s; content:\n%s", substr, path, content)
+		default:
+			content := readFileInContainer(t, ctx, c, path)
+			if strings.Contains(content, substr) {
+				return
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+}
+
+// startDaemonInContainer starts the phonewave daemon in the background.
+func startDaemonInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, workDir, flags string) {
+	t.Helper()
+	cmd := fmt.Sprintf("cd '%s' && nohup phonewave run %s > /tmp/phonewave.log 2>&1 &", workDir, flags)
+	execInContainer(t, ctx, c, []string{"sh", "-c", cmd})
+	// Wait for PID file
+	stateDir := workDir + "/.phonewave/watch.pid"
+	waitForFileInContainer(t, ctx, c, stateDir, 15*time.Second)
+}
+
+// stopDaemonInContainer kills the daemon via PID file and waits for cleanup.
+func stopDaemonInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, workDir string) {
+	t.Helper()
+	pidFile := workDir + "/.phonewave/watch.pid"
+	if !fileExistsInContainer(t, ctx, c, pidFile) {
+		return
+	}
+	execInContainer(t, ctx, c, []string{"sh", "-c", fmt.Sprintf("kill $(cat '%s')", pidFile)})
+	waitForFileAbsentInContainer(t, ctx, c, pidFile, 10*time.Second)
+}
+
+// setupSecondRepoInContainer creates a second repo with .beacon (produces=alert)
+// and .monitor (consumes=alert) endpoints for multi-repo init testing.
+func setupSecondRepoInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, repoPath string) {
+	t.Helper()
+	tools := []struct {
+		dir, produces, consumes string
+	}{
+		{".beacon", "alert", ""},
+		{".monitor", "", "alert"},
+	}
+	for _, tool := range tools {
+		for _, sub := range []string{"outbox", "inbox"} {
+			execInContainer(t, ctx, c, []string{
+				"mkdir", "-p", fmt.Sprintf("%s/%s/%s", repoPath, tool.dir, sub),
+			})
+		}
+		if tool.produces != "" {
+			skillDir := fmt.Sprintf("%s/%s/skills/dmail-sendable", repoPath, tool.dir)
+			execInContainer(t, ctx, c, []string{"mkdir", "-p", skillDir})
+			content := fmt.Sprintf("---\nname: dmail-sendable\nproduces:\n  - kind: %s\n---\n", tool.produces)
+			heredocWrite(t, ctx, c, skillDir+"/SKILL.md", content)
+		}
+		if tool.consumes != "" {
+			skillDir := fmt.Sprintf("%s/%s/skills/dmail-readable", repoPath, tool.dir)
+			execInContainer(t, ctx, c, []string{"mkdir", "-p", skillDir})
+			content := fmt.Sprintf("---\nname: dmail-readable\nconsumes:\n  - kind: %s\n---\n", tool.consumes)
+			heredocWrite(t, ctx, c, skillDir+"/SKILL.md", content)
+		}
+	}
+}
+
 // setupEcosystemInContainer creates the 3-tool ecosystem inside the container.
 func setupEcosystemInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, repoPath string) {
 	t.Helper()
