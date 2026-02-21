@@ -13,8 +13,8 @@ FAIL=0
 
 section() { printf '\n\033[1;34m=== %s ===\033[0m\n' "$1"; }
 check()   { printf '  \033[0;33m[CHECK]\033[0m %s\n' "$1"; }
-pass()    { printf '  \033[0;32m[PASS]\033[0m  %s\n' "$1"; ((PASS++)); }
-fail()    { printf '  \033[0;31m[FAIL]\033[0m  %s\n' "$1"; ((FAIL++)); }
+pass()    { printf '  \033[0;32m[PASS]\033[0m  %s\n' "$1"; PASS=$((PASS+1)); }
+fail()    { printf '  \033[0;31m[FAIL]\033[0m  %s\n' "$1"; FAIL=$((FAIL+1)); }
 
 pw()     { docker compose -f "$COMPOSE_FILE" exec -T phonewave "$@"; }
 writer() { docker compose -f "$COMPOSE_FILE" exec -T writer "$@"; }
