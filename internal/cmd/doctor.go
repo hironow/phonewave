@@ -16,10 +16,13 @@ func newDoctorCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		Example: `  phonewave doctor`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+
 			cfgPath := configPath(cmd)
 			cfg, err := phonewave.LoadConfig(cfgPath)
 			if err != nil {
-				phonewave.LogInfo("Run 'phonewave init' first")
+				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
@@ -29,26 +32,26 @@ func newDoctorCmd() *cobra.Command {
 			for _, issue := range report.Issues {
 				switch issue.Severity {
 				case "ok":
-					phonewave.LogOK("%s  %s", issue.Endpoint, issue.Message)
+					logger.OK("%s  %s", issue.Endpoint, issue.Message)
 				case "fixed":
-					phonewave.LogWarn("%s  %s", issue.Endpoint, issue.Message)
+					logger.Warn("%s  %s", issue.Endpoint, issue.Message)
 				case "warn":
-					phonewave.LogWarn("%s  %s", issue.Endpoint, issue.Message)
+					logger.Warn("%s  %s", issue.Endpoint, issue.Message)
 				case "error":
-					phonewave.LogError("%s  %s", issue.Endpoint, issue.Message)
+					logger.Error("%s  %s", issue.Endpoint, issue.Message)
 				}
 			}
 
 			if report.DaemonStatus.Running {
-				phonewave.LogOK("Daemon: running (PID %d)", report.DaemonStatus.PID)
+				logger.OK("Daemon: running (PID %d)", report.DaemonStatus.PID)
 			} else {
-				phonewave.LogOK("Daemon: not running")
+				logger.OK("Daemon: not running")
 			}
 
 			if !report.Healthy {
 				return fmt.Errorf("ecosystem has issues")
 			}
-			phonewave.LogOK("Ecosystem healthy")
+			logger.OK("Ecosystem healthy")
 			return nil
 		},
 	}

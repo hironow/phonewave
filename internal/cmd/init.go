@@ -17,6 +17,9 @@ func newInitCmd() *cobra.Command {
 		Example: `  phonewave init ./sightjack-repo ./paintress-repo ./amadeus-repo
   phonewave init /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+
 			result, err := phonewave.Init(args)
 			if err != nil {
 				return err
@@ -31,20 +34,20 @@ func newInitCmd() *cobra.Command {
 				return fmt.Errorf("create state dir: %w", err)
 			}
 
-			phonewave.LogOK("Scanned %d repositories", result.RepoCount)
+			logger.OK("Scanned %d repositories", result.RepoCount)
 			for _, repo := range result.Config.Repositories {
 				for _, ep := range repo.Endpoints {
-					phonewave.LogOK("  %s/%s  produces=%v consumes=%v", filepath.Base(repo.Path), ep.Dir, ep.Produces, ep.Consumes)
+					logger.OK("  %s/%s  produces=%v consumes=%v", filepath.Base(repo.Path), ep.Dir, ep.Produces, ep.Consumes)
 				}
 			}
-			phonewave.LogOK("Derived %d routes", len(result.Config.Routes))
+			logger.OK("Derived %d routes", len(result.Config.Routes))
 			for _, r := range result.Config.Routes {
-				phonewave.LogInfo("  %s: %s → %v", r.Kind, r.From, r.To)
+				logger.Info("  %s: %s → %v", r.Kind, r.From, r.To)
 			}
 
-			printOrphanWarnings(result.Orphans)
+			printOrphanWarnings(logger, result.Orphans)
 
-			phonewave.LogOK("Config written to %s", cfgPath)
+			logger.OK("Config written to %s", cfgPath)
 			return nil
 		},
 	}

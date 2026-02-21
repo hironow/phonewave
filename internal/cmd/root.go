@@ -30,7 +30,7 @@ func NewRootCommand() *cobra.Command {
 	}
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Log all delivery events to stderr")
-	rootCmd.PersistentFlags().String("config", filepath.Join(".", phonewave.ConfigFile), "Path to phonewave config file")
+	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", phonewave.ConfigFile), "Path to phonewave config file")
 
 	rootCmd.AddCommand(
 		newInitCmd(),

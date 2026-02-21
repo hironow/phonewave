@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"io"
 	"context"
 	"os"
 	"path/filepath"
@@ -251,7 +252,7 @@ description: "Pre-existing spec"
 	}
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
 
 	// then
 	if len(errs) != 0 {
@@ -296,7 +297,7 @@ func TestDaemon_WatchAndDeliver(t *testing.T) {
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -392,7 +393,7 @@ description: "Startup log test"
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -444,7 +445,7 @@ func TestDaemon_PIDFile(t *testing.T) {
 		Routes:     []ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}

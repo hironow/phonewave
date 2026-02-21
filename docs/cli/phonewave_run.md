@@ -14,31 +14,31 @@ phonewave run [flags]
 
 ```
   # Start daemon (foreground, verbose)
-  phonewave run --verbose
+  phonewave run -v
 
   # Dry run (detect events, don't deliver)
-  phonewave run --dry-run
+  phonewave run -n
 
   # With retry interval
-  phonewave run --retry-interval 120s
+  phonewave run -r 120s
 
   # With tracing enabled
-  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run --verbose
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run -v
 ```
 
 ### Options
 
 ```
-      --dry-run                   Detect events without delivering
+  -n, --dry-run                   Detect events without delivering
   -h, --help                      help for run
-      --max-retries int           Maximum retry attempts per failed D-Mail (default 10)
-      --retry-interval duration   Error queue retry interval (0 to disable) (default 1m0s)
+  -m, --max-retries int           Maximum retry attempts per failed D-Mail (default 10)
+  -r, --retry-interval duration   Error queue retry interval (0 to disable) (default 1m0s)
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --config string   Path to phonewave config file (default "phonewave.yaml")
+  -c, --config string   Path to phonewave config file (default "phonewave.yaml")
   -v, --verbose         Log all delivery events to stderr
 ```
 

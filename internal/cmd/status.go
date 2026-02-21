@@ -17,10 +17,13 @@ func newStatusCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		Example: `  phonewave status`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+
 			cfgPath := configPath(cmd)
 			cfg, err := phonewave.LoadConfig(cfgPath)
 			if err != nil {
-				phonewave.LogInfo("Run 'phonewave init' first")
+				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 

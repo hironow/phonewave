@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"io"
 	"context"
 	"os"
 	"path/filepath"
@@ -103,7 +104,7 @@ func TestDaemon_Run_CreatesStartupScanSpan(t *testing.T) {
 		Routes:     []ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -159,7 +160,7 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -208,7 +209,7 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 		Routes:     []ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}

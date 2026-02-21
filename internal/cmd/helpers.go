@@ -20,11 +20,11 @@ func configBase(cmd *cobra.Command) string {
 	return filepath.Dir(configPath(cmd))
 }
 
-func printOrphanWarnings(orphans phonewave.OrphanReport) {
+func printOrphanWarnings(logger *phonewave.Logger, orphans phonewave.OrphanReport) {
 	for _, kind := range orphans.UnconsumedKinds {
-		phonewave.LogWarn("Orphaned: kind=%q is produced but not consumed", kind)
+		logger.Warn("Orphaned: kind=%q is produced but not consumed", kind)
 	}
 	for _, kind := range orphans.UnproducedKinds {
-		phonewave.LogWarn("Orphaned: kind=%q is consumed but not produced", kind)
+		logger.Warn("Orphaned: kind=%q is consumed but not produced", kind)
 	}
 }
