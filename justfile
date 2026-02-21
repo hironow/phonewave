@@ -68,6 +68,10 @@ fmt:
 vet:
     go vet ./...
 
+# Run semgrep rules
+semgrep:
+    semgrep scan --config .semgrep/ --error --severity ERROR .
+
 # Lint (fmt check + vet + markdown lint)
 lint: vet lint-md
     @gofmt -l . | grep . && echo "gofmt: files need formatting" && exit 1 || true
