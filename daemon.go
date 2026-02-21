@@ -30,12 +30,13 @@ type DaemonOptions struct {
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
 	opts    DaemonOptions
+	logger  *Logger
 	watcher *fsnotify.Watcher
 	dlog    *DeliveryLog
 }
 
-// NewDaemon creates a new Daemon with the given options.
-func NewDaemon(opts DaemonOptions) (*Daemon, error) {
+// NewDaemon creates a new Daemon with the given options and logger.
+func NewDaemon(opts DaemonOptions, logger *Logger) (*Daemon, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("create watcher: %w", err)
@@ -43,6 +44,7 @@ func NewDaemon(opts DaemonOptions) (*Daemon, error) {
 
 	return &Daemon{
 		opts:    opts,
+		logger:  logger,
 		watcher: watcher,
 	}, nil
 }
@@ -65,7 +67,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 			return fmt.Errorf("watch %s: %w", dir, err)
 		}
 		if d.opts.Verbose {
-			LogInfo("Watching %s", dir)
+			d.logger.Info("Watching %s", dir)
 		}
 	}
 
@@ -89,7 +91,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 			trace.WithNewRoot(),
 			trace.WithAttributes(attribute.String("outbox.dir", dir)),
 		)
-		results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir)
+		results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger)
 		scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
 		scanSpan.End()
 		for _, r := range results {
@@ -100,16 +102,16 @@ func (d *Daemon) Run(ctx context.Context) error {
 				d.dlog.Removed(r.SourcePath)
 			}
 			if d.opts.Verbose {
-				LogOK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
+				d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
 			}
 		}
 		for _, err := range errs {
-			LogWarn("Startup scan: %v", err)
+			d.logger.Warn("Startup scan: %v", err)
 		}
 	}
 
 	if d.opts.Verbose {
-		LogOK("Daemon started (PID %d), watching %d outbox directories", os.Getpid(), len(d.opts.OutboxDirs))
+		d.logger.OK("Daemon started (PID %d), watching %d outbox directories", os.Getpid(), len(d.opts.OutboxDirs))
 	}
 
 	// Optional retry ticker (nil channel disables the case)
@@ -125,7 +127,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			if d.opts.Verbose {
-				LogInfo("Shutting down daemon")
+				d.logger.Info("Shutting down daemon")
 			}
 			return nil
 
@@ -139,7 +141,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			LogWarn("Watcher error: %v", err)
+			d.logger.Warn("Watcher error: %v", err)
 
 		case <-retryCh:
 			d.retryPending()
@@ -177,7 +179,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	time.Sleep(50 * time.Millisecond)
 
 	if d.opts.DryRun {
-		LogInfo("[dry-run] Detected %s", event.Name)
+		d.logger.Info("[dry-run] Detected %s", event.Name)
 		return
 	}
 
@@ -189,7 +191,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		if errors.Is(readErr, os.ErrNotExist) {
 			return
 		}
-		LogError("Read %s: %v", event.Name, readErr)
+		d.logger.Error("Read %s: %v", event.Name, readErr)
 		span.RecordError(readErr)
 		span.SetStatus(codes.Error, readErr.Error())
 		return
@@ -198,7 +200,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes)
 	if err != nil {
 		kind := extractKindOrUnknown(data)
-		LogError("Deliver %s: %v", event.Name, err)
+		d.logger.Error("Deliver %s: %v", event.Name, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		if d.dlog != nil {
@@ -214,7 +216,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 			Timestamp:    time.Now().UTC(),
 		}
 		if saveErr := SaveToErrorQueue(d.opts.StateDir, meta, data); saveErr != nil {
-			LogError("Save to error queue: %v", saveErr)
+			d.logger.Error("Save to error queue: %v", saveErr)
 			// Do NOT remove from outbox — startup scan will retry on next restart
 			return
 		}
@@ -232,7 +234,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	}
 
 	if d.opts.Verbose {
-		LogOK("Delivered %s (kind=%s) to %v", result.SourcePath, result.Kind, result.DeliveredTo)
+		d.logger.OK("Delivered %s (kind=%s) to %v", result.SourcePath, result.Kind, result.DeliveredTo)
 	}
 }
 
@@ -261,7 +263,7 @@ func (d *Daemon) retryPending() {
 		sidecarPath := filepath.Join(errorsDir, entry.Name())
 		meta, err := LoadErrorMetadata(sidecarPath)
 		if err != nil {
-			LogWarn("Retry: load metadata %s: %v", sidecarPath, err)
+			d.logger.Warn("Retry: load metadata %s: %v", sidecarPath, err)
 			continue
 		}
 
@@ -273,7 +275,7 @@ func (d *Daemon) retryPending() {
 		dmailPath := strings.TrimSuffix(sidecarPath, ".err")
 		data, err := os.ReadFile(dmailPath)
 		if err != nil {
-			LogWarn("Retry: read %s: %v", dmailPath, err)
+			d.logger.Warn("Retry: read %s: %v", dmailPath, err)
 			continue
 		}
 
@@ -283,17 +285,17 @@ func (d *Daemon) retryPending() {
 		result, deliverErr := DeliverData(ctx, originalPath, data, d.opts.Routes)
 		if deliverErr != nil {
 			if err := UpdateErrorMetadata(sidecarPath, deliverErr.Error()); err != nil {
-				LogWarn("Retry: update metadata: %v", err)
+				d.logger.Warn("Retry: update metadata: %v", err)
 			}
 			if d.opts.Verbose {
-				LogWarn("Retry failed for %s (attempt %d): %v", meta.OriginalName, meta.Attempts+1, deliverErr)
+				d.logger.Warn("Retry failed for %s (attempt %d): %v", meta.OriginalName, meta.Attempts+1, deliverErr)
 			}
 			continue
 		}
 
 		// Success — remove from error queue and log
 		if err := RemoveErrorEntry(dmailPath); err != nil {
-			LogWarn("Retry: remove error entry: %v", err)
+			d.logger.Warn("Retry: remove error entry: %v", err)
 		}
 
 		if d.dlog != nil {
@@ -303,7 +305,7 @@ func (d *Daemon) retryPending() {
 		}
 
 		if d.opts.Verbose {
-			LogOK("Retry: delivered %s (kind=%s) to %v", meta.OriginalName, result.Kind, result.DeliveredTo)
+			d.logger.OK("Retry: delivered %s (kind=%s) to %v", meta.OriginalName, result.Kind, result.DeliveredTo)
 		}
 	}
 }
@@ -387,7 +389,7 @@ func CollectOutboxDirs(cfg *Config) []string {
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
 // delivering each one according to the provided routes. Failed deliveries are
 // saved to the error queue in stateDir.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRoute, stateDir string) ([]*DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRoute, stateDir string, logger *Logger) ([]*DeliveryResult, []error) {
 	entries, err := os.ReadDir(outboxDir)
 	if err != nil {
 		return nil, []error{fmt.Errorf("scan outbox %s: %w", outboxDir, err)}
@@ -429,7 +431,7 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRout
 				Timestamp:    time.Now().UTC(),
 			}
 			if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
-				LogError("Save to error queue: %v", saveErr)
+				logger.Error("Save to error queue: %v", saveErr)
 				// Do NOT remove from outbox — preserve for future retry
 				continue
 			}

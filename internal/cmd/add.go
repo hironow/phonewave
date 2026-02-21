@@ -17,10 +17,13 @@ func newAddCmd() *cobra.Command {
 		Example: `  phonewave add ./new-repo
   phonewave add /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+
 			cfgPath := configPath(cmd)
 			cfg, err := phonewave.LoadConfig(cfgPath)
 			if err != nil {
-				phonewave.LogInfo("Run 'phonewave init' first")
+				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
@@ -34,9 +37,9 @@ func newAddCmd() *cobra.Command {
 			}
 
 			absPath, _ := filepath.Abs(args[0])
-			phonewave.LogOK("Added %s", absPath)
-			phonewave.LogOK("%d routes total", len(cfg.Routes))
-			printOrphanWarnings(*orphans)
+			logger.OK("Added %s", absPath)
+			logger.OK("%d routes total", len(cfg.Routes))
+			printOrphanWarnings(logger, *orphans)
 
 			return nil
 		},

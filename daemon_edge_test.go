@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"io"
 	"context"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ func TestDaemon_MalformedDMail(t *testing.T) {
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -120,7 +121,7 @@ func TestDaemon_UnknownKind(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -208,7 +209,7 @@ func TestDaemon_IgnoresNonMdFiles(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -277,7 +278,7 @@ description: "Valid"
 	}
 
 	// when
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
 
 	// then
 	if len(errs) != 0 {
@@ -339,7 +340,7 @@ description: "Also valid"
 	}
 
 	// when
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
 
 	// then — should deliver 2, fail 1, and NOT stop on first error
 	if len(results) != 2 {
@@ -520,7 +521,7 @@ func TestDaemon_BurstDelivery(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -598,7 +599,7 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 	}
 
 	// when — scan an empty outbox
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
 
 	// then — no results, no errors
 	if len(results) != 0 {
@@ -660,7 +661,7 @@ func TestDaemon_MultipleOutboxes(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox1, outbox2},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -852,7 +853,7 @@ description: "Preserve test"
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -909,7 +910,7 @@ description: "Preserve test"
 	routes := []ResolvedRoute{}
 
 	// when
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir)
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
 
 	// then — outbox file must still exist
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
@@ -953,7 +954,7 @@ description: "Rename event test"
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -994,7 +995,7 @@ func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
 		Routes:     []ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1055,7 +1056,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		Verbose:       true,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1140,7 +1141,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		StateDir:      stateDir,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1217,7 +1218,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
 		RetryInterval: 0, // disabled
-	})
+	}, NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}

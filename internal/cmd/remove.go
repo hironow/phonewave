@@ -17,10 +17,13 @@ func newRemoveCmd() *cobra.Command {
 		Example: `  phonewave remove ./old-repo
   phonewave remove /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+
 			cfgPath := configPath(cmd)
 			cfg, err := phonewave.LoadConfig(cfgPath)
 			if err != nil {
-				phonewave.LogInfo("Run 'phonewave init' first")
+				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
@@ -34,9 +37,9 @@ func newRemoveCmd() *cobra.Command {
 			}
 
 			absPath, _ := filepath.Abs(args[0])
-			phonewave.LogOK("Removed %s", absPath)
-			phonewave.LogOK("%d routes remaining", len(cfg.Routes))
-			printOrphanWarnings(*orphans)
+			logger.OK("Removed %s", absPath)
+			logger.OK("%d routes remaining", len(cfg.Routes))
+			printOrphanWarnings(logger, *orphans)
 
 			return nil
 		},

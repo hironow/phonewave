@@ -27,7 +27,7 @@ func run() (exitCode int) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := shutdownTracer(ctx); err != nil {
-			phonewave.LogWarn("tracer shutdown: %v", err)
+			fmt.Fprintf(os.Stderr, "tracer shutdown: %v\n", err)
 		}
 	}()
 
