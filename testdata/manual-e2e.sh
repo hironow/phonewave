@@ -2,7 +2,7 @@
 # Manual E2E test for phonewave — run all 20 phases inside Docker.
 # Usage: bash testdata/manual-e2e.sh
 #
-# Prerequisites: docker compose available, run from repo root.
+# Prerequisites: docker compose, jq, curl available; run from repo root.
 set -euo pipefail
 
 COMPOSE_FILE="docker/compose-e2e.yaml"
@@ -219,7 +219,8 @@ description: unknown kind
 ---
 ' > $REPO/.siren/outbox/mystery.md"
 sleep 3
-if pw test -d "/workspace/.phonewave/errors" && pw sh -c "ls /workspace/.phonewave/errors/*.err 2>/dev/null" | grep -q err; then
+err_count=$(pw sh -c "find /workspace/.phonewave/errors -name '*.err' 2>/dev/null | wc -l" || echo "0")
+if [ "$err_count" -gt 0 ]; then
   pass "Error queue has .err sidecar"
 else
   fail "Error queue empty"

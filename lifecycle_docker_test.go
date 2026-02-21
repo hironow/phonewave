@@ -130,29 +130,23 @@ func readFileInContainer(t *testing.T, ctx context.Context, c testcontainers.Con
 	return output
 }
 
-// countFilesInContainer counts non-directory entries in a directory.
+// countFilesInContainer counts entries in a directory.
 // Pass a suffix (e.g. ".md", ".err") to filter, or "" for all files.
 func countFilesInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, dir, suffix string) int {
 	t.Helper()
-	code, output := execInContainerNoFail(t, ctx, c, []string{"sh", "-c",
-		fmt.Sprintf("ls -1 '%s' 2>/dev/null | wc -l", dir)})
+	var cmd string
+	if suffix == "" {
+		cmd = fmt.Sprintf("ls -1 '%s' 2>/dev/null | wc -l", dir)
+	} else {
+		cmd = fmt.Sprintf("ls -1 '%s' 2>/dev/null | grep -c '%s$' || true", dir, suffix)
+	}
+	code, output := execInContainerNoFail(t, ctx, c, []string{"sh", "-c", cmd})
 	if code != 0 {
 		return 0
 	}
 	n := 0
 	fmt.Sscanf(strings.TrimSpace(output), "%d", &n)
-	if suffix == "" {
-		return n
-	}
-	// Count with suffix filter
-	code2, output2 := execInContainerNoFail(t, ctx, c, []string{"sh", "-c",
-		fmt.Sprintf("ls -1 '%s' 2>/dev/null | grep -c '%s$' || true", dir, suffix)})
-	if code2 != 0 {
-		return 0
-	}
-	n2 := 0
-	fmt.Sscanf(strings.TrimSpace(output2), "%d", &n2)
-	return n2
+	return n
 }
 
 // waitForStringInFile polls until a file in the container contains a substring.
@@ -180,8 +174,8 @@ func startDaemonInContainer(t *testing.T, ctx context.Context, c testcontainers.
 	cmd := fmt.Sprintf("cd '%s' && nohup phonewave run %s > /tmp/phonewave.log 2>&1 &", workDir, flags)
 	execInContainer(t, ctx, c, []string{"sh", "-c", cmd})
 	// Wait for PID file
-	stateDir := workDir + "/.phonewave/watch.pid"
-	waitForFileInContainer(t, ctx, c, stateDir, 15*time.Second)
+	pidFile := workDir + "/.phonewave/watch.pid"
+	waitForFileInContainer(t, ctx, c, pidFile, 15*time.Second)
 }
 
 // stopDaemonInContainer kills the daemon via PID file and waits for cleanup.

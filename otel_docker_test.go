@@ -144,20 +144,23 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 				time.Sleep(2 * time.Second)
 				continue
 			}
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-
-			// Parse Jaeger API response: {"data": [...traces...]}
-			var result struct {
-				Data []json.RawMessage `json:"data"`
-			}
-			if err := json.Unmarshal(body, &result); err != nil {
-				time.Sleep(2 * time.Second)
-				continue
-			}
-			if len(result.Data) > 0 {
-				traceFound = true
-			} else {
+			func() {
+				defer resp.Body.Close()
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					return
+				}
+				var result struct {
+					Data []json.RawMessage `json:"data"`
+				}
+				if err := json.Unmarshal(body, &result); err != nil {
+					return
+				}
+				if len(result.Data) > 0 {
+					traceFound = true
+				}
+			}()
+			if !traceFound {
 				time.Sleep(2 * time.Second)
 			}
 		}

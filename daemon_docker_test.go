@@ -103,6 +103,7 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 
 	// Wait for error queue to be cleared (retry succeeded)
 	deadline := time.After(15 * time.Second)
+retryLoop:
 	for {
 		select {
 		case <-deadline:
@@ -110,12 +111,11 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 		default:
 			count := countFilesInContainer(t, ctx, c, "/workspace/.phonewave/errors", ".err")
 			if count == 0 {
-				goto retryDone
+				break retryLoop
 			}
 			time.Sleep(1 * time.Second)
 		}
 	}
-retryDone:
 
 	// Verify RETRIED in delivery log
 	waitForStringInFile(t, ctx, c, "/workspace/.phonewave/delivery.log", "RETRIED", 5*time.Second)
