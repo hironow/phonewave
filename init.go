@@ -29,6 +29,7 @@ type SyncReport struct {
 	RouteChanges    []RouteDiff
 	RepoCount       int
 	TotalRoutes     int
+	Warnings        []string
 }
 
 // snapshotEndpoints returns a map of "repoPath/dir" → EndpointConfig for diffing.
@@ -135,6 +136,7 @@ type InitResult struct {
 	Config    *Config
 	Orphans   OrphanReport
 	RepoCount int
+	Warnings  []string
 }
 
 // Init scans multiple repositories, derives routes, and generates a Config.
@@ -165,11 +167,18 @@ func Init(repoPaths []string) (*InitResult, error) {
 		Config:    cfg,
 		Orphans:   orphans,
 		RepoCount: len(repoPaths),
+		Warnings:  collectSkillWarnings(cfg, ""),
 	}, nil
 }
 
+// AddResult holds the result of an add operation.
+type AddResult struct {
+	Orphans  OrphanReport
+	Warnings []string
+}
+
 // Add scans a new repository and adds it to an existing config.
-func Add(cfg *Config, repoPath string) (*OrphanReport, error) {
+func Add(cfg *Config, repoPath string) (*AddResult, error) {
 	absPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid path %q: %w", repoPath, err)
@@ -192,7 +201,11 @@ func Add(cfg *Config, repoPath string) (*OrphanReport, error) {
 	cfg.LastSynced = time.Now().UTC()
 
 	orphans := DetectOrphansPerRepo(cfg)
-	return &orphans, nil
+
+	return &AddResult{
+		Orphans:  orphans,
+		Warnings: collectSkillWarnings(cfg, absPath),
+	}, nil
 }
 
 // Remove removes a repository from the config and re-derives routes.
@@ -247,11 +260,13 @@ func Sync(cfg *Config) (*SyncReport, error) {
 	newRoutes := snapshotRoutes(cfg)
 
 	orphans := DetectOrphansPerRepo(cfg)
+
 	return &SyncReport{
 		Orphans:         orphans,
 		EndpointChanges: diffEndpoints(oldEndpoints, newEndpoints),
 		RouteChanges:    diffRoutes(oldRoutes, newRoutes),
 		RepoCount:       len(cfg.Repositories),
 		TotalRoutes:     len(cfg.Routes),
+		Warnings:        collectSkillWarnings(cfg, ""),
 	}, nil
 }

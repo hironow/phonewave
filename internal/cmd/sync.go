@@ -9,10 +9,10 @@ import (
 
 func newSyncCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "sync",
-		Short: "Re-scan all repositories, reconcile routing table",
-		Long:  "Re-scan all repositories in the ecosystem, detect endpoint changes, and reconcile the routing table.",
-		Args:  cobra.NoArgs,
+		Use:     "sync",
+		Short:   "Re-scan all repositories, reconcile routing table",
+		Long:    "Re-scan all repositories in the ecosystem, detect endpoint changes, and reconcile the routing table.",
+		Args:    cobra.NoArgs,
 		Example: `  phonewave sync`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
@@ -56,6 +56,9 @@ func newSyncCmd() *cobra.Command {
 			}
 
 			printOrphanWarnings(logger, report.Orphans)
+			for _, w := range report.Warnings {
+				logger.Warn("%s", w)
+			}
 
 			return nil
 		},

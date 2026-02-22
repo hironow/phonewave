@@ -111,7 +111,7 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 	defer stopDaemonInContainer(t, ctx, pw, "/workspace")
 
 	// Deliver a D-Mail to generate traces
-	dmailContent := "---\nname: spec-otel\nkind: specification\ndescription: OTel test\n---\n\n# OTel\n"
+	dmailContent := "---\ndmail-schema-version: \"1\"\nname: spec-otel\nkind: specification\ndescription: OTel test\n---\n\n# OTel\n"
 	heredocWrite(t, ctx, pw, repoPath+"/.siren/outbox/spec-otel.md", dmailContent)
 	waitForFileInContainer(t, ctx, pw, repoPath+"/.expedition/inbox/spec-otel.md", 10*time.Second)
 

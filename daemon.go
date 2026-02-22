@@ -332,7 +332,7 @@ func ResolveRoutes(cfg *Config) ([]ResolvedRoute, error) {
 	for _, route := range cfg.Routes {
 		repoPath := route.RepoPath
 		if repoPath == "" {
-			// Fallback for legacy configs without RepoPath
+			// Fallback: derive repo from endpoint directory when RepoPath is unset
 			repo, err := findRepoForRoute(cfg, route.From)
 			if err != nil {
 				return nil, err

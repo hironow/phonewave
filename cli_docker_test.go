@@ -263,7 +263,7 @@ func TestLifecycleDocker_StatusRunning(t *testing.T) {
 	defer stopDaemonInContainer(t, ctx, c, "/workspace")
 
 	// Deliver something so stats have data
-	dmailContent := "---\nname: spec-status\nkind: specification\ndescription: Status test\n---\n\n# Status\n"
+	dmailContent := "---\ndmail-schema-version: \"1\"\nname: spec-status\nkind: specification\ndescription: Status test\n---\n\n# Status\n"
 	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/spec-status.md", dmailContent)
 	waitForFileInContainer(t, ctx, c, repoPath+"/.expedition/inbox/spec-status.md", 10*time.Second)
 

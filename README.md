@@ -48,7 +48,31 @@ Each tool declares its D-Mail capabilities in `SKILL.md` manifests:
 - `skills/dmail-sendable/SKILL.md` — declares what `kind`s the tool produces (writes to `outbox/`)
 - `skills/dmail-readable/SKILL.md` — declares what `kind`s the tool consumes (reads from `inbox/`)
 
-Phonewave scans these manifests, derives routes, and ensures every produced D-Mail reaches its consumer(s).
+D-Mail Schema v1 defines four message kinds:
+
+| Kind | Flow | Description |
+|------|------|-------------|
+| `specification` | sightjack → paintress | Issue specification ready for implementation |
+| `report` | paintress → amadeus | Implementation report for verification |
+| `feedback` | amadeus → sightjack, paintress | Corrective feedback from verifier |
+| `convergence` | amadeus → sightjack | World line convergence alert |
+
+SKILL.md uses Agent Skills v1 format with D-Mail declarations nested under `metadata`:
+
+```yaml
+---
+name: dmail-sendable
+description: Produces D-Mail messages to outbox for phonewave delivery.
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  produces:
+    - kind: specification
+      description: Issue specification ready for implementation
+---
+```
+
+Phonewave scans these manifests, validates kind values, derives routes, and ensures every produced D-Mail reaches its consumer(s). D-Mail capabilities must be declared under `metadata` with `dmail-schema-version: "1"`.
 
 ## Architecture
 
@@ -88,7 +112,7 @@ Repository A                   Repository B
 | `phonewave add <repo>` | Add a new repository to the ecosystem |
 | `phonewave remove <repo>` | Remove a repository from the ecosystem |
 | `phonewave sync` | Re-scan all repositories, reconcile routing table |
-| `phonewave doctor` | Verify ecosystem health (paths, endpoints, PID conflicts) |
+| `phonewave doctor` | Verify ecosystem health (paths, endpoints, SKILL.md spec compliance, PID conflicts) |
 | `phonewave run` | Start the courier daemon (foreground) |
 | `phonewave status` | Show daemon state, uptime, and 24h delivery statistics |
 | `phonewave version` | Print build version information |
@@ -226,6 +250,8 @@ just test-e2e-manual    # Manual E2E script (docker compose)
 just test-all       # All tests including Docker
 just jaeger         # Start Jaeger trace viewer
 just jaeger-down    # Stop Jaeger
+just validate-skills <path> # Validate SKILL.md against Agent Skills spec
+just docgen         # Generate CLI docs (Markdown)
 just prek-install   # Install prek hooks
 just prek-run       # Run all prek hooks
 ```
@@ -248,18 +274,19 @@ just prek-run       # Run all prek hooks
 |   +-- version.go             version subcommand (text/JSON output)
 |   +-- update.go              update subcommand (self-update via GitHub)
 |   +-- helpers.go             Shared CLI helpers (config path resolution)
-+-- phonewave.go               Init/Add/Remove/Sync orchestration (library)
-+-- scanner.go                 SKILL.md parser + endpoint discovery
++-- phonewave.go               Constants + state directory setup
++-- init.go                    Init/Add/Remove/Sync orchestration
++-- scanner.go                 SKILL.md parser + endpoint discovery (metadata-nested)
 +-- router.go                  Route derivation engine (produces/consumes matching)
 +-- config.go                  phonewave.yaml read/write/merge
 +-- daemon.go                  fsnotify daemon + event loop + retry
-+-- delivery.go                D-Mail delivery pipeline (atomic write)
++-- delivery.go                D-Mail delivery pipeline (atomic write, kind validation)
 +-- deliverylog.go             Append-only delivery log + error queue
 +-- status.go                  Daemon status + 24h statistics
-+-- doctor.go                  Ecosystem health checker
++-- doctor.go                  Ecosystem health checker (SKILL.md + skills-ref)
++-- validate.go                skills-ref validation + submodule discovery
 +-- telemetry.go               OpenTelemetry tracer setup (noop default)
 +-- logger.go                  Struct-based logger (timestamped prefixes)
-+-- init.go                    Multi-repo init flow
 +-- *_test.go                  Tests
 +-- justfile                   Task runner
 +-- .goreleaser.yaml           GoReleaser config (cross-platform builds)
@@ -272,6 +299,8 @@ just prek-run       # Run all prek hooks
 |   +-- compose.yaml           Jaeger v2 for trace viewing
 |   +-- compose-e2e.yaml       Manual E2E test (Jaeger + phonewave + writer)
 |   +-- jaeger-v2-config.yaml
++-- skills-ref/
+|   +-- skills-ref/            Agent Skills reference validator (git submodule)
 +-- docs/
 |   +-- cli/                   Auto-generated CLI reference (markdown)
 |   +-- phonewave-directory.md
@@ -285,6 +314,7 @@ just prek-run       # Run all prek hooks
 - Go 1.26+
 - [just](https://just.systems) for task automation
 - [Docker](https://www.docker.com/) for tracing (Jaeger) and lifecycle tests
+- [uv](https://docs.astral.sh/uv/) (optional) for SKILL.md spec validation via skills-ref submodule
 
 ## License
 

@@ -90,20 +90,27 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 				}
 			}
 
-			// Verify SKILL.md files are parseable
-			if len(ep.Produces) > 0 {
-				skillPath := filepath.Join(epDir, "skills", "dmail-sendable", "SKILL.md")
-				if data, err := os.ReadFile(skillPath); err == nil {
-					if _, err := ParseSkillFrontmatter(data); err != nil {
-						report.addWarn(epLabel, fmt.Sprintf("dmail-sendable SKILL.md parse error: %v", err))
+			// Verify SKILL.md files are parseable and spec-compliant
+			for _, skillName := range []string{SkillSendable, SkillReadable} {
+				skillDir := filepath.Join(epDir, "skills", skillName)
+				skillPath := filepath.Join(skillDir, "SKILL.md")
+				data, err := os.ReadFile(skillPath)
+				if err != nil {
+					if os.IsNotExist(err) {
+						continue // SKILL.md does not exist; skip
 					}
+					report.addWarn(epLabel, fmt.Sprintf("Failed to read %s SKILL.md: %v", skillName, err))
+					continue
 				}
-			}
-			if len(ep.Consumes) > 0 {
-				skillPath := filepath.Join(epDir, "skills", "dmail-readable", "SKILL.md")
-				if data, err := os.ReadFile(skillPath); err == nil {
-					if _, err := ParseSkillFrontmatter(data); err != nil {
-						report.addWarn(epLabel, fmt.Sprintf("dmail-readable SKILL.md parse error: %v", err))
+				if _, err := ParseSkillFrontmatter(data); err != nil {
+					report.addWarn(epLabel, fmt.Sprintf("%s SKILL.md parse error: %v", skillName, err))
+				}
+				// Run skills-ref spec compliance check (best-effort)
+				if problems, err := ValidateSkillDir(skillDir); err != nil {
+					report.addWarn(epLabel, fmt.Sprintf("skills-ref validate %s: %v", skillName, err))
+				} else if len(problems) > 0 {
+					for _, p := range problems {
+						report.addWarn(epLabel, fmt.Sprintf("skills-ref: %s", p))
 					}
 				}
 			}

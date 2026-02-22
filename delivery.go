@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -13,11 +14,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// SupportedDMailSchemaVersion is the only accepted dmail-schema-version value.
+const SupportedDMailSchemaVersion = "1"
+
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
 type DMailFrontmatter struct {
-	Name        string `yaml:"name"`
-	Kind        string `yaml:"kind"`
-	Description string `yaml:"description"`
+	SchemaVersion string `yaml:"dmail-schema-version"`
+	Name          string `yaml:"name"`
+	Kind          string `yaml:"kind"`
+	Description   string `yaml:"description"`
 }
 
 // ResolvedRoute is a concrete route with absolute paths for delivery.
@@ -34,32 +39,52 @@ type DeliveryResult struct {
 	DeliveredTo []string // inbox paths where the file was copied
 }
 
+// validDMailKinds lists the allowed D-Mail kind values per schema v1.
+var validDMailKinds = []string{"specification", "report", "feedback", "convergence"}
+
+// ValidKinds returns a copy of the allowed D-Mail kind values.
+func ValidKinds() []string {
+	return append([]string(nil), validDMailKinds...)
+}
+
+// ValidateKind checks that kind is one of the allowed D-Mail kinds.
+func ValidateKind(kind string) error {
+	if !slices.Contains(validDMailKinds, kind) {
+		return fmt.Errorf("invalid D-Mail kind %q: must be one of %v", kind, validDMailKinds)
+	}
+	return nil
+}
+
 // ExtractDMailKind reads a D-Mail file's YAML frontmatter and returns the kind.
 func ExtractDMailKind(data []byte) (string, error) {
 	fm, err := parseDMailFrontmatter(data)
 	if err != nil {
 		return "", err
 	}
+	if fm.SchemaVersion == "" {
+		return "", errors.New("D-Mail missing required 'dmail-schema-version' field")
+	}
+	if fm.SchemaVersion != SupportedDMailSchemaVersion {
+		return "", fmt.Errorf("unsupported dmail-schema-version %q: only \"1\" is supported", fm.SchemaVersion)
+	}
 	if fm.Kind == "" {
 		return "", errors.New("D-Mail missing required 'kind' field")
+	}
+	if err := ValidateKind(fm.Kind); err != nil {
+		return "", err
 	}
 	return fm.Kind, nil
 }
 
 // parseDMailFrontmatter extracts the YAML frontmatter from a D-Mail file.
+// This is intentionally separate from ParseSkillFrontmatter because D-Mail
+// and SKILL.md have different metadata structures (D-Mail metadata is
+// map[string]string, while SKILL metadata has typed produces/consumes).
 func parseDMailFrontmatter(data []byte) (*DMailFrontmatter, error) {
-	// Reuse the same frontmatter extraction logic as SKILL.md
-	// Validate the frontmatter is parseable via shared SKILL.md logic
-	_, err := ParseSkillFrontmatter(data)
-	if err != nil {
-		return nil, err
-	}
-
-	// Re-parse into DMailFrontmatter since the fields differ
 	content := string(data)
 	idx := findFrontmatterEnd(content)
 	if idx < 0 {
-		return nil, errors.New("no frontmatter found")
+		return nil, errors.New("no YAML frontmatter found: file must start with ---")
 	}
 
 	var fm DMailFrontmatter

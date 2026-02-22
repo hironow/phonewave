@@ -3,6 +3,7 @@ package phonewave
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -27,15 +28,15 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 		}
 	}
 
-	// Write SKILL.md files
+	// Write SKILL.md files (metadata-nested format, schema v1)
 	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-sendable", "SKILL.md"),
-		"---\nname: dmail-sendable\nproduces:\n  - kind: specification\n---\n")
+		"---\nname: dmail-sendable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-readable", "SKILL.md"),
-		"---\nname: dmail-readable\nconsumes:\n  - kind: feedback\n---\n")
+		"---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: feedback\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".expedition", "skills", "dmail-sendable", "SKILL.md"),
-		"---\nname: dmail-sendable\nproduces:\n  - kind: report\n---\n")
+		"---\nname: dmail-sendable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: report\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".expedition", "skills", "dmail-readable", "SKILL.md"),
-		"---\nname: dmail-readable\nconsumes:\n  - kind: specification\n---\n")
+		"---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: specification\n---\n")
 
 	cfg := &Config{
 		Repositories: []RepoConfig{
@@ -144,6 +145,51 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 	}
 }
 
+func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
+	// given — SKILL.md with an invalid kind
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, StateDir)
+
+	for _, dir := range []string{
+		filepath.Join(repoDir, ".siren", "outbox"),
+		filepath.Join(repoDir, ".siren", "inbox"),
+		filepath.Join(repoDir, ".siren", "skills", "dmail-sendable"),
+		stateDir,
+	} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-sendable", "SKILL.md"),
+		"---\nname: dmail-sendable\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: invalid_type\n---\n")
+
+	cfg := &Config{
+		Repositories: []RepoConfig{
+			{
+				Path: repoDir,
+				Endpoints: []EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}},
+				},
+			},
+		},
+	}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — should have a warning about invalid kind
+	hasKindWarn := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "warn" && strings.Contains(issue.Message, "invalid D-Mail kind") {
+			hasKindWarn = true
+		}
+	}
+	if !hasKindWarn {
+		t.Errorf("expected warning about invalid kind, got issues: %v", report.Issues)
+	}
+}
+
 func TestDoctor_DaemonNotRunning(t *testing.T) {
 	// given — no PID file
 	repoDir := t.TempDir()
@@ -163,6 +209,57 @@ func TestDoctor_DaemonNotRunning(t *testing.T) {
 	}
 	if report.DaemonStatus.Running {
 		t.Error("daemon should not be running")
+	}
+}
+
+func TestDoctor_SkillsRefValidation(t *testing.T) {
+	if !skillsRefAvailable() {
+		t.Skip("skills-ref not available")
+	}
+
+	// given — SKILL.md with name not matching directory (Agent Skills spec violation)
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, StateDir)
+
+	sendableDir := filepath.Join(repoDir, ".siren", "skills", "dmail-sendable")
+	for _, dir := range []string{
+		filepath.Join(repoDir, ".siren", "outbox"),
+		filepath.Join(repoDir, ".siren", "inbox"),
+		sendableDir,
+		stateDir,
+	} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// name field doesn't match directory name — non-compliant with Agent Skills spec
+	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
+		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
+
+	cfg := &Config{
+		Repositories: []RepoConfig{
+			{
+				Path: repoDir,
+				Endpoints: []EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}},
+				},
+			},
+		},
+	}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — should have a warning from skills-ref validation
+	hasSpecWarn := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "warn" && strings.Contains(issue.Message, "skills-ref") {
+			hasSpecWarn = true
+		}
+	}
+	if !hasSpecWarn {
+		t.Errorf("expected skills-ref validation warning for non-compliant SKILL.md, got issues: %v", report.Issues)
 	}
 }
 

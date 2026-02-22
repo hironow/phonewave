@@ -136,7 +136,7 @@ func TestLifecycleDocker_MultiContainer(t *testing.T) {
 	// =====================================================================
 	// Phase 6: Writer container writes D-Mail to shared volume
 	// =====================================================================
-	specContent := "---\nname: spec-cross\nkind: specification\ndescription: Cross-container spec\n---\n\n# Cross-container\n"
+	specContent := "---\ndmail-schema-version: \"1\"\nname: spec-cross\nkind: specification\ndescription: Cross-container spec\n---\n\n# Cross-container\n"
 	heredocWrite(t, ctx, writerContainer, repoPath+"/.siren/outbox/spec-cross.md", specContent)
 
 	// =====================================================================
@@ -154,7 +154,7 @@ func TestLifecycleDocker_MultiContainer(t *testing.T) {
 	// =====================================================================
 	// Phase 8: Writer sends feedback (multi-target: siren + expedition)
 	// =====================================================================
-	fbContent := "---\nname: fb-cross\nkind: feedback\ndescription: Cross-container feedback\n---\n\n# Feedback\n"
+	fbContent := "---\ndmail-schema-version: \"1\"\nname: fb-cross\nkind: feedback\ndescription: Cross-container feedback\n---\n\n# Feedback\n"
 	heredocWrite(t, ctx, writerContainer, repoPath+"/.gate/outbox/fb-cross.md", fbContent)
 
 	waitForFileInContainer(t, ctx, daemonContainer,

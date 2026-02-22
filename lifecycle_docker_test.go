@@ -208,13 +208,13 @@ func setupSecondRepoInContainer(t *testing.T, ctx context.Context, c testcontain
 		if tool.produces != "" {
 			skillDir := fmt.Sprintf("%s/%s/skills/dmail-sendable", repoPath, tool.dir)
 			execInContainer(t, ctx, c, []string{"mkdir", "-p", skillDir})
-			content := fmt.Sprintf("---\nname: dmail-sendable\nproduces:\n  - kind: %s\n---\n", tool.produces)
+			content := fmt.Sprintf("---\nname: dmail-sendable\ndescription: Produces D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: %s\n---\n", tool.produces)
 			heredocWrite(t, ctx, c, skillDir+"/SKILL.md", content)
 		}
 		if tool.consumes != "" {
 			skillDir := fmt.Sprintf("%s/%s/skills/dmail-readable", repoPath, tool.dir)
 			execInContainer(t, ctx, c, []string{"mkdir", "-p", skillDir})
-			content := fmt.Sprintf("---\nname: dmail-readable\nconsumes:\n  - kind: %s\n---\n", tool.consumes)
+			content := fmt.Sprintf("---\nname: dmail-readable\ndescription: Consumes D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: %s\n---\n", tool.consumes)
 			heredocWrite(t, ctx, c, skillDir+"/SKILL.md", content)
 		}
 	}
@@ -247,13 +247,13 @@ func setupEcosystemInContainer(t *testing.T, ctx context.Context, c testcontaine
 		// dmail-sendable SKILL.md
 		sendableDir := fmt.Sprintf("%s/%s/skills/dmail-sendable", repoPath, tool.dir)
 		execInContainer(t, ctx, c, []string{"mkdir", "-p", sendableDir})
-		sendableContent := fmt.Sprintf("---\nname: dmail-sendable\nproduces:\n  - kind: %s\n---\n", tool.produces)
+		sendableContent := fmt.Sprintf("---\nname: dmail-sendable\ndescription: Produces D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: %s\n---\n", tool.produces)
 		heredocWrite(t, ctx, c, sendableDir+"/SKILL.md", sendableContent)
 
 		// dmail-readable SKILL.md
 		readableDir := fmt.Sprintf("%s/%s/skills/dmail-readable", repoPath, tool.dir)
 		execInContainer(t, ctx, c, []string{"mkdir", "-p", readableDir})
-		readableContent := fmt.Sprintf("---\nname: dmail-readable\nconsumes:\n  - kind: %s\n---\n", tool.consumes)
+		readableContent := fmt.Sprintf("---\nname: dmail-readable\ndescription: Consumes D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: %s\n---\n", tool.consumes)
 		heredocWrite(t, ctx, c, readableDir+"/SKILL.md", readableContent)
 	}
 }
@@ -316,7 +316,7 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 	// =====================================================================
 	// Phase 4: Place pre-existing D-Mail, then start daemon
 	// =====================================================================
-	dmailContent := "---\nname: spec-docker\nkind: specification\ndescription: Docker test\n---\n\n# Docker Spec\n"
+	dmailContent := "---\ndmail-schema-version: \"1\"\nname: spec-docker\nkind: specification\ndescription: Docker test\n---\n\n# Docker Spec\n"
 	heredocWrite(t, ctx, container, repoPath+"/.siren/outbox/spec-docker.md", dmailContent)
 
 	// Start daemon in background
@@ -338,7 +338,7 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 	// =====================================================================
 	// Phase 6: Runtime delivery — write new D-Mail via exec
 	// =====================================================================
-	runtimeContent := "---\nname: spec-runtime\nkind: specification\ndescription: Runtime test\n---\n\n# Runtime\n"
+	runtimeContent := "---\ndmail-schema-version: \"1\"\nname: spec-runtime\nkind: specification\ndescription: Runtime test\n---\n\n# Runtime\n"
 	heredocWrite(t, ctx, container, repoPath+"/.siren/outbox/spec-runtime.md", runtimeContent)
 
 	waitForFileInContainer(t, ctx, container,
@@ -347,7 +347,7 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 	// =====================================================================
 	// Phase 7: Multi-target delivery — feedback → siren + expedition
 	// =====================================================================
-	feedbackContent := "---\nname: fb-docker\nkind: feedback\ndescription: Docker feedback\n---\n\n# Feedback\n"
+	feedbackContent := "---\ndmail-schema-version: \"1\"\nname: fb-docker\nkind: feedback\ndescription: Docker feedback\n---\n\n# Feedback\n"
 	heredocWrite(t, ctx, container, repoPath+"/.gate/outbox/fb-docker.md", feedbackContent)
 
 	waitForFileInContainer(t, ctx, container,

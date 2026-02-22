@@ -119,6 +119,10 @@ jaeger:
 jaeger-down:
     docker compose -f docker/compose.yaml down
 
+# Validate SKILL.md files against Agent Skills specification (requires uv)
+validate-skills +PATHS:
+    uv run --project skills-ref/skills-ref skills-ref validate {{PATHS}}
+
 # Generate CLI documentation in Markdown
 docgen:
     go run ./internal/tools/docgen/

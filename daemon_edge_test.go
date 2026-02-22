@@ -67,6 +67,7 @@ func TestDaemon_MalformedDMail(t *testing.T) {
 
 	// Daemon should still be running — test by sending a valid file
 	validContent := `---
+dmail-schema-version: "1"
 name: spec-after-bad
 kind: specification
 description: "Valid after malformed"
@@ -264,6 +265,7 @@ func TestScanAndDeliver_IgnoresTempFiles(t *testing.T) {
 
 	// Write a valid D-Mail
 	validContent := `---
+dmail-schema-version: "1"
 name: spec-valid
 kind: specification
 description: "Valid"
@@ -312,6 +314,7 @@ func TestScanAndDeliver_MixedValidInvalid(t *testing.T) {
 
 	// Valid D-Mail
 	if err := os.WriteFile(filepath.Join(outbox, "spec-001.md"), []byte(`---
+dmail-schema-version: "1"
 name: spec-001
 kind: specification
 description: "Valid"
@@ -327,6 +330,7 @@ description: "Valid"
 
 	// Another valid D-Mail
 	if err := os.WriteFile(filepath.Join(outbox, "spec-003.md"), []byte(`---
+dmail-schema-version: "1"
 name: spec-003
 kind: specification
 description: "Also valid"
@@ -423,6 +427,7 @@ func TestDeliver_OverwriteExistingInInbox(t *testing.T) {
 
 	// New D-Mail with same name
 	newContent := `---
+dmail-schema-version: "1"
 name: spec-dup
 kind: specification
 description: "New version"
@@ -472,6 +477,7 @@ func TestDeliver_MissingInboxDir(t *testing.T) {
 	nonExistentInbox := filepath.Join(repoDir, ".expedition", "inbox")
 
 	dmailContent := `---
+dmail-schema-version: "1"
 name: spec-noinbox
 kind: specification
 description: "No inbox target"
@@ -536,6 +542,7 @@ func TestDaemon_BurstDelivery(t *testing.T) {
 	// when — write 5 D-Mails in rapid succession
 	for i := range 5 {
 		content := []byte(`---
+dmail-schema-version: "1"
 name: spec-burst-` + string(rune('0'+i)) + `
 kind: specification
 description: "Burst test"
@@ -675,12 +682,14 @@ func TestDaemon_MultipleOutboxes(t *testing.T) {
 
 	// when — write to BOTH outboxes simultaneously
 	specContent := `---
+dmail-schema-version: "1"
 name: spec-multi
 kind: specification
 description: "Multi outbox test"
 ---
 `
 	fbContent := `---
+dmail-schema-version: "1"
 name: fb-multi
 kind: feedback
 description: "Multi outbox test"
@@ -738,6 +747,7 @@ func TestDeliver_PartialFailure_RollsBackDeliveredInboxes(t *testing.T) {
 	}
 
 	dmailContent := `---
+dmail-schema-version: "1"
 name: fb-partial
 kind: feedback
 description: "Partial failure test"
@@ -839,6 +849,7 @@ func TestDaemon_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
 	routes := []ResolvedRoute{}
 
 	dmailContent := `---
+dmail-schema-version: "1"
 name: spec-preserve
 kind: specification
 description: "Preserve test"
@@ -896,6 +907,7 @@ func TestScanAndDeliver_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
 	}
 
 	dmailContent := `---
+dmail-schema-version: "1"
 name: spec-scan-preserve
 kind: specification
 description: "Preserve test"
@@ -934,6 +946,7 @@ func TestDaemon_HandleRenameEvent(t *testing.T) {
 	}
 
 	dmailContent := `---
+dmail-schema-version: "1"
 name: spec-rename
 kind: specification
 description: "Rename event test"
@@ -1031,7 +1044,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 	}
 
 	// Place a D-Mail in the error queue (simulating a prior failure)
-	dmailData := []byte("---\nname: spec-retry\nkind: specification\ndescription: \"Retry test\"\n---\n\n# Retry Test\n")
+	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-retry\nkind: specification\ndescription: \"Retry test\"\n---\n\n# Retry Test\n")
 	meta := ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",
@@ -1121,7 +1134,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		}
 	}
 
-	dmailData := []byte("---\nname: spec-maxed\nkind: specification\ndescription: \"Max retry\"\n---\n")
+	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-maxed\nkind: specification\ndescription: \"Max retry\"\n---\n")
 	meta := ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",
@@ -1196,7 +1209,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		}
 	}
 
-	dmailData := []byte("---\nname: spec-nope\nkind: specification\ndescription: \"No retry\"\n---\n")
+	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-nope\nkind: specification\ndescription: \"No retry\"\n---\n")
 	meta := ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",

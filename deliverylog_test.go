@@ -82,7 +82,7 @@ func TestSaveToErrorQueue_WritesFileWithKindInName(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Now().UTC(),
 	}
-	data := []byte("---\nname: spec-fail\nkind: specification\n---\n# Failed spec\n")
+	data := []byte("---\ndmail-schema-version: \"1\"\nname: spec-fail\nkind: specification\n---\n# Failed spec\n")
 
 	// when
 	err := SaveToErrorQueue(stateDir, meta, data)
@@ -139,7 +139,7 @@ func TestSaveToErrorQueue_WritesSidecarFile(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Date(2026, 2, 20, 14, 30, 0, 0, time.UTC),
 	}
-	data := []byte("---\nname: spec-fail\nkind: specification\n---\n")
+	data := []byte("---\ndmail-schema-version: \"1\"\nname: spec-fail\nkind: specification\n---\n")
 
 	// when
 	err := SaveToErrorQueue(stateDir, meta, data)
@@ -198,7 +198,7 @@ func TestLoadErrorMetadata_RoundTrip(t *testing.T) {
 		Error:        "permission denied",
 		Timestamp:    time.Date(2026, 2, 20, 14, 30, 0, 0, time.UTC),
 	}
-	data := []byte("---\nname: feedback-001\nkind: feedback\n---\n")
+	data := []byte("---\ndmail-schema-version: \"1\"\nname: feedback-001\nkind: feedback\n---\n")
 
 	if err := SaveToErrorQueue(stateDir, original, data); err != nil {
 		t.Fatalf("SaveToErrorQueue: %v", err)
@@ -283,7 +283,7 @@ func TestUpdateErrorMetadata_IncrementsAttempts(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Date(2026, 2, 20, 14, 30, 0, 0, time.UTC),
 	}
-	data := []byte("---\nname: spec-fail\nkind: specification\n---\n")
+	data := []byte("---\ndmail-schema-version: \"1\"\nname: spec-fail\nkind: specification\n---\n")
 	if err := SaveToErrorQueue(stateDir, meta, data); err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +334,7 @@ func TestRemoveErrorEntry_RemovesBothFiles(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Date(2026, 2, 20, 14, 30, 0, 0, time.UTC),
 	}
-	data := []byte("---\nname: spec-fail\nkind: specification\n---\n")
+	data := []byte("---\ndmail-schema-version: \"1\"\nname: spec-fail\nkind: specification\n---\n")
 	if err := SaveToErrorQueue(stateDir, meta, data); err != nil {
 		t.Fatal(err)
 	}

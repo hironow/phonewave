@@ -27,7 +27,7 @@ func newAddCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			orphans, err := phonewave.Add(cfg, args[0])
+			result, err := phonewave.Add(cfg, args[0])
 			if err != nil {
 				return err
 			}
@@ -39,7 +39,10 @@ func newAddCmd() *cobra.Command {
 			absPath, _ := filepath.Abs(args[0])
 			logger.OK("Added %s", absPath)
 			logger.OK("%d routes total", len(cfg.Routes))
-			printOrphanWarnings(logger, *orphans)
+			printOrphanWarnings(logger, result.Orphans)
+			for _, w := range result.Warnings {
+				logger.Warn("%s", w)
+			}
 
 			return nil
 		},
