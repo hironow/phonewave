@@ -28,7 +28,7 @@ Adopt D-Mail Schema v1 with the following specification:
 4. **Mixed format rejection**: Top-level capabilities coexisting with `metadata`
    containing `dmail-schema-version` is rejected.
 5. **Kind validation**: Each capability's `kind` field is validated against the
-   set of known kinds (specification, report, feedback).
+   set of known kinds (specification, report, feedback, convergence).
 6. **D-Mail envelope**: Message files in outbox/inbox use the same
    `dmail-schema-version: "1"` header with `name`, `kind`, and `description`.
 
@@ -73,3 +73,6 @@ description: Implementation specification
 
 ### Neutral
 - Only version "1" is currently supported; future versions will require a new ADR
+- Some tools generate internal D-Mails (e.g., amadeus `convergence` kind) that
+  are written directly to archive/ without passing through the phonewave routing
+  pipeline. These still use the v1 envelope format for consistency

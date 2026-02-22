@@ -34,3 +34,9 @@ Adopt OpenTelemetry with a noop-default strategy across all four tools:
 ### Negative
 - Tracer lifecycle is coupled to `main.go` rather than cobra hooks
 - Each tool must independently configure its service name and resource attributes
+
+### Neutral
+- Shutdown mechanism varies per tool: phonewave/paintress/amadeus use
+  `defer shutdown(ctx)` in `main.go`, sightjack uses `cobra.OnFinalize` +
+  `sync.Once`. Both approaches guarantee cleanup; the choice depends on each
+  tool's initialization order

@@ -21,18 +21,24 @@ the following conventions:
    ensure `PersistentPreRunE` fires on all subcommands.
 3. **Exported constructor**: `NewRootCommand()` is exported from `internal/cmd/`
    for testability without `os.Exit`.
-4. **Persistent flags on root**: `--verbose` and `--config` are
-   `PersistentFlags` available to all subcommands.
-5. **Semgrep enforcement**: `.semgrep/cobra.yaml` (canonical in phonewave)
-   enforces these conventions via static analysis.
+4. **Persistent flags on root**: Common flags (e.g., `--verbose`) are
+   `PersistentFlags` available to all subcommands. Each tool defines its own
+   set of tool-specific persistent flags (e.g., `--config`, `--lang`).
+5. **POSIX short aliases**: Single-character aliases (`-v`, `-c`, etc.) follow
+   POSIX conventions for all persistent flags (MY-334).
+6. **Convention enforcement**: Each tool enforces these conventions through
+   appropriate mechanisms (e.g., semgrep rules, linter configuration,
+   pre-commit hooks). phonewave maintains `.semgrep/cobra.yaml` as the
+   canonical rule set.
 
 ## Consequences
 
 ### Positive
 - Consistent CLI behavior across all four tools
 - Testable command construction without process execution
-- Static analysis prevents regression to prohibited patterns
+- POSIX short aliases improve usability for experienced CLI users
+- Convention enforcement prevents regression to prohibited patterns
 
 ### Negative
 - cobra dependency must be kept in sync across repositories
-- Semgrep rules must be copied from phonewave to other tools on update
+- Enforcement mechanisms differ per tool (semgrep, go vet, pre-commit hooks)

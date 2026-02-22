@@ -26,21 +26,21 @@ Adopt **Option C (hybrid)** for cross-tool ADR management:
 
 ## Cross-Tool ADR Index
 
-| # | Decision | Canonical (phonewave) | Linear |
-|---|----------|-----------------------|--------|
-| 0001 | cobra CLI framework adoption | `docs/adr/0001-cobra-cli-framework.md` | MY-363 |
-| 0002 | stdio convention (stdout=data, stderr=logs) | `docs/adr/0002-stdio-convention.md` | MY-363 |
-| 0003 | OpenTelemetry noop-default + OTLP HTTP | `docs/adr/0003-opentelemetry-noop-default.md` | MY-363 |
-| 0004 | D-Mail Schema v1 specification | `docs/adr/0004-dmail-schema-v1.md` | MY-363 |
+| # | Decision | Canonical (phonewave) | Linear (impl) | Linear (decision) |
+|---|----------|-----------------------|----------------|-------------------|
+| 0001 | cobra CLI framework adoption | `docs/adr/0001-cobra-cli-framework.md` | MY-363 | MY-329 |
+| 0002 | stdio convention (stdout=data, stderr=logs) | `docs/adr/0002-stdio-convention.md` | MY-363 | MY-339 |
+| 0003 | OpenTelemetry noop-default + OTLP HTTP | `docs/adr/0003-opentelemetry-noop-default.md` | MY-363 | — |
+| 0004 | D-Mail Schema v1 specification | `docs/adr/0004-dmail-schema-v1.md` | MY-363 | MY-352, MY-353 |
 
 ## Tool-Specific ADR Ranges
 
 | Tool | Repository | 0005+ Scope |
 |------|-----------|-------------|
 | phonewave | `phonewave` | fsnotify daemon, goreleaser, Docker E2E |
-| sightjack | `sightjack` | Linear API integration, GraphQL optimization |
-| paintress | `paintress` | Autonomous engine, worker isolation, SIGTERM |
-| amadeus | `amadeus` | Convergence detection, severity routing, .gate/ |
+| sightjack | `sightjack` | Unix pipe architecture, convergence gate, fake-Claude E2E |
+| paintress | `paintress` | Expedition system, per-worker flag isolation, approval contract |
+| amadeus | `amadeus` | Pipeline architecture, scoring system, convergence detection, severity routing |
 
 ## Consequences
 

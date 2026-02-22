@@ -20,8 +20,10 @@ Enforce the following stdio convention across all four tools:
 3. **cobra abstraction**: Use `cmd.OutOrStdout()` for data output and
    `cmd.ErrOrStderr()` for log output. Never use `fmt.Println` or `os.Stdout`
    directly in command implementations.
-4. **Package-level log functions**: `phonewave.LogInfo`, `phonewave.LogWarn`,
-   `phonewave.LogError` write to stderr via the shared logger.
+4. **Structured logger**: Each tool provides a logger that writes to stderr.
+   The logger is constructed from `cmd.ErrOrStderr()` and injected into the
+   application layer. Implementation varies per tool (e.g., phonewave uses
+   package-level functions, amadeus/paintress/sightjack use Logger structs).
 
 ## Consequences
 
@@ -33,3 +35,9 @@ Enforce the following stdio convention across all four tools:
 ### Negative
 - Developers must consciously choose the correct stream for each output
 - Existing code using direct `fmt.Print` requires migration
+
+### Neutral
+- `main.go` outside cobra `Execute()` may use `os.Stderr` directly (e.g., fatal
+  startup errors before cobra initializes)
+- DI default values (e.g., `dataOut = os.Stdout`) are acceptable as they
+  represent the production wiring, not direct usage in command implementations
