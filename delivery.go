@@ -62,19 +62,14 @@ func ExtractDMailKind(data []byte) (string, error) {
 }
 
 // parseDMailFrontmatter extracts the YAML frontmatter from a D-Mail file.
+// This is intentionally separate from ParseSkillFrontmatter because D-Mail
+// and SKILL.md have different metadata structures (D-Mail metadata is
+// map[string]string, while SKILL metadata has typed produces/consumes).
 func parseDMailFrontmatter(data []byte) (*DMailFrontmatter, error) {
-	// Reuse the same frontmatter extraction logic as SKILL.md
-	// Validate the frontmatter is parseable via shared SKILL.md logic
-	_, err := ParseSkillFrontmatter(data)
-	if err != nil {
-		return nil, err
-	}
-
-	// Re-parse into DMailFrontmatter since the fields differ
 	content := string(data)
 	idx := findFrontmatterEnd(content)
 	if idx < 0 {
-		return nil, errors.New("no frontmatter found")
+		return nil, errors.New("no YAML frontmatter found: file must start with ---")
 	}
 
 	var fm DMailFrontmatter

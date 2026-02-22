@@ -75,6 +75,31 @@ description: "Missing kind"
 			wantErr: true,
 		},
 		{
+			name: "dmail with string metadata values",
+			content: `---
+name: feedback-meta
+kind: feedback
+description: "Feedback with metadata"
+metadata:
+  created_at: "2026-02-22"
+  convergence_for: "auth-module"
+---
+`,
+			want: "feedback",
+		},
+		{
+			name: "dmail with metadata produces as string",
+			content: `---
+name: feedback-str
+kind: feedback
+description: "Metadata produces is a string not array"
+metadata:
+  produces: "some-tool-specific-value"
+---
+`,
+			want: "feedback",
+		},
+		{
 			name: "invalid kind value",
 			content: `---
 name: bad-kind

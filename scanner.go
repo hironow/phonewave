@@ -66,11 +66,12 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 		return nil, err
 	}
 
-	// Merge: metadata produces/consumes take precedence over top-level
-	if len(skill.Metadata.Produces) > 0 {
+	// Merge: when dmail-schema-version is declared, metadata produces/consumes
+	// unconditionally override top-level fields (even if empty).
+	// This ensures that explicit metadata: { produces: [] } clears stale
+	// top-level declarations during migration.
+	if skill.Metadata.SchemaVersion != "" {
 		skill.Produces = skill.Metadata.Produces
-	}
-	if len(skill.Metadata.Consumes) > 0 {
 		skill.Consumes = skill.Metadata.Consumes
 	}
 

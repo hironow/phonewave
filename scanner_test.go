@@ -118,6 +118,27 @@ metadata:
 	}
 }
 
+func TestParseFrontmatter_MetadataEmptyOverridesLegacy(t *testing.T) {
+	// metadata.produces: [] should override legacy top-level produces
+	content := `---
+name: "dmail-sendable"
+description: "Migrated to metadata with empty produces"
+produces:
+  - kind: specification
+metadata:
+  dmail-schema-version: "1"
+  produces: []
+---
+`
+	skill, err := ParseSkillFrontmatter([]byte(content))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(skill.Produces) != 0 {
+		t.Errorf("want 0 produces (metadata override), got %d: %v", len(skill.Produces), skill.Produces)
+	}
+}
+
 func TestParseFrontmatter_MetadataValidatesKind(t *testing.T) {
 	content := `---
 name: "dmail-sendable"
