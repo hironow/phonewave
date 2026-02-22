@@ -76,8 +76,13 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 		return nil, errors.New("top-level produces/consumes is not supported; use metadata with dmail-schema-version: \"1\"")
 	}
 
-	// Read capabilities from metadata when schema version is declared.
-	if skill.Metadata.SchemaVersion != "" {
+	// Reject metadata capabilities without schema version.
+	if skill.Metadata.SchemaVersion == "" {
+		if len(skill.Metadata.Produces) > 0 || len(skill.Metadata.Consumes) > 0 {
+			return nil, errors.New("metadata contains produces/consumes but missing required dmail-schema-version")
+		}
+	} else {
+		// Read capabilities from metadata when schema version is declared.
 		if skill.Metadata.SchemaVersion != SupportedDMailSchemaVersion {
 			return nil, fmt.Errorf("unsupported dmail-schema-version %q: only \"1\" is supported", skill.Metadata.SchemaVersion)
 		}

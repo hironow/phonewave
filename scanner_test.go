@@ -191,6 +191,25 @@ metadata:
 	}
 }
 
+func TestParseFrontmatter_RejectsMetadataCapabilitiesWithoutSchemaVersion(t *testing.T) {
+	// given — metadata.produces present but dmail-schema-version missing
+	content := `---
+name: "dmail-sendable"
+description: "Forgot schema version"
+metadata:
+  produces:
+    - kind: specification
+---
+`
+	// when
+	_, err := ParseSkillFrontmatter([]byte(content))
+
+	// then — should fail fast, not silently drop capabilities
+	if err == nil {
+		t.Fatal("expected error for metadata capabilities without dmail-schema-version, got nil")
+	}
+}
+
 func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 	content := `# Just a markdown file without frontmatter`
 	_, err := ParseSkillFrontmatter([]byte(content))
