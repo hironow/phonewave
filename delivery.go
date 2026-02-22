@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -34,6 +35,17 @@ type DeliveryResult struct {
 	DeliveredTo []string // inbox paths where the file was copied
 }
 
+// ValidKinds lists the allowed D-Mail kind values per schema v1.
+var ValidKinds = []string{"specification", "report", "feedback", "convergence"}
+
+// ValidateKind checks that kind is one of the allowed D-Mail kinds.
+func ValidateKind(kind string) error {
+	if !slices.Contains(ValidKinds, kind) {
+		return fmt.Errorf("invalid D-Mail kind %q: must be one of %v", kind, ValidKinds)
+	}
+	return nil
+}
+
 // ExtractDMailKind reads a D-Mail file's YAML frontmatter and returns the kind.
 func ExtractDMailKind(data []byte) (string, error) {
 	fm, err := parseDMailFrontmatter(data)
@@ -42,6 +54,9 @@ func ExtractDMailKind(data []byte) (string, error) {
 	}
 	if fm.Kind == "" {
 		return "", errors.New("D-Mail missing required 'kind' field")
+	}
+	if err := ValidateKind(fm.Kind); err != nil {
+		return "", err
 	}
 	return fm.Kind, nil
 }

@@ -3,6 +3,7 @@ package phonewave
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,12 +17,20 @@ type DMailCapability struct {
 	Description string `yaml:"description"`
 }
 
+// SkillMetadata holds D-Mail extension fields within SKILL.md metadata.
+type SkillMetadata struct {
+	SchemaVersion string            `yaml:"dmail-schema-version"`
+	Produces      []DMailCapability `yaml:"produces"`
+	Consumes      []DMailCapability `yaml:"consumes"`
+}
+
 // SkillFrontmatter holds parsed YAML frontmatter from a SKILL.md file.
 type SkillFrontmatter struct {
 	Name        string            `yaml:"name"`
 	Description string            `yaml:"description"`
 	Produces    []DMailCapability `yaml:"produces"`
 	Consumes    []DMailCapability `yaml:"consumes"`
+	Metadata    SkillMetadata     `yaml:"metadata"`
 }
 
 // Endpoint represents a discovered tool endpoint within a repository.
@@ -33,6 +42,8 @@ type Endpoint struct {
 
 // ParseSkillFrontmatter extracts YAML frontmatter from a SKILL.md file.
 // The frontmatter must be delimited by "---" lines.
+// Supports both metadata-nested (Agent Skills v1) and top-level (legacy)
+// produces/consumes declarations. Metadata takes precedence when present.
 func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 	content := string(data)
 
@@ -54,6 +65,27 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 	if err := yaml.NewDecoder(bytes.NewReader([]byte(frontmatter))).Decode(&skill); err != nil {
 		return nil, err
 	}
+
+	// Merge: metadata produces/consumes take precedence over top-level
+	if len(skill.Metadata.Produces) > 0 {
+		skill.Produces = skill.Metadata.Produces
+	}
+	if len(skill.Metadata.Consumes) > 0 {
+		skill.Consumes = skill.Metadata.Consumes
+	}
+
+	// Validate all declared kinds
+	for _, p := range skill.Produces {
+		if err := ValidateKind(p.Kind); err != nil {
+			return nil, fmt.Errorf("produces: %w", err)
+		}
+	}
+	for _, c := range skill.Consumes {
+		if err := ValidateKind(c.Kind); err != nil {
+			return nil, fmt.Errorf("consumes: %w", err)
+		}
+	}
+
 	return &skill, nil
 }
 

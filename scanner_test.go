@@ -60,6 +60,80 @@ consumes:
 	}
 }
 
+func TestParseFrontmatter_MetadataProduces(t *testing.T) {
+	content := `---
+name: "dmail-sendable"
+description: "Produces D-Mail messages to outbox"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  produces:
+    - kind: specification
+      description: "Issue specification ready for implementation"
+---
+
+# Sendable Skill
+`
+	skill, err := ParseSkillFrontmatter([]byte(content))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(skill.Produces) != 1 {
+		t.Fatalf("want 1 produces, got %d", len(skill.Produces))
+	}
+	if skill.Produces[0].Kind != "specification" {
+		t.Errorf("produces[0].kind = %q, want %q", skill.Produces[0].Kind, "specification")
+	}
+	if skill.Metadata.SchemaVersion != "1" {
+		t.Errorf("metadata.dmail-schema-version = %q, want %q", skill.Metadata.SchemaVersion, "1")
+	}
+}
+
+func TestParseFrontmatter_MetadataConsumes(t *testing.T) {
+	content := `---
+name: "dmail-readable"
+description: "Reads D-Mail messages from inbox"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  consumes:
+    - kind: feedback
+      description: "Corrective feedback from verifier"
+    - kind: specification
+      description: "Issue specification"
+---
+`
+	skill, err := ParseSkillFrontmatter([]byte(content))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(skill.Consumes) != 2 {
+		t.Fatalf("want 2 consumes, got %d", len(skill.Consumes))
+	}
+	if skill.Consumes[0].Kind != "feedback" {
+		t.Errorf("consumes[0].kind = %q, want %q", skill.Consumes[0].Kind, "feedback")
+	}
+	if skill.Consumes[1].Kind != "specification" {
+		t.Errorf("consumes[1].kind = %q, want %q", skill.Consumes[1].Kind, "specification")
+	}
+}
+
+func TestParseFrontmatter_MetadataValidatesKind(t *testing.T) {
+	content := `---
+name: "dmail-sendable"
+description: "Bad kind"
+metadata:
+  dmail-schema-version: "1"
+  produces:
+    - kind: invalid_kind
+---
+`
+	_, err := ParseSkillFrontmatter([]byte(content))
+	if err == nil {
+		t.Fatal("expected error for invalid kind in metadata, got nil")
+	}
+}
+
 func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 	content := `# Just a markdown file without frontmatter`
 	_, err := ParseSkillFrontmatter([]byte(content))

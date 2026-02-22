@@ -3,6 +3,7 @@ package phonewave
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -141,6 +142,51 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 	}
 	if !hasError {
 		t.Error("expected error-level issue for missing repo path")
+	}
+}
+
+func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
+	// given — SKILL.md with an invalid kind
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, StateDir)
+
+	for _, dir := range []string{
+		filepath.Join(repoDir, ".siren", "outbox"),
+		filepath.Join(repoDir, ".siren", "inbox"),
+		filepath.Join(repoDir, ".siren", "skills", "dmail-sendable"),
+		stateDir,
+	} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-sendable", "SKILL.md"),
+		"---\nname: dmail-sendable\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: invalid_type\n---\n")
+
+	cfg := &Config{
+		Repositories: []RepoConfig{
+			{
+				Path: repoDir,
+				Endpoints: []EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}},
+				},
+			},
+		},
+	}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — should have a warning about invalid kind
+	hasKindWarn := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "warn" && strings.Contains(issue.Message, "invalid D-Mail kind") {
+			hasKindWarn = true
+		}
+	}
+	if !hasKindWarn {
+		t.Errorf("expected warning about invalid kind, got issues: %v", report.Issues)
 	}
 }
 

@@ -41,6 +41,26 @@ issues:
 			want: "specification",
 		},
 		{
+			name: "valid report dmail",
+			content: `---
+name: report-001
+kind: report
+description: "Implementation report"
+---
+`,
+			want: "report",
+		},
+		{
+			name: "valid convergence dmail",
+			content: `---
+name: conv-001
+kind: convergence
+description: "Convergence alert"
+---
+`,
+			want: "convergence",
+		},
+		{
 			name:    "no frontmatter",
 			content: "# Just markdown",
 			wantErr: true,
@@ -50,6 +70,16 @@ issues:
 			content: `---
 name: no-kind
 description: "Missing kind"
+---
+`,
+			wantErr: true,
+		},
+		{
+			name: "invalid kind value",
+			content: `---
+name: bad-kind
+kind: invalid_type
+description: "Not a valid kind"
 ---
 `,
 			wantErr: true,
@@ -70,6 +100,34 @@ description: "Missing kind"
 			}
 			if got != tt.want {
 				t.Errorf("kind = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateKind(t *testing.T) {
+	tests := []struct {
+		kind    string
+		wantErr bool
+	}{
+		{"specification", false},
+		{"report", false},
+		{"feedback", false},
+		{"convergence", false},
+		{"", true},
+		{"unknown", true},
+		{"SPECIFICATION", true},
+		{"spec", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.kind, func(t *testing.T) {
+			err := ValidateKind(tt.kind)
+			if tt.wantErr && err == nil {
+				t.Errorf("ValidateKind(%q) = nil, want error", tt.kind)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("ValidateKind(%q) = %v, want nil", tt.kind, err)
 			}
 		})
 	}
