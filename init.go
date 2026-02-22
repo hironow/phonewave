@@ -135,6 +135,7 @@ type InitResult struct {
 	Config    *Config
 	Orphans   OrphanReport
 	RepoCount int
+	Warnings  []string
 }
 
 // Init scans multiple repositories, derives routes, and generates a Config.
@@ -161,10 +162,19 @@ func Init(repoPaths []string) (*InitResult, error) {
 
 	orphans := DetectOrphansPerRepo(cfg)
 
+	// Best-effort skills-ref validation on all discovered endpoints
+	var warnings []string
+	for _, repo := range cfg.Repositories {
+		for _, ep := range repo.Endpoints {
+			warnings = append(warnings, validateEndpointSkills(repo.Path, ep)...)
+		}
+	}
+
 	return &InitResult{
 		Config:    cfg,
 		Orphans:   orphans,
 		RepoCount: len(repoPaths),
+		Warnings:  warnings,
 	}, nil
 }
 

@@ -212,6 +212,57 @@ func TestDoctor_DaemonNotRunning(t *testing.T) {
 	}
 }
 
+func TestDoctor_SkillsRefValidation(t *testing.T) {
+	if !skillsRefAvailable() {
+		t.Skip("skills-ref not available")
+	}
+
+	// given — SKILL.md with top-level produces (Agent Skills spec violation)
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, StateDir)
+
+	sendableDir := filepath.Join(repoDir, ".siren", "skills", "dmail-sendable")
+	for _, dir := range []string{
+		filepath.Join(repoDir, ".siren", "outbox"),
+		filepath.Join(repoDir, ".siren", "inbox"),
+		sendableDir,
+		stateDir,
+	} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// top-level produces is non-compliant with Agent Skills spec
+	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
+		"---\nname: dmail-sendable\ndescription: test\nproduces:\n  - kind: specification\n---\n")
+
+	cfg := &Config{
+		Repositories: []RepoConfig{
+			{
+				Path: repoDir,
+				Endpoints: []EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}},
+				},
+			},
+		},
+	}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — should have a warning from skills-ref validation
+	hasSpecWarn := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "warn" && strings.Contains(issue.Message, "skills-ref") {
+			hasSpecWarn = true
+		}
+	}
+	if !hasSpecWarn {
+		t.Errorf("expected skills-ref validation warning for non-compliant SKILL.md, got issues: %v", report.Issues)
+	}
+}
+
 func writeSkillFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

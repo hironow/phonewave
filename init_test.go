@@ -3,6 +3,7 @@ package phonewave
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -50,7 +51,7 @@ func TestInit_FullEcosystem(t *testing.T) {
 	repo := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
 		".siren":      {produces: []string{"specification"}, consumes: []string{"feedback"}},
 		".expedition": {produces: []string{"report"}, consumes: []string{"specification", "feedback"}},
-		".gate": {produces: []string{"feedback"}, consumes: []string{"report"}},
+		".gate":       {produces: []string{"feedback"}, consumes: []string{"report"}},
 	})
 
 	// when
@@ -233,6 +234,38 @@ func TestDiffRoutes_DetectsAddedAndRemoved(t *testing.T) {
 	}
 	if added != 1 || removed != 1 {
 		t.Errorf("added=%d removed=%d, want 1 each", added, removed)
+	}
+}
+
+func TestInit_SkillsRefWarnings(t *testing.T) {
+	if !skillsRefAvailable() {
+		t.Skip("skills-ref not available")
+	}
+
+	// given — SKILL.md with top-level produces (Agent Skills spec violation)
+	repoDir := t.TempDir()
+	sendableDir := filepath.Join(repoDir, ".siren", "skills", "dmail-sendable")
+	if err := os.MkdirAll(sendableDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
+		"---\nname: dmail-sendable\ndescription: test\nproduces:\n  - kind: specification\n---\n")
+
+	// when
+	result, err := Init([]string{repoDir})
+
+	// then
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	hasSkillsRefWarn := false
+	for _, w := range result.Warnings {
+		if strings.Contains(w, "skills-ref") {
+			hasSkillsRefWarn = true
+		}
+	}
+	if !hasSkillsRefWarn {
+		t.Errorf("expected skills-ref validation warning in Init result, got warnings: %v", result.Warnings)
 	}
 }
 
