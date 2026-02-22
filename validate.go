@@ -46,13 +46,43 @@ func skillsRefCommand(skillDir string) (*exec.Cmd, error) {
 	return nil, fmt.Errorf("skills-ref not found (install via 'uv tool install skills-ref' or ensure submodule is present)")
 }
 
-// findSkillsRefDir walks up from CWD looking for the bundled
-// skills-ref submodule (skills-ref/skills-ref/pyproject.toml).
+// findSkillsRefDir locates the bundled skills-ref submodule.
+// Discovery order:
+//  1. PHONEWAVE_SKILLS_REF environment variable (explicit override)
+//  2. Walk up from the executable path (handles installed-in-repo binaries)
+//  3. Walk up from CWD (handles development and test runs)
 func findSkillsRefDir() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return ""
+	// 1. Explicit override
+	if dir := os.Getenv("PHONEWAVE_SKILLS_REF"); dir != "" {
+		if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err == nil {
+			return dir
+		}
 	}
+
+	// 2. Walk up from executable path
+	if exe, err := os.Executable(); err == nil {
+		if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+			exe = resolved
+		}
+		if dir := walkUpForSkillsRef(filepath.Dir(exe)); dir != "" {
+			return dir
+		}
+	}
+
+	// 3. Walk up from CWD
+	if cwd, err := os.Getwd(); err == nil {
+		if dir := walkUpForSkillsRef(cwd); dir != "" {
+			return dir
+		}
+	}
+
+	return ""
+}
+
+// walkUpForSkillsRef walks up directory ancestors from startDir looking
+// for skills-ref/skills-ref/pyproject.toml.
+func walkUpForSkillsRef(startDir string) string {
+	dir := startDir
 	for {
 		candidate := filepath.Join(dir, "skills-ref", "skills-ref", "pyproject.toml")
 		if _, err := os.Stat(candidate); err == nil {

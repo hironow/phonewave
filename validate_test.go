@@ -130,6 +130,72 @@ produces:
 	}
 }
 
+func TestWalkUpForSkillsRef_FindsSubmodule(t *testing.T) {
+	// given — a directory tree with skills-ref/skills-ref/pyproject.toml
+	root := t.TempDir()
+	submodDir := filepath.Join(root, "skills-ref", "skills-ref")
+	if err := os.MkdirAll(submodDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(submodDir, "pyproject.toml"), []byte("[project]\nname = \"skills-ref\"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Start from a nested directory
+	nested := filepath.Join(root, "deep", "nested", "dir")
+	if err := os.MkdirAll(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// when
+	found := walkUpForSkillsRef(nested)
+
+	// then
+	if found != submodDir {
+		t.Errorf("walkUpForSkillsRef(%q) = %q, want %q", nested, found, submodDir)
+	}
+}
+
+func TestWalkUpForSkillsRef_ReturnsEmptyOutsideRepo(t *testing.T) {
+	// given — a temp directory with no skills-ref submodule
+	isolated := t.TempDir()
+
+	// when
+	found := walkUpForSkillsRef(isolated)
+
+	// then
+	if found != "" {
+		t.Errorf("walkUpForSkillsRef(%q) = %q, want empty", isolated, found)
+	}
+}
+
+func TestFindSkillsRefDir_EnvVarOverride(t *testing.T) {
+	// given — explicit PHONEWAVE_SKILLS_REF pointing to a valid directory
+	submodDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(submodDir, "pyproject.toml"), []byte("[project]\nname = \"skills-ref\"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PHONEWAVE_SKILLS_REF", submodDir)
+
+	// when
+	found := findSkillsRefDir()
+
+	// then
+	if found != submodDir {
+		t.Errorf("findSkillsRefDir() = %q, want %q (from env var)", found, submodDir)
+	}
+}
+
+func TestFindSkillsRefDir_EnvVarInvalidIgnored(t *testing.T) {
+	// given — PHONEWAVE_SKILLS_REF pointing to nonexistent path
+	t.Setenv("PHONEWAVE_SKILLS_REF", "/nonexistent/path")
+
+	// when — should fall through to other discovery methods (not panic)
+	_ = findSkillsRefDir()
+	// then — no crash; result depends on CWD/executable fallbacks
+}
+
 func skillsRefAvailable() bool {
 	_, err := skillsRefCommand("/dev/null")
 	return err == nil
