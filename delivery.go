@@ -35,13 +35,18 @@ type DeliveryResult struct {
 	DeliveredTo []string // inbox paths where the file was copied
 }
 
-// ValidKinds lists the allowed D-Mail kind values per schema v1.
-var ValidKinds = []string{"specification", "report", "feedback", "convergence"}
+// validKinds lists the allowed D-Mail kind values per schema v1.
+var validKinds = []string{"specification", "report", "feedback", "convergence"}
+
+// ValidKinds returns a copy of the allowed D-Mail kind values.
+func ValidKinds() []string {
+	return append([]string(nil), validKinds...)
+}
 
 // ValidateKind checks that kind is one of the allowed D-Mail kinds.
 func ValidateKind(kind string) error {
-	if !slices.Contains(ValidKinds, kind) {
-		return fmt.Errorf("invalid D-Mail kind %q: must be one of %v", kind, ValidKinds)
+	if !slices.Contains(validKinds, kind) {
+		return fmt.Errorf("invalid D-Mail kind %q: must be one of %v", kind, validKinds)
 	}
 	return nil
 }

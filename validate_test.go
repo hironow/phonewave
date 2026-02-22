@@ -197,6 +197,6 @@ func TestFindSkillsRefDir_EnvVarInvalidIgnored(t *testing.T) {
 }
 
 func skillsRefAvailable() bool {
-	_, err := skillsRefCommand("/dev/null")
+	_, err := skillsRefCommand(os.DevNull)
 	return err == nil
 }

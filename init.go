@@ -163,19 +163,11 @@ func Init(repoPaths []string) (*InitResult, error) {
 
 	orphans := DetectOrphansPerRepo(cfg)
 
-	// Best-effort skills-ref validation on all discovered endpoints
-	var warnings []string
-	for _, repo := range cfg.Repositories {
-		for _, ep := range repo.Endpoints {
-			warnings = append(warnings, validateEndpointSkills(repo.Path, ep)...)
-		}
-	}
-
 	return &InitResult{
 		Config:    cfg,
 		Orphans:   orphans,
 		RepoCount: len(repoPaths),
-		Warnings:  warnings,
+		Warnings:  collectSkillWarnings(cfg, ""),
 	}, nil
 }
 
@@ -210,20 +202,9 @@ func Add(cfg *Config, repoPath string) (*AddResult, error) {
 
 	orphans := DetectOrphansPerRepo(cfg)
 
-	// Best-effort skills-ref validation on newly added endpoints
-	var warnings []string
-	for _, repo := range cfg.Repositories {
-		if repo.Path == absPath {
-			for _, ep := range repo.Endpoints {
-				warnings = append(warnings, validateEndpointSkills(repo.Path, ep)...)
-			}
-			break
-		}
-	}
-
 	return &AddResult{
 		Orphans:  orphans,
-		Warnings: warnings,
+		Warnings: collectSkillWarnings(cfg, absPath),
 	}, nil
 }
 
@@ -280,20 +261,12 @@ func Sync(cfg *Config) (*SyncReport, error) {
 
 	orphans := DetectOrphansPerRepo(cfg)
 
-	// Best-effort skills-ref validation on all endpoints
-	var warnings []string
-	for _, repo := range cfg.Repositories {
-		for _, ep := range repo.Endpoints {
-			warnings = append(warnings, validateEndpointSkills(repo.Path, ep)...)
-		}
-	}
-
 	return &SyncReport{
 		Orphans:         orphans,
 		EndpointChanges: diffEndpoints(oldEndpoints, newEndpoints),
 		RouteChanges:    diffRoutes(oldRoutes, newRoutes),
 		RepoCount:       len(cfg.Repositories),
 		TotalRoutes:     len(cfg.Routes),
-		Warnings:        warnings,
+		Warnings:        collectSkillWarnings(cfg, ""),
 	}, nil
 }

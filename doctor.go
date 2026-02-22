@@ -96,7 +96,11 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 				skillPath := filepath.Join(skillDir, "SKILL.md")
 				data, err := os.ReadFile(skillPath)
 				if err != nil {
-					continue // SKILL.md does not exist; skip
+					if os.IsNotExist(err) {
+						continue // SKILL.md does not exist; skip
+					}
+					report.addWarn(epLabel, fmt.Sprintf("Failed to read %s SKILL.md: %v", skillName, err))
+					continue
 				}
 				if _, err := ParseSkillFrontmatter(data); err != nil {
 					report.addWarn(epLabel, fmt.Sprintf("%s SKILL.md parse error: %v", skillName, err))
