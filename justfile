@@ -121,7 +121,7 @@ jaeger-down:
 
 # Validate SKILL.md files against Agent Skills specification (requires uv)
 validate-skills +PATHS:
-    cd skills-ref/skills-ref && uv run skills-ref validate {{PATHS}}
+    uv run --project skills-ref/skills-ref skills-ref validate {{PATHS}}
 
 # Generate CLI documentation in Markdown
 docgen:

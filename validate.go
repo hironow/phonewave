@@ -40,7 +40,7 @@ func skillsRefCommand(skillDir string) (*exec.Cmd, error) {
 	}
 	if uvPath, err := exec.LookPath("uv"); err == nil {
 		if subDir := findSkillsRefDir(); subDir != "" {
-			return exec.Command(uvPath, "run", "--directory", subDir, "skills-ref", "validate", skillDir), nil
+			return exec.Command(uvPath, "run", "--project", subDir, "skills-ref", "validate", skillDir), nil
 		}
 	}
 	return nil, fmt.Errorf("skills-ref not found (install via 'uv tool install skills-ref' or ensure submodule is present)")
@@ -68,26 +68,22 @@ func findSkillsRefDir() string {
 }
 
 // validateEndpointSkills runs skills-ref validation on an endpoint's skill directories.
+// Validates any skill directory that exists on disk, regardless of whether
+// the endpoint config declares produces/consumes (handles migration scenarios).
 func validateEndpointSkills(repoPath string, ep EndpointConfig) []string {
 	var warnings []string
 	epLabel := filepath.Base(repoPath) + "/" + ep.Dir
 
-	for _, skill := range []struct {
-		name    string
-		hasDecl bool
-	}{
-		{"dmail-sendable", len(ep.Produces) > 0},
-		{"dmail-readable", len(ep.Consumes) > 0},
-	} {
-		if !skill.hasDecl {
-			continue
+	for _, skillName := range []string{"dmail-sendable", "dmail-readable"} {
+		skillDir := filepath.Join(repoPath, ep.Dir, "skills", skillName)
+		if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err != nil {
+			continue // SKILL.md does not exist on disk; nothing to validate
 		}
-		skillDir := filepath.Join(repoPath, ep.Dir, "skills", skill.name)
 		if problems, err := ValidateSkillDir(skillDir); err != nil {
-			warnings = append(warnings, fmt.Sprintf("skills-ref validate %s/%s: %v", epLabel, skill.name, err))
+			warnings = append(warnings, fmt.Sprintf("skills-ref validate %s/%s: %v", epLabel, skillName, err))
 		} else if len(problems) > 0 {
 			for _, p := range problems {
-				warnings = append(warnings, fmt.Sprintf("skills-ref: %s/%s: %s", epLabel, skill.name, p))
+				warnings = append(warnings, fmt.Sprintf("skills-ref: %s/%s: %s", epLabel, skillName, p))
 			}
 		}
 	}

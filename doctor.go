@@ -91,26 +91,19 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 			}
 
 			// Verify SKILL.md files are parseable and spec-compliant
-			for _, skill := range []struct {
-				name    string
-				hasDecl bool
-			}{
-				{"dmail-sendable", len(ep.Produces) > 0},
-				{"dmail-readable", len(ep.Consumes) > 0},
-			} {
-				if !skill.hasDecl {
-					continue
-				}
-				skillDir := filepath.Join(epDir, "skills", skill.name)
+			for _, skillName := range []string{"dmail-sendable", "dmail-readable"} {
+				skillDir := filepath.Join(epDir, "skills", skillName)
 				skillPath := filepath.Join(skillDir, "SKILL.md")
-				if data, err := os.ReadFile(skillPath); err == nil {
-					if _, err := ParseSkillFrontmatter(data); err != nil {
-						report.addWarn(epLabel, fmt.Sprintf("%s SKILL.md parse error: %v", skill.name, err))
-					}
+				data, err := os.ReadFile(skillPath)
+				if err != nil {
+					continue // SKILL.md does not exist; skip
+				}
+				if _, err := ParseSkillFrontmatter(data); err != nil {
+					report.addWarn(epLabel, fmt.Sprintf("%s SKILL.md parse error: %v", skillName, err))
 				}
 				// Run skills-ref spec compliance check (best-effort)
 				if problems, err := ValidateSkillDir(skillDir); err != nil {
-					report.addWarn(epLabel, fmt.Sprintf("skills-ref validate %s: %v", skill.name, err))
+					report.addWarn(epLabel, fmt.Sprintf("skills-ref validate %s: %v", skillName, err))
 				} else if len(problems) > 0 {
 					for _, p := range problems {
 						report.addWarn(epLabel, fmt.Sprintf("skills-ref: %s", p))

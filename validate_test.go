@@ -93,6 +93,43 @@ func TestParseValidationOutput(t *testing.T) {
 	}
 }
 
+func TestValidateEndpointSkills_EmptyDeclarations(t *testing.T) {
+	if !skillsRefAvailable() {
+		t.Skip("skills-ref not available")
+	}
+
+	// given — endpoint with empty produces/consumes but SKILL.md exists on disk
+	repoDir := t.TempDir()
+	sendableDir := filepath.Join(repoDir, ".siren", "skills", "dmail-sendable")
+	if err := os.MkdirAll(sendableDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Non-compliant SKILL.md (top-level produces)
+	if err := os.WriteFile(filepath.Join(sendableDir, "SKILL.md"), []byte(`---
+name: dmail-sendable
+description: test
+produces:
+  - kind: specification
+---
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ep := EndpointConfig{
+		Dir:      ".siren",
+		Produces: nil, // empty — simulates migration or intentional empty
+		Consumes: nil,
+	}
+
+	// when
+	warnings := validateEndpointSkills(repoDir, ep)
+
+	// then — should still validate because SKILL.md exists on disk
+	if len(warnings) == 0 {
+		t.Error("expected skills-ref warnings for non-compliant SKILL.md even with empty declarations")
+	}
+}
+
 func skillsRefAvailable() bool {
 	_, err := skillsRefCommand("/dev/null")
 	return err == nil
