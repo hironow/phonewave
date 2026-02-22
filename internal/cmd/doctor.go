@@ -10,10 +10,10 @@ import (
 
 func newDoctorCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "doctor",
-		Short: "Verify ecosystem health",
-		Long:  "Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, and daemon status.",
-		Args:  cobra.NoArgs,
+		Use:     "doctor",
+		Short:   "Verify ecosystem health",
+		Long:    "Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, and daemon status.",
+		Args:    cobra.NoArgs,
 		Example: `  phonewave doctor`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
