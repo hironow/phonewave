@@ -29,6 +29,7 @@ type SyncReport struct {
 	RouteChanges    []RouteDiff
 	RepoCount       int
 	TotalRoutes     int
+	Warnings        []string
 }
 
 // snapshotEndpoints returns a map of "repoPath/dir" → EndpointConfig for diffing.
@@ -178,8 +179,14 @@ func Init(repoPaths []string) (*InitResult, error) {
 	}, nil
 }
 
+// AddResult holds the result of an add operation.
+type AddResult struct {
+	Orphans  OrphanReport
+	Warnings []string
+}
+
 // Add scans a new repository and adds it to an existing config.
-func Add(cfg *Config, repoPath string) (*OrphanReport, error) {
+func Add(cfg *Config, repoPath string) (*AddResult, error) {
 	absPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid path %q: %w", repoPath, err)
@@ -202,7 +209,22 @@ func Add(cfg *Config, repoPath string) (*OrphanReport, error) {
 	cfg.LastSynced = time.Now().UTC()
 
 	orphans := DetectOrphansPerRepo(cfg)
-	return &orphans, nil
+
+	// Best-effort skills-ref validation on newly added endpoints
+	var warnings []string
+	for _, repo := range cfg.Repositories {
+		if repo.Path == absPath {
+			for _, ep := range repo.Endpoints {
+				warnings = append(warnings, validateEndpointSkills(repo.Path, ep)...)
+			}
+			break
+		}
+	}
+
+	return &AddResult{
+		Orphans:  orphans,
+		Warnings: warnings,
+	}, nil
 }
 
 // Remove removes a repository from the config and re-derives routes.
@@ -257,11 +279,21 @@ func Sync(cfg *Config) (*SyncReport, error) {
 	newRoutes := snapshotRoutes(cfg)
 
 	orphans := DetectOrphansPerRepo(cfg)
+
+	// Best-effort skills-ref validation on all endpoints
+	var warnings []string
+	for _, repo := range cfg.Repositories {
+		for _, ep := range repo.Endpoints {
+			warnings = append(warnings, validateEndpointSkills(repo.Path, ep)...)
+		}
+	}
+
 	return &SyncReport{
 		Orphans:         orphans,
 		EndpointChanges: diffEndpoints(oldEndpoints, newEndpoints),
 		RouteChanges:    diffRoutes(oldRoutes, newRoutes),
 		RepoCount:       len(cfg.Repositories),
 		TotalRoutes:     len(cfg.Routes),
+		Warnings:        warnings,
 	}, nil
 }

@@ -94,7 +94,7 @@ func TestAdd_NewRepository(t *testing.T) {
 	})
 
 	// when
-	orphans, err := Add(result.Config, repo2)
+	addResult, err := Add(result.Config, repo2)
 
 	// then
 	if err != nil {
@@ -103,7 +103,7 @@ func TestAdd_NewRepository(t *testing.T) {
 	if len(result.Config.Repositories) != 2 {
 		t.Errorf("repositories = %d, want 2", len(result.Config.Repositories))
 	}
-	_ = orphans
+	_ = addResult.Orphans
 }
 
 func TestAdd_DuplicateRepository(t *testing.T) {
@@ -119,6 +119,47 @@ func TestAdd_DuplicateRepository(t *testing.T) {
 	_, err = Add(result.Config, repo)
 	if err == nil {
 		t.Fatal("expected error for duplicate repository")
+	}
+}
+
+func TestAdd_SkillsRefWarnings(t *testing.T) {
+	if !skillsRefAvailable() {
+		t.Skip("skills-ref not available")
+	}
+
+	// given — existing config, new repo with non-compliant SKILL.md
+	repo1 := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
+		".gate": {produces: []string{"feedback"}},
+	})
+	initResult, err := Init([]string{repo1})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Non-compliant repo: top-level produces (not in metadata)
+	repo2 := t.TempDir()
+	sendableDir := filepath.Join(repo2, ".siren", "skills", "dmail-sendable")
+	if err := os.MkdirAll(sendableDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
+		"---\nname: dmail-sendable\ndescription: test\nproduces:\n  - kind: specification\n---\n")
+
+	// when
+	addResult, err := Add(initResult.Config, repo2)
+
+	// then
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	hasSkillsRefWarn := false
+	for _, w := range addResult.Warnings {
+		if strings.Contains(w, "skills-ref") {
+			hasSkillsRefWarn = true
+		}
+	}
+	if !hasSkillsRefWarn {
+		t.Errorf("expected skills-ref warning from Add, got warnings: %v", addResult.Warnings)
 	}
 }
 
@@ -298,5 +339,42 @@ func TestSync_UpdatesEndpoints(t *testing.T) {
 	}
 	if len(report.RouteChanges) != 0 {
 		t.Errorf("route changes = %d, want 0", len(report.RouteChanges))
+	}
+}
+
+func TestSync_SkillsRefWarnings(t *testing.T) {
+	if !skillsRefAvailable() {
+		t.Skip("skills-ref not available")
+	}
+
+	// given — repo with non-compliant SKILL.md
+	repoDir := t.TempDir()
+	sendableDir := filepath.Join(repoDir, ".siren", "skills", "dmail-sendable")
+	if err := os.MkdirAll(sendableDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
+		"---\nname: dmail-sendable\ndescription: test\nproduces:\n  - kind: specification\n---\n")
+
+	result, err := Init([]string{repoDir})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// when
+	report, err := Sync(result.Config)
+
+	// then
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	hasSkillsRefWarn := false
+	for _, w := range report.Warnings {
+		if strings.Contains(w, "skills-ref") {
+			hasSkillsRefWarn = true
+		}
+	}
+	if !hasSkillsRefWarn {
+		t.Errorf("expected skills-ref warning from Sync, got warnings: %v", report.Warnings)
 	}
 }
