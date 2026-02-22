@@ -52,9 +52,9 @@ func setupEcosystemDir(t *testing.T) string {
 				t.Fatal(err)
 			}
 			var b strings.Builder
-			b.WriteString("---\nname: dmail-sendable\nproduces:\n")
+			b.WriteString("---\nname: dmail-sendable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n")
 			for _, k := range tool.produces {
-				b.WriteString("  - kind: " + k + "\n")
+				b.WriteString("    - kind: " + k + "\n")
 			}
 			b.WriteString("---\n")
 			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(b.String()), 0644); err != nil {
@@ -69,9 +69,9 @@ func setupEcosystemDir(t *testing.T) string {
 				t.Fatal(err)
 			}
 			var b strings.Builder
-			b.WriteString("---\nname: dmail-readable\nconsumes:\n")
+			b.WriteString("---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n")
 			for _, k := range tool.consumes {
-				b.WriteString("  - kind: " + k + "\n")
+				b.WriteString("    - kind: " + k + "\n")
 			}
 			b.WriteString("---\n")
 			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(b.String()), 0644); err != nil {
@@ -166,6 +166,7 @@ func TestLifecycle_FullEcosystem(t *testing.T) {
 	// =====================================================================
 	preExistPath := filepath.Join(repoDir, ".siren", "outbox", "spec-preexist.md")
 	if err := os.WriteFile(preExistPath, []byte(`---
+dmail-schema-version: "1"
 name: spec-preexist
 kind: specification
 description: "Pre-existing specification"
@@ -204,6 +205,7 @@ description: "Pre-existing specification"
 	// =====================================================================
 	runtimeSpec := filepath.Join(repoDir, ".siren", "outbox", "spec-runtime.md")
 	if err := os.WriteFile(runtimeSpec, []byte(`---
+dmail-schema-version: "1"
 name: spec-runtime
 kind: specification
 description: "Runtime specification"
@@ -222,6 +224,7 @@ description: "Runtime specification"
 	// =====================================================================
 	feedbackPath := filepath.Join(repoDir, ".gate", "outbox", "fb-lifecycle.md")
 	if err := os.WriteFile(feedbackPath, []byte(`---
+dmail-schema-version: "1"
 name: fb-lifecycle
 kind: feedback
 description: "Lifecycle feedback"
@@ -280,6 +283,7 @@ description: "Lifecycle feedback"
 	// Prove daemon still alive by delivering another valid D-Mail
 	afterBadPath := filepath.Join(repoDir, ".siren", "outbox", "spec-after-bad.md")
 	if err := os.WriteFile(afterBadPath, []byte(`---
+dmail-schema-version: "1"
 name: spec-after-bad
 kind: specification
 description: "After malformed"
@@ -294,6 +298,7 @@ description: "After malformed"
 	// =====================================================================
 	unknownPath := filepath.Join(repoDir, ".siren", "outbox", "mystery.md")
 	if err := os.WriteFile(unknownPath, []byte(`---
+dmail-schema-version: "1"
 name: mystery
 kind: unknown_kind
 description: "Unknown"
@@ -356,6 +361,7 @@ description: "Unknown"
 	// Deliver one more D-Mail after restart
 	restartPath := filepath.Join(repoDir, ".expedition", "outbox", "report-restart.md")
 	if err := os.WriteFile(restartPath, []byte(`---
+dmail-schema-version: "1"
 name: report-restart
 kind: report
 description: "After restart"

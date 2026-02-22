@@ -117,7 +117,7 @@ produces:
 
 	ep := EndpointConfig{
 		Dir:      ".siren",
-		Produces: nil, // empty — simulates migration or intentional empty
+		Produces: nil, // empty — intentional empty
 		Consumes: nil,
 	}
 

@@ -28,15 +28,15 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 		}
 	}
 
-	// Write SKILL.md files
+	// Write SKILL.md files (metadata-nested format, schema v1)
 	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-sendable", "SKILL.md"),
-		"---\nname: dmail-sendable\nproduces:\n  - kind: specification\n---\n")
+		"---\nname: dmail-sendable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-readable", "SKILL.md"),
-		"---\nname: dmail-readable\nconsumes:\n  - kind: feedback\n---\n")
+		"---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: feedback\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".expedition", "skills", "dmail-sendable", "SKILL.md"),
-		"---\nname: dmail-sendable\nproduces:\n  - kind: report\n---\n")
+		"---\nname: dmail-sendable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: report\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".expedition", "skills", "dmail-readable", "SKILL.md"),
-		"---\nname: dmail-readable\nconsumes:\n  - kind: specification\n---\n")
+		"---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: specification\n---\n")
 
 	cfg := &Config{
 		Repositories: []RepoConfig{
@@ -217,7 +217,7 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 		t.Skip("skills-ref not available")
 	}
 
-	// given — SKILL.md with top-level produces (Agent Skills spec violation)
+	// given — SKILL.md with name not matching directory (Agent Skills spec violation)
 	repoDir := t.TempDir()
 	stateDir := filepath.Join(repoDir, StateDir)
 
@@ -233,9 +233,9 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 		}
 	}
 
-	// top-level produces is non-compliant with Agent Skills spec
+	// name field doesn't match directory name — non-compliant with Agent Skills spec
 	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
-		"---\nname: dmail-sendable\ndescription: test\nproduces:\n  - kind: specification\n---\n")
+		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 
 	cfg := &Config{
 		Repositories: []RepoConfig{

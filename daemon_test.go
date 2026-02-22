@@ -235,6 +235,7 @@ func TestDaemon_StartupScan(t *testing.T) {
 	}
 
 	dmailContent := `---
+dmail-schema-version: "1"
 name: spec-startup
 kind: specification
 description: "Pre-existing spec"
@@ -316,6 +317,7 @@ func TestDaemon_WatchAndDeliver(t *testing.T) {
 
 	// when — write a D-Mail to outbox
 	dmailContent := `---
+dmail-schema-version: "1"
 name: spec-watch
 kind: specification
 description: "Watch test"
@@ -376,6 +378,7 @@ func TestDaemon_StartupScan_LogsToDeliveryLog(t *testing.T) {
 
 	dmailPath := filepath.Join(outbox, "spec-log-test.md")
 	if err := os.WriteFile(dmailPath, []byte(`---
+dmail-schema-version: "1"
 name: spec-log-test
 kind: specification
 description: "Startup log test"

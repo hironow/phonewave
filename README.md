@@ -72,7 +72,7 @@ metadata:
 ---
 ```
 
-Phonewave scans these manifests, validates kind values, derives routes, and ensures every produced D-Mail reaches its consumer(s). When `dmail-schema-version` is declared, `metadata` fields take precedence over any top-level `produces`/`consumes` (supports migration from legacy format).
+Phonewave scans these manifests, validates kind values, derives routes, and ensures every produced D-Mail reaches its consumer(s). D-Mail capabilities must be declared under `metadata` with `dmail-schema-version: "1"`.
 
 ## Architecture
 

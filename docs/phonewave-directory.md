@@ -172,7 +172,7 @@ metadata:
 ---
 ```
 
-When `dmail-schema-version` is present in `metadata`, the `metadata.produces`/`metadata.consumes` fields take precedence over any top-level declarations. This enables migration from legacy top-level format to the spec-compliant metadata-nested format.
+D-Mail capabilities must be declared under `metadata` with `dmail-schema-version: "1"`. Top-level `produces`/`consumes` without metadata is rejected.
 
 ### SKILL.md Validation
 

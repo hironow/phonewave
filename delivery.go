@@ -16,9 +16,10 @@ import (
 
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
 type DMailFrontmatter struct {
-	Name        string `yaml:"name"`
-	Kind        string `yaml:"kind"`
-	Description string `yaml:"description"`
+	SchemaVersion string `yaml:"dmail-schema-version"`
+	Name          string `yaml:"name"`
+	Kind          string `yaml:"kind"`
+	Description   string `yaml:"description"`
 }
 
 // ResolvedRoute is a concrete route with absolute paths for delivery.
@@ -56,6 +57,12 @@ func ExtractDMailKind(data []byte) (string, error) {
 	fm, err := parseDMailFrontmatter(data)
 	if err != nil {
 		return "", err
+	}
+	if fm.SchemaVersion == "" {
+		return "", errors.New("D-Mail missing required 'dmail-schema-version' field")
+	}
+	if fm.SchemaVersion != "1" {
+		return "", fmt.Errorf("unsupported dmail-schema-version %q: only \"1\" is supported", fm.SchemaVersion)
 	}
 	if fm.Kind == "" {
 		return "", errors.New("D-Mail missing required 'kind' field")

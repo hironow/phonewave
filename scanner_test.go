@@ -10,9 +10,12 @@ func TestParseFrontmatter_Produces(t *testing.T) {
 	content := `---
 name: "dmail-sendable"
 description: "Produces D-Mail messages to outbox"
-produces:
-  - kind: specification
-    description: "Issue specification ready for implementation"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  produces:
+    - kind: specification
+      description: "Issue specification ready for implementation"
 ---
 
 # Sendable Skill
@@ -38,11 +41,14 @@ func TestParseFrontmatter_Consumes(t *testing.T) {
 	content := `---
 name: "dmail-readable"
 description: "Reads D-Mail messages from inbox"
-consumes:
-  - kind: feedback
-    description: "Corrective feedback from verifier"
-  - kind: specification
-    description: "Issue specification"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  consumes:
+    - kind: feedback
+      description: "Corrective feedback from verifier"
+    - kind: specification
+      description: "Issue specification"
 ---
 `
 	skill, err := ParseSkillFrontmatter([]byte(content))
@@ -57,6 +63,20 @@ consumes:
 	}
 	if skill.Consumes[1].Kind != "specification" {
 		t.Errorf("consumes[1].kind = %q, want %q", skill.Consumes[1].Kind, "specification")
+	}
+}
+
+func TestParseFrontmatter_RejectsTopLevelWithoutMetadata(t *testing.T) {
+	content := `---
+name: "dmail-sendable"
+description: "Uses top-level produces without metadata"
+produces:
+  - kind: specification
+---
+`
+	_, err := ParseSkillFrontmatter([]byte(content))
+	if err == nil {
+		t.Fatal("expected error for top-level produces without dmail-schema-version, got nil")
 	}
 }
 
@@ -118,27 +138,6 @@ metadata:
 	}
 }
 
-func TestParseFrontmatter_MetadataEmptyOverridesLegacy(t *testing.T) {
-	// metadata.produces: [] should override legacy top-level produces
-	content := `---
-name: "dmail-sendable"
-description: "Migrated to metadata with empty produces"
-produces:
-  - kind: specification
-metadata:
-  dmail-schema-version: "1"
-  produces: []
----
-`
-	skill, err := ParseSkillFrontmatter([]byte(content))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(skill.Produces) != 0 {
-		t.Errorf("want 0 produces (metadata override), got %d: %v", len(skill.Produces), skill.Produces)
-	}
-}
-
 func TestParseFrontmatter_MetadataValidatesKind(t *testing.T) {
 	content := `---
 name: "dmail-sendable"
@@ -190,9 +189,13 @@ func TestScanRepository_DiscoverEndpoints(t *testing.T) {
 	}
 	if err := os.WriteFile(filepath.Join(sirenSendable, "SKILL.md"), []byte(`---
 name: "dmail-sendable"
-produces:
-  - kind: specification
-    description: "Issue specification"
+description: "Produces D-Mail messages"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  produces:
+    - kind: specification
+      description: "Issue specification"
 ---
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -205,9 +208,13 @@ produces:
 	}
 	if err := os.WriteFile(filepath.Join(sirenReadable, "SKILL.md"), []byte(`---
 name: "dmail-readable"
-consumes:
-  - kind: feedback
-    description: "Corrective feedback"
+description: "Reads D-Mail messages"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  consumes:
+    - kind: feedback
+      description: "Corrective feedback"
 ---
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -220,9 +227,13 @@ consumes:
 	}
 	if err := os.WriteFile(filepath.Join(expedSendable, "SKILL.md"), []byte(`---
 name: "dmail-sendable"
-produces:
-  - kind: report
-    description: "Implementation report"
+description: "Produces implementation reports"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  produces:
+    - kind: report
+      description: "Implementation report"
 ---
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -235,11 +246,15 @@ produces:
 	}
 	if err := os.WriteFile(filepath.Join(expedReadable, "SKILL.md"), []byte(`---
 name: "dmail-readable"
-consumes:
-  - kind: specification
-    description: "Issue specification"
-  - kind: feedback
-    description: "Corrective feedback"
+description: "Reads D-Mail messages"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  consumes:
+    - kind: specification
+      description: "Issue specification"
+    - kind: feedback
+      description: "Corrective feedback"
 ---
 `), 0644); err != nil {
 		t.Fatal(err)
@@ -309,8 +324,13 @@ func TestScanRepository_SkipsNonDotDirs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(regularSkills, "SKILL.md"), []byte(`---
-produces:
-  - kind: specification
+name: "dmail-sendable"
+description: "test"
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  produces:
+    - kind: specification
 ---
 `), 0644); err != nil {
 		t.Fatal(err)

@@ -17,6 +17,7 @@ func TestExtractDMailKind(t *testing.T) {
 		{
 			name: "valid feedback dmail",
 			content: `---
+dmail-schema-version: "1"
 name: feedback-001
 kind: feedback
 description: "ADR-003 violation detected"
@@ -29,6 +30,7 @@ description: "ADR-003 violation detected"
 		{
 			name: "valid specification dmail",
 			content: `---
+dmail-schema-version: "1"
 name: spec-auth
 kind: specification
 description: "Auth session management"
@@ -43,6 +45,7 @@ issues:
 		{
 			name: "valid report dmail",
 			content: `---
+dmail-schema-version: "1"
 name: report-001
 kind: report
 description: "Implementation report"
@@ -53,6 +56,7 @@ description: "Implementation report"
 		{
 			name: "valid convergence dmail",
 			content: `---
+dmail-schema-version: "1"
 name: conv-001
 kind: convergence
 description: "Convergence alert"
@@ -68,6 +72,7 @@ description: "Convergence alert"
 		{
 			name: "missing kind field",
 			content: `---
+dmail-schema-version: "1"
 name: no-kind
 description: "Missing kind"
 ---
@@ -77,6 +82,7 @@ description: "Missing kind"
 		{
 			name: "dmail with string metadata values",
 			content: `---
+dmail-schema-version: "1"
 name: feedback-meta
 kind: feedback
 description: "Feedback with metadata"
@@ -90,6 +96,7 @@ metadata:
 		{
 			name: "dmail with metadata produces as string",
 			content: `---
+dmail-schema-version: "1"
 name: feedback-str
 kind: feedback
 description: "Metadata produces is a string not array"
@@ -102,9 +109,31 @@ metadata:
 		{
 			name: "invalid kind value",
 			content: `---
+dmail-schema-version: "1"
 name: bad-kind
 kind: invalid_type
 description: "Not a valid kind"
+---
+`,
+			wantErr: true,
+		},
+		{
+			name: "missing dmail-schema-version",
+			content: `---
+name: no-version
+kind: specification
+description: "Missing schema version"
+---
+`,
+			wantErr: true,
+		},
+		{
+			name: "unsupported dmail-schema-version",
+			content: `---
+dmail-schema-version: "2"
+name: bad-version
+kind: specification
+description: "Unsupported schema version"
 ---
 `,
 			wantErr: true,
@@ -172,6 +201,7 @@ func TestDeliver_SingleTarget(t *testing.T) {
 
 	// Write a D-Mail to outbox
 	dmailContent := `---
+dmail-schema-version: "1"
 name: spec-001
 kind: specification
 description: "Test spec"
@@ -228,6 +258,7 @@ func TestDeliver_MultipleTargets(t *testing.T) {
 	}
 
 	dmailContent := `---
+dmail-schema-version: "1"
 name: feedback-042
 kind: feedback
 description: "Corrective feedback"
@@ -276,6 +307,7 @@ func TestDeliver_UnknownKind(t *testing.T) {
 	}
 
 	dmailContent := `---
+dmail-schema-version: "1"
 name: unknown-001
 kind: unknown_type
 ---

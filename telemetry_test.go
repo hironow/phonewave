@@ -146,7 +146,7 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 		}
 	}
 
-	dmailContent := "---\nname: spec-span\nkind: specification\ndescription: \"Span test\"\n---\n"
+	dmailContent := "---\ndmail-schema-version: \"1\"\nname: spec-span\nkind: specification\ndescription: \"Span test\"\n---\n"
 	dmailPath := filepath.Join(outbox, "spec-span.md")
 	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
 		t.Fatal(err)
@@ -199,7 +199,7 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 		}
 	}
 
-	dmailContent := "---\nname: spec-fail\nkind: specification\ndescription: \"Fail test\"\n---\n"
+	dmailContent := "---\ndmail-schema-version: \"1\"\nname: spec-fail\nkind: specification\ndescription: \"Fail test\"\n---\n"
 	dmailPath := filepath.Join(outbox, "spec-fail.md")
 	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
 		t.Fatal(err)
@@ -251,7 +251,7 @@ func TestDeliverData_CreatesSpan(t *testing.T) {
 		}
 	}
 
-	dmailContent := []byte("---\nname: spec-span\nkind: specification\ndescription: \"Span test\"\n---\n")
+	dmailContent := []byte("---\ndmail-schema-version: \"1\"\nname: spec-span\nkind: specification\ndescription: \"Span test\"\n---\n")
 	dmailPath := filepath.Join(outbox, "spec-span.md")
 	if err := os.WriteFile(dmailPath, dmailContent, 0644); err != nil {
 		t.Fatal(err)
@@ -302,7 +302,7 @@ func TestDeliverData_RecordsErrorSpan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dmailContent := []byte("---\nname: spec-err\nkind: specification\ndescription: \"Error span test\"\n---\n")
+	dmailContent := []byte("---\ndmail-schema-version: \"1\"\nname: spec-err\nkind: specification\ndescription: \"Error span test\"\n---\n")
 	dmailPath := filepath.Join(outbox, "spec-err.md")
 
 	// Empty routes — will fail to find route

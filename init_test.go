@@ -18,9 +18,9 @@ func setupTestRepo(t *testing.T, tools map[string]struct{ produces, consumes []s
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				t.Fatal(err)
 			}
-			content := "---\nname: dmail-sendable\nproduces:\n"
+			content := "---\nname: dmail-sendable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n"
 			for _, k := range caps.produces {
-				content += "  - kind: " + k + "\n"
+				content += "    - kind: " + k + "\n"
 			}
 			content += "---\n"
 			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644); err != nil {
@@ -32,9 +32,9 @@ func setupTestRepo(t *testing.T, tools map[string]struct{ produces, consumes []s
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				t.Fatal(err)
 			}
-			content := "---\nname: dmail-readable\nconsumes:\n"
+			content := "---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n"
 			for _, k := range caps.consumes {
-				content += "  - kind: " + k + "\n"
+				content += "    - kind: " + k + "\n"
 			}
 			content += "---\n"
 			if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644); err != nil {
@@ -136,14 +136,14 @@ func TestAdd_SkillsRefWarnings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Non-compliant repo: top-level produces (not in metadata)
+	// Non-compliant repo: name doesn't match directory
 	repo2 := t.TempDir()
 	sendableDir := filepath.Join(repo2, ".siren", "skills", "dmail-sendable")
 	if err := os.MkdirAll(sendableDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
-		"---\nname: dmail-sendable\ndescription: test\nproduces:\n  - kind: specification\n---\n")
+		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 
 	// when
 	addResult, err := Add(initResult.Config, repo2)
@@ -283,14 +283,14 @@ func TestInit_SkillsRefWarnings(t *testing.T) {
 		t.Skip("skills-ref not available")
 	}
 
-	// given — SKILL.md with top-level produces (Agent Skills spec violation)
+	// given — SKILL.md with name not matching directory (Agent Skills spec violation)
 	repoDir := t.TempDir()
 	sendableDir := filepath.Join(repoDir, ".siren", "skills", "dmail-sendable")
 	if err := os.MkdirAll(sendableDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
-		"---\nname: dmail-sendable\ndescription: test\nproduces:\n  - kind: specification\n---\n")
+		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 
 	// when
 	result, err := Init([]string{repoDir})
@@ -347,14 +347,14 @@ func TestSync_SkillsRefWarnings(t *testing.T) {
 		t.Skip("skills-ref not available")
 	}
 
-	// given — repo with non-compliant SKILL.md
+	// given — repo with non-compliant SKILL.md (name doesn't match directory)
 	repoDir := t.TempDir()
 	sendableDir := filepath.Join(repoDir, ".siren", "skills", "dmail-sendable")
 	if err := os.MkdirAll(sendableDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
-		"---\nname: dmail-sendable\ndescription: test\nproduces:\n  - kind: specification\n---\n")
+		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 
 	result, err := Init([]string{repoDir})
 	if err != nil {

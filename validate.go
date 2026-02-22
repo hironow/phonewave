@@ -114,7 +114,7 @@ func walkUpForSkillsRef(startDir string) string {
 
 // validateEndpointSkills runs skills-ref validation on an endpoint's skill directories.
 // Validates any skill directory that exists on disk, regardless of whether
-// the endpoint config declares produces/consumes (handles migration scenarios).
+// the endpoint config declares produces/consumes.
 func validateEndpointSkills(repoPath string, ep EndpointConfig) []string {
 	var warnings []string
 	epLabel := filepath.Base(repoPath) + "/" + ep.Dir

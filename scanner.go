@@ -42,8 +42,7 @@ type Endpoint struct {
 
 // ParseSkillFrontmatter extracts YAML frontmatter from a SKILL.md file.
 // The frontmatter must be delimited by "---" lines.
-// Supports both metadata-nested (Agent Skills v1) and top-level (legacy)
-// produces/consumes declarations. Metadata takes precedence when present.
+// D-Mail capabilities must be declared under metadata with dmail-schema-version: "1".
 func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 	content := string(data)
 
@@ -66,11 +65,14 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 		return nil, err
 	}
 
-	// When dmail-schema-version is declared, validate it is a supported
-	// version, then let metadata produces/consumes unconditionally override
-	// top-level fields (even if empty). This ensures that explicit
-	// metadata: { produces: [] } clears stale top-level declarations
-	// during migration.
+	// Reject top-level produces/consumes without metadata schema version.
+	if len(skill.Produces) > 0 || len(skill.Consumes) > 0 {
+		if skill.Metadata.SchemaVersion == "" {
+			return nil, errors.New("top-level produces/consumes is not supported; use metadata with dmail-schema-version: \"1\"")
+		}
+	}
+
+	// Read capabilities from metadata when schema version is declared.
 	if skill.Metadata.SchemaVersion != "" {
 		if skill.Metadata.SchemaVersion != "1" {
 			return nil, fmt.Errorf("unsupported dmail-schema-version %q: only \"1\" is supported", skill.Metadata.SchemaVersion)
