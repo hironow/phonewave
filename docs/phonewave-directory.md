@@ -27,9 +27,9 @@ in each repository for SKILL.md files.
   .<endpoint>/                 # e.g. .siren, .expedition
     skills/
       dmail-sendable/
-        SKILL.md              # declares produces: kinds (read-only, user-created)
+        SKILL.md              # declares metadata.produces: kinds (Agent Skills v1)
       dmail-readable/
-        SKILL.md              # declares consumes: kinds (read-only, user-created)
+        SKILL.md              # declares metadata.consumes: kinds (Agent Skills v1)
     outbox/                   # producer writes D-Mails here
       *.md                    # pending D-Mails (removed after delivery)
       .phonewave-tmp-*        # atomic write temp files (transient)
@@ -57,8 +57,8 @@ in each repository for SKILL.md files.
 
 | File | Purpose |
 |------|---------|
-| `.<endpoint>/skills/dmail-sendable/SKILL.md` | YAML frontmatter declares `produces:` — list of D-Mail kinds this endpoint sends |
-| `.<endpoint>/skills/dmail-readable/SKILL.md` | YAML frontmatter declares `consumes:` — list of D-Mail kinds this endpoint receives |
+| `.<endpoint>/skills/dmail-sendable/SKILL.md` | YAML frontmatter declares `metadata.produces:` — list of D-Mail kinds this endpoint sends (schema v1) |
+| `.<endpoint>/skills/dmail-readable/SKILL.md` | YAML frontmatter declares `metadata.consumes:` — list of D-Mail kinds this endpoint receives (schema v1) |
 | `.<endpoint>/outbox/*.md` | D-Mail files awaiting delivery. Daemon watches these directories via fsnotify. Removed after successful delivery or moved to error queue on failure |
 | `.<endpoint>/inbox/*.md` | Delivered D-Mail files. Written atomically (temp → rename) by the delivery pipeline |
 | `.phonewave-tmp-*` | Temporary files created during atomic writes. Appear briefly in inbox directories, then renamed to final filename. Ignored by daemon event handler |
@@ -151,5 +151,29 @@ Examples:
 3. Skipping `.git`, `.github`, `.phonewave`
 4. Checking for `skills/dmail-sendable/SKILL.md` (produces) and `skills/dmail-readable/SKILL.md` (consumes)
 5. Parsing YAML frontmatter to extract `kind` declarations
+6. Validating all declared kinds against the allowed enum: `specification`, `report`, `feedback`, `convergence`
 
 Only endpoints with at least one SKILL.md file are registered. Endpoints with `produces:` generate outbox watches; endpoints with only `consumes:` are delivery targets only.
+
+### SKILL.md Format (Agent Skills v1)
+
+SKILL.md files use Agent Skills specification format. D-Mail capabilities are declared under the `metadata` key with a `dmail-schema-version`:
+
+```yaml
+---
+name: dmail-sendable
+description: Produces D-Mail messages to outbox for phonewave delivery.
+license: Apache-2.0
+metadata:
+  dmail-schema-version: "1"
+  produces:
+    - kind: specification
+      description: Issue specification ready for implementation
+---
+```
+
+When `dmail-schema-version` is present in `metadata`, the `metadata.produces`/`metadata.consumes` fields take precedence over any top-level declarations. This enables migration from legacy top-level format to the spec-compliant metadata-nested format.
+
+### SKILL.md Validation
+
+`phonewave doctor`, `init`, `add`, and `sync` validate SKILL.md files via the bundled skills-ref submodule (best-effort: skipped if skills-ref is unavailable). skills-ref checks Agent Skills spec compliance including field restrictions and naming conventions.
