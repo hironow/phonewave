@@ -11,10 +11,10 @@ import (
 
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status",
-		Short: "Show daemon and delivery status",
-		Long:  "Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.",
-		Args:  cobra.NoArgs,
+		Use:     "status",
+		Short:   "Show daemon and delivery status",
+		Long:    "Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.",
+		Args:    cobra.NoArgs,
 		Example: `  phonewave status`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")

@@ -49,7 +49,7 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 				FileMode:          0644,
 			},
 		},
-		Cmd: []string{"--config", "/etc/jaeger/config.yaml"},
+		Cmd:      []string{"--config", "/etc/jaeger/config.yaml"},
 		Networks: []string{netName},
 		NetworkAliases: map[string][]string{
 			netName: {"jaeger"},
