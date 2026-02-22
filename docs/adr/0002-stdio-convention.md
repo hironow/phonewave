@@ -24,6 +24,14 @@ Enforce the following stdio convention across all four tools:
    The logger is constructed from `cmd.ErrOrStderr()` and injected into the
    application layer. Implementation varies per tool (e.g., phonewave uses
    package-level functions, amadeus/paintress/sightjack use Logger structs).
+5. **TTY separation**: When stdin is consumed by a pipe (e.g., JSON input),
+   interactive user input must be obtained from `/dev/tty` (or `CONIN$` on
+   Windows) directly, not from stdin. This allows `tool1 | tool2` to work
+   while tool2 still prompts the user.
+6. **JSON mode stdout protection**: When a structured output mode is active
+   (e.g., `--output json`), any streaming output (e.g., LLM response text)
+   must be redirected to stderr to keep stdout exclusively for the final
+   structured JSON result.
 
 ## Consequences
 
@@ -41,3 +49,9 @@ Enforce the following stdio convention across all four tools:
   startup errors before cobra initializes)
 - DI default values (e.g., `dataOut = os.Stdout`) are acceptable as they
   represent the production wiring, not direct usage in command implementations
+- TTY separation (`/dev/tty`) is currently used by sightjack (select, discuss).
+  Other tools should adopt the same pattern when adding interactive features
+  to pipe-compatible commands
+- JSON mode stdout protection is currently used by paintress (`--output json`
+  redirects Claude streaming to stderr). Other tools should follow this pattern
+  when adding structured output modes

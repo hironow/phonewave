@@ -38,7 +38,7 @@ Adopt **Option C (hybrid)** for cross-tool ADR management:
 | Tool | Repository | 0005+ Scope |
 |------|-----------|-------------|
 | phonewave | `phonewave` | fsnotify daemon, goreleaser, Docker E2E |
-| sightjack | `sightjack` | Unix pipe architecture, convergence gate, fake-Claude E2E |
+| sightjack | `sightjack` | Unix pipe architecture, convergence gate, fake-Claude E2E, Matrix Navigator |
 | paintress | `paintress` | Expedition system, per-worker flag isolation, approval contract |
 | amadeus | `amadeus` | Pipeline architecture, scoring system, convergence detection, severity routing |
 
