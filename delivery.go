@@ -14,6 +14,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// SupportedDMailSchemaVersion is the only accepted dmail-schema-version value.
+const SupportedDMailSchemaVersion = "1"
+
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
 type DMailFrontmatter struct {
 	SchemaVersion string `yaml:"dmail-schema-version"`
@@ -36,18 +39,18 @@ type DeliveryResult struct {
 	DeliveredTo []string // inbox paths where the file was copied
 }
 
-// validKinds lists the allowed D-Mail kind values per schema v1.
-var validKinds = []string{"specification", "report", "feedback", "convergence"}
+// validDMailKinds lists the allowed D-Mail kind values per schema v1.
+var validDMailKinds = []string{"specification", "report", "feedback", "convergence"}
 
 // ValidKinds returns a copy of the allowed D-Mail kind values.
 func ValidKinds() []string {
-	return append([]string(nil), validKinds...)
+	return append([]string(nil), validDMailKinds...)
 }
 
 // ValidateKind checks that kind is one of the allowed D-Mail kinds.
 func ValidateKind(kind string) error {
-	if !slices.Contains(validKinds, kind) {
-		return fmt.Errorf("invalid D-Mail kind %q: must be one of %v", kind, validKinds)
+	if !slices.Contains(validDMailKinds, kind) {
+		return fmt.Errorf("invalid D-Mail kind %q: must be one of %v", kind, validDMailKinds)
 	}
 	return nil
 }
@@ -61,7 +64,7 @@ func ExtractDMailKind(data []byte) (string, error) {
 	if fm.SchemaVersion == "" {
 		return "", errors.New("D-Mail missing required 'dmail-schema-version' field")
 	}
-	if fm.SchemaVersion != "1" {
+	if fm.SchemaVersion != SupportedDMailSchemaVersion {
 		return "", fmt.Errorf("unsupported dmail-schema-version %q: only \"1\" is supported", fm.SchemaVersion)
 	}
 	if fm.Kind == "" {

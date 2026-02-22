@@ -119,7 +119,7 @@ func validateEndpointSkills(repoPath string, ep EndpointConfig) []string {
 	var warnings []string
 	epLabel := filepath.Base(repoPath) + "/" + ep.Dir
 
-	for _, skillName := range []string{"dmail-sendable", "dmail-readable"} {
+	for _, skillName := range []string{SkillSendable, SkillReadable} {
 		skillDir := filepath.Join(repoPath, ep.Dir, "skills", skillName)
 		if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err != nil {
 			if os.IsNotExist(err) {

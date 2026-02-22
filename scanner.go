@@ -11,6 +11,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Skill directory names for D-Mail capabilities.
+const (
+	SkillSendable = "dmail-sendable"
+	SkillReadable = "dmail-readable"
+)
+
 // DMailCapability represents a single D-Mail kind declaration.
 type DMailCapability struct {
 	Kind        string `yaml:"kind"`
@@ -74,7 +80,7 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 
 	// Read capabilities from metadata when schema version is declared.
 	if skill.Metadata.SchemaVersion != "" {
-		if skill.Metadata.SchemaVersion != "1" {
+		if skill.Metadata.SchemaVersion != SupportedDMailSchemaVersion {
 			return nil, fmt.Errorf("unsupported dmail-schema-version %q: only \"1\" is supported", skill.Metadata.SchemaVersion)
 		}
 		skill.Produces = skill.Metadata.Produces
@@ -138,7 +144,7 @@ func scanEndpoint(repoPath, dirName string) (Endpoint, bool, error) {
 	found := false
 
 	// Check for sendable skill
-	sendablePath := filepath.Join(repoPath, dirName, "skills", "dmail-sendable", "SKILL.md")
+	sendablePath := filepath.Join(repoPath, dirName, "skills", SkillSendable, "SKILL.md")
 	if data, err := os.ReadFile(sendablePath); err == nil {
 		skill, err := ParseSkillFrontmatter(data)
 		if err != nil {
@@ -151,7 +157,7 @@ func scanEndpoint(repoPath, dirName string) (Endpoint, bool, error) {
 	}
 
 	// Check for readable skill
-	readablePath := filepath.Join(repoPath, dirName, "skills", "dmail-readable", "SKILL.md")
+	readablePath := filepath.Join(repoPath, dirName, "skills", SkillReadable, "SKILL.md")
 	if data, err := os.ReadFile(readablePath); err == nil {
 		skill, err := ParseSkillFrontmatter(data)
 		if err != nil {

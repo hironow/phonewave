@@ -91,7 +91,7 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 			}
 
 			// Verify SKILL.md files are parseable and spec-compliant
-			for _, skillName := range []string{"dmail-sendable", "dmail-readable"} {
+			for _, skillName := range []string{SkillSendable, SkillReadable} {
 				skillDir := filepath.Join(epDir, "skills", skillName)
 				skillPath := filepath.Join(skillDir, "SKILL.md")
 				data, err := os.ReadFile(skillPath)
