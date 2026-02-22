@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hironow/phonewave/schema/dmail-skill.v1.schema.json",
+  "title": "D-Mail Skill Metadata v1",
+  "description": "Schema for D-Mail extension fields within SKILL.md metadata. Used by phonewave scanner to discover produces/consumes declarations for route derivation.",
+  "type": "object",
+  "required": ["dmail-schema-version"],
+  "properties": {
+    "dmail-schema-version": {
+      "type": "string",
+      "const": "1",
+      "description": "Schema version identifier."
+    },
+    "produces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capability"
+      },
+      "description": "D-Mail kinds this endpoint produces (writes to outbox)."
+    },
+    "consumes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capability"
+      },
+      "description": "D-Mail kinds this endpoint consumes (reads from inbox)."
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "kind": {
+      "type": "string",
+      "enum": ["specification", "report", "feedback", "convergence"]
+    },
+    "capability": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/kind",
+          "description": "D-Mail kind this endpoint produces or consumes."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what this capability does."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
