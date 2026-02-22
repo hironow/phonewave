@@ -170,6 +170,27 @@ metadata:
 	}
 }
 
+func TestParseFrontmatter_RejectsMixedTopLevelAndMetadata(t *testing.T) {
+	// given — SKILL.md with top-level produces AND metadata.dmail-schema-version
+	// but metadata.produces is absent → top-level would be silently dropped
+	content := `---
+name: "dmail-sendable"
+description: "Mixed format"
+produces:
+  - kind: specification
+metadata:
+  dmail-schema-version: "1"
+---
+`
+	// when
+	_, err := ParseSkillFrontmatter([]byte(content))
+
+	// then — should reject: top-level capabilities must not coexist with metadata
+	if err == nil {
+		t.Fatal("expected error for mixed top-level and metadata capabilities, got nil")
+	}
+}
+
 func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 	content := `# Just a markdown file without frontmatter`
 	_, err := ParseSkillFrontmatter([]byte(content))

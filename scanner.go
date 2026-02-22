@@ -71,11 +71,9 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 		return nil, err
 	}
 
-	// Reject top-level produces/consumes without metadata schema version.
+	// Reject top-level produces/consumes — capabilities must be under metadata.
 	if len(skill.Produces) > 0 || len(skill.Consumes) > 0 {
-		if skill.Metadata.SchemaVersion == "" {
-			return nil, errors.New("top-level produces/consumes is not supported; use metadata with dmail-schema-version: \"1\"")
-		}
+		return nil, errors.New("top-level produces/consumes is not supported; use metadata with dmail-schema-version: \"1\"")
 	}
 
 	// Read capabilities from metadata when schema version is declared.
