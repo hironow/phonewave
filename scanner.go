@@ -66,11 +66,15 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 		return nil, err
 	}
 
-	// Merge: when dmail-schema-version is declared, metadata produces/consumes
-	// unconditionally override top-level fields (even if empty).
-	// This ensures that explicit metadata: { produces: [] } clears stale
-	// top-level declarations during migration.
+	// When dmail-schema-version is declared, validate it is a supported
+	// version, then let metadata produces/consumes unconditionally override
+	// top-level fields (even if empty). This ensures that explicit
+	// metadata: { produces: [] } clears stale top-level declarations
+	// during migration.
 	if skill.Metadata.SchemaVersion != "" {
+		if skill.Metadata.SchemaVersion != "1" {
+			return nil, fmt.Errorf("unsupported dmail-schema-version %q: only \"1\" is supported", skill.Metadata.SchemaVersion)
+		}
 		skill.Produces = skill.Metadata.Produces
 		skill.Consumes = skill.Metadata.Consumes
 	}

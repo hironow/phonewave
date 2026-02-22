@@ -155,6 +155,22 @@ metadata:
 	}
 }
 
+func TestParseFrontmatter_UnsupportedSchemaVersion(t *testing.T) {
+	content := `---
+name: "dmail-sendable"
+description: "Future schema"
+metadata:
+  dmail-schema-version: "2"
+  produces:
+    - kind: specification
+---
+`
+	_, err := ParseSkillFrontmatter([]byte(content))
+	if err == nil {
+		t.Fatal("expected error for unsupported dmail-schema-version \"2\", got nil")
+	}
+}
+
 func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 	content := `# Just a markdown file without frontmatter`
 	_, err := ParseSkillFrontmatter([]byte(content))

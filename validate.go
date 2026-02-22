@@ -17,11 +17,12 @@ const skillsRefTimeout = 30 * time.Second
 // and returns any validation problems found.
 // Returns nil problems if skills-ref is not available (best-effort).
 func ValidateSkillDir(skillDir string) ([]string, error) {
-	cmd, err := skillsRefCommand(skillDir)
+	cmd, cancel, err := skillsRefCommand(skillDir)
 	if err != nil {
 		// skills-ref not available; skip validation
 		return nil, nil
 	}
+	defer cancel()
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -36,27 +37,28 @@ func ValidateSkillDir(skillDir string) ([]string, error) {
 }
 
 // skillsRefCommand builds the exec.Cmd for skills-ref validate.
+// Returns the command and a cancel function that the caller must invoke
+// after command completion to release the timeout context.
 // Discovery order:
 //  1. "skills-ref" on PATH (global install)
 //  2. "uv run --project <submodule>" (bundled submodule)
-func skillsRefCommand(skillDir string) (*exec.Cmd, error) {
+func skillsRefCommand(skillDir string) (*exec.Cmd, context.CancelFunc, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), skillsRefTimeout)
-	_ = cancel // caller owns cmd lifetime; cancel is available via cmd.Cancel
 
 	if path, err := exec.LookPath("skills-ref"); err == nil {
 		cmd := exec.CommandContext(ctx, path, "validate", skillDir)
 		cmd.Cancel = func() error { cancel(); return cmd.Process.Kill() }
-		return cmd, nil
+		return cmd, cancel, nil
 	}
 	if uvPath, err := exec.LookPath("uv"); err == nil {
 		if subDir := findSkillsRefDir(); subDir != "" {
 			cmd := exec.CommandContext(ctx, uvPath, "run", "--project", subDir, "skills-ref", "validate", skillDir)
 			cmd.Cancel = func() error { cancel(); return cmd.Process.Kill() }
-			return cmd, nil
+			return cmd, cancel, nil
 		}
 	}
 	cancel()
-	return nil, fmt.Errorf("skills-ref not found (install via 'uv tool install skills-ref' or ensure submodule is present)")
+	return nil, nil, fmt.Errorf("skills-ref not found (install via 'uv tool install skills-ref' or ensure submodule is present)")
 }
 
 // findSkillsRefDir locates the bundled skills-ref submodule.

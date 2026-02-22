@@ -197,6 +197,9 @@ func TestFindSkillsRefDir_EnvVarInvalidIgnored(t *testing.T) {
 }
 
 func skillsRefAvailable() bool {
-	_, err := skillsRefCommand(os.DevNull)
+	_, cancel, err := skillsRefCommand(os.DevNull)
+	if err == nil {
+		cancel()
+	}
 	return err == nil
 }
