@@ -180,7 +180,7 @@ phonewave sync
 
 ## Tracing (OpenTelemetry)
 
-Phonewave instruments daemon operations with OpenTelemetry spans. Tracing is off by default (noop tracer, zero overhead) and activates when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+Phonewave instruments daemon operations with OpenTelemetry spans. Tracing is off by default (noop tracer, zero overhead) and activates when `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is set.
 
 Each daemon operation creates an **independent root span** — there is no long-lived parent span covering the daemon lifetime. This follows OTel best practices for daemons.
 
@@ -302,6 +302,7 @@ just prek-run       # Run all prek hooks
 +-- skills-ref/
 |   +-- skills-ref/            Agent Skills reference validator (git submodule)
 +-- docs/
+|   +-- adr/                   Architecture Decision Records
 |   +-- cli/                   Auto-generated CLI reference (markdown)
 |   +-- phonewave-directory.md
 +-- testdata/
