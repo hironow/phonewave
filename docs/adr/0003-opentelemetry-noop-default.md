@@ -14,10 +14,13 @@ complexity for the common case.
 
 Adopt OpenTelemetry with a noop-default strategy across all four tools:
 
-1. **noop default**: When no `OTEL_EXPORTER_OTLP_ENDPOINT` is set, the tracer
-   is a no-op with zero overhead.
-2. **OTLP HTTP exporter**: When the environment variable is set, traces are
+1. **noop default**: When neither `OTEL_EXPORTER_OTLP_ENDPOINT` nor
+   `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is set, the tracer is a no-op with
+   zero overhead.
+2. **OTLP HTTP exporter**: When either environment variable is set, traces are
    exported via OTLP HTTP (compatible with Jaeger v2, Grafana Tempo, etc.).
+   `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` takes precedence per the OpenTelemetry
+   specification.
 3. **Tracer lifecycle in `main.go`**: `InitTracer()` is called in `main()` with
    `defer shutdown(ctx)`. This avoids cobra's `PersistentPostRunE` which is
    skipped when `RunE` returns an error.
