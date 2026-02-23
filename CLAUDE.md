@@ -23,6 +23,33 @@
 - Tracer lifecycle: `main.go` defer (NOT cobra hooks — PersistentPostRunE skipped on error)
 - State directory: derived from config path via `configBase(cmd)`
 
+## Test Layout
+
+- Unit tests: `*_test.go` colocated with source (Go convention)
+  - All root tests use `package phonewave` (in-package) — daemon/delivery internals require direct access
+  - `cmd/phonewave/main_test.go` uses `package main` for CLI arg parsing tests
+- Docker E2E: `*_docker_test.go` with `//go:build docker` tag (testcontainers-go)
+  - `cli_docker_test.go` — CLI subcommand tests in container
+  - `daemon_docker_test.go` — daemon behaviour (retry, error queue, burst)
+  - `lifecycle_docker_test.go` — single-container lifecycle
+  - `lifecycle_multicontainer_test.go` — cross-container D-Mail delivery
+  - `otel_docker_test.go` — OTel tracing with Jaeger container
+- No `tests/` directory — all tests colocated with source per Go convention
+
+## ADR (Architecture Decision Records)
+
+- `docs/adr/` — phonewave is **canonical source** for shared ADRs (0000-0005)
+- Shared ADRs apply to all 4 tools (phonewave, sightjack, paintress, amadeus)
+- Tool-specific ADRs: 0006+ (goreleaser, testcontainers, signal propagation, config-relative state)
+- Changes to shared ADRs require cross-tool review via Linear
+
+## D-Mail Protocol
+
+- phonewave validates `dmail-schema-version: "1"` on all D-Mail files
+- Valid kinds: `specification`, `report`, `feedback`, `convergence`
+- Kind validation: `delivery.go` (`ValidateKind`) + `scanner.go` (SKILL.md parsing)
+- SKILL.md capabilities must be under `metadata` with `dmail-schema-version` — top-level `produces`/`consumes` is rejected
+
 ## Build & Test
 
 ```bash
