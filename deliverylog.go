@@ -29,6 +29,8 @@ func NewDeliveryLog(stateDir string) (*DeliveryLog, error) {
 
 // Close closes the log file.
 func (l *DeliveryLog) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	return l.file.Close()
 }
 
