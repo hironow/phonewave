@@ -6,8 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
+
+	pond "github.com/alitto/pond/v2"
 )
 
 // skillsRefTimeout is the maximum time allowed for a single skills-ref invocation.
@@ -139,17 +142,47 @@ func validateEndpointSkills(repoPath string, ep EndpointConfig) []string {
 	return warnings
 }
 
-// collectSkillWarnings runs skills-ref validation across repositories in cfg.
+// validationTarget pairs a repo path with an endpoint for concurrent validation.
+type validationTarget struct {
+	repoPath string
+	ep       EndpointConfig
+}
+
+// collectSkillWarnings runs skills-ref validation concurrently across
+// repositories in cfg. Each endpoint is validated in a separate worker.
 // If filterRepoPath is non-empty, only that repository's endpoints are checked.
 func collectSkillWarnings(cfg *Config, filterRepoPath string) []string {
-	var warnings []string
+	var targets []validationTarget
 	for _, repo := range cfg.Repositories {
 		if filterRepoPath != "" && repo.Path != filterRepoPath {
 			continue
 		}
 		for _, ep := range repo.Endpoints {
-			warnings = append(warnings, validateEndpointSkills(repo.Path, ep)...)
+			targets = append(targets, validationTarget{repoPath: repo.Path, ep: ep})
 		}
+	}
+
+	if len(targets) == 0 {
+		return nil
+	}
+
+	pool := pond.NewResultPool[[]string](runtime.NumCPU())
+	group := pool.NewGroup()
+
+	for _, t := range targets {
+		t := t // capture for goroutine
+		group.Submit(func() []string {
+			return validateEndpointSkills(t.repoPath, t.ep)
+		})
+	}
+
+	// ResultTaskGroup.Wait() preserves submission order.
+	results, _ := group.Wait()
+	pool.StopAndWait()
+
+	var warnings []string
+	for _, ws := range results {
+		warnings = append(warnings, ws...)
 	}
 	return warnings
 }

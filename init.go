@@ -3,9 +3,12 @@ package phonewave
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
+
+	pond "github.com/alitto/pond/v2"
 )
 
 // EndpointDiff describes a change to an endpoint during sync.
@@ -139,24 +142,47 @@ type InitResult struct {
 	Warnings  []string
 }
 
-// Init scans multiple repositories, derives routes, and generates a Config.
+// repoScanResult holds the outcome of scanning a single repository.
+type repoScanResult struct {
+	absPath   string
+	endpoints []Endpoint
+	err       error
+}
+
+// Init scans multiple repositories concurrently, derives routes, and generates
+// a Config. Repository scanning is parallelized via a worker pool.
 func Init(repoPaths []string) (*InitResult, error) {
 	cfg := &Config{
 		LastSynced: time.Now().UTC(),
 	}
 
+	pool := pond.NewResultPool[repoScanResult](runtime.NumCPU())
+	group := pool.NewGroup()
+
 	for _, repoPath := range repoPaths {
-		absPath, err := filepath.Abs(repoPath)
-		if err != nil {
-			return nil, fmt.Errorf("invalid path %q: %w", repoPath, err)
-		}
+		repoPath := repoPath // capture for goroutine
+		group.Submit(func() repoScanResult {
+			absPath, err := filepath.Abs(repoPath)
+			if err != nil {
+				return repoScanResult{err: fmt.Errorf("invalid path %q: %w", repoPath, err)}
+			}
+			endpoints, err := ScanRepository(absPath)
+			if err != nil {
+				return repoScanResult{err: fmt.Errorf("scan %q: %w", absPath, err)}
+			}
+			return repoScanResult{absPath: absPath, endpoints: endpoints}
+		})
+	}
 
-		endpoints, err := ScanRepository(absPath)
-		if err != nil {
-			return nil, fmt.Errorf("scan %q: %w", absPath, err)
-		}
+	// ResultTaskGroup.Wait() preserves submission order.
+	scanResults, _ := group.Wait()
+	pool.StopAndWait()
 
-		cfg.AddRepository(absPath, endpoints)
+	for _, r := range scanResults {
+		if r.err != nil {
+			return nil, r.err
+		}
+		cfg.AddRepository(r.absPath, r.endpoints)
 	}
 
 	cfg.UpdateRoutes()
@@ -226,29 +252,52 @@ func Remove(cfg *Config, repoPath string) (*OrphanReport, error) {
 	return &orphans, nil
 }
 
-// Sync re-scans all repositories in the config, computes diffs, and updates endpoints/routes.
+// syncRepoResult holds the outcome of re-scanning a single repository.
+type syncRepoResult struct {
+	repoConfig RepoConfig
+	err        error
+}
+
+// Sync re-scans all repositories concurrently, computes diffs, and updates
+// endpoints/routes. Repository scanning is parallelized via a worker pool.
 func Sync(cfg *Config) (*SyncReport, error) {
 	// Snapshot before re-scan
 	oldEndpoints := snapshotEndpoints(cfg)
 	oldRoutes := snapshotRoutes(cfg)
 
-	var newRepos []RepoConfig
+	pool := pond.NewResultPool[syncRepoResult](runtime.NumCPU())
+	group := pool.NewGroup()
 
 	for _, repo := range cfg.Repositories {
-		endpoints, err := ScanRepository(repo.Path)
-		if err != nil {
-			return nil, fmt.Errorf("scan %q: %w", repo.Path, err)
-		}
+		repoPath := repo.Path // capture for goroutine
+		group.Submit(func() syncRepoResult {
+			endpoints, err := ScanRepository(repoPath)
+			if err != nil {
+				return syncRepoResult{err: fmt.Errorf("scan %q: %w", repoPath, err)}
+			}
 
-		rc := RepoConfig{Path: repo.Path}
-		for _, ep := range endpoints {
-			rc.Endpoints = append(rc.Endpoints, EndpointConfig{
-				Dir:      ep.Dir,
-				Produces: ep.Produces,
-				Consumes: ep.Consumes,
-			})
+			rc := RepoConfig{Path: repoPath}
+			for _, ep := range endpoints {
+				rc.Endpoints = append(rc.Endpoints, EndpointConfig{
+					Dir:      ep.Dir,
+					Produces: ep.Produces,
+					Consumes: ep.Consumes,
+				})
+			}
+			return syncRepoResult{repoConfig: rc}
+		})
+	}
+
+	// ResultTaskGroup.Wait() preserves submission order.
+	scanResults, _ := group.Wait()
+	pool.StopAndWait()
+
+	var newRepos []RepoConfig
+	for _, r := range scanResults {
+		if r.err != nil {
+			return nil, r.err
 		}
-		newRepos = append(newRepos, rc)
+		newRepos = append(newRepos, r.repoConfig)
 	}
 
 	cfg.Repositories = newRepos
