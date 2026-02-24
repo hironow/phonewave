@@ -41,7 +41,7 @@ func NewDaemon(opts DaemonOptions, logger *Logger) (*Daemon, error) {
 	if logger == nil {
 		logger = NewLogger(nil, false)
 	}
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close — stored in Daemon struct, closed in Run()
 	if err != nil {
 		return nil, fmt.Errorf("create watcher: %w", err)
 	}

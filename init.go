@@ -38,7 +38,7 @@ func snapshotEndpoints(cfg *Config) map[string]EndpointConfig {
 	snap := make(map[string]EndpointConfig)
 	for _, repo := range cfg.Repositories {
 		for _, ep := range repo.Endpoints {
-			key := repo.Path + "/" + ep.Dir
+			key := repo.Path + "/" + ep.Dir // nosemgrep: adr0005-string-concat-file-path — map key, not file path
 			snap[key] = ep
 		}
 	}
