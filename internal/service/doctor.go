@@ -1,4 +1,4 @@
-package phonewave
+package service
 
 import (
 	"fmt"
@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	phonewave "github.com/hironow/phonewave"
 )
 
 // DoctorIssue represents a single health check finding.
@@ -41,7 +43,7 @@ type DoctorReport struct {
 }
 
 // Doctor verifies ecosystem health and returns a report.
-func Doctor(cfg *Config, stateDir string) DoctorReport {
+func Doctor(cfg *phonewave.Config, stateDir string) DoctorReport {
 	report := DoctorReport{
 		Healthy: true,
 		DaemonStatus: DaemonHealthStatus{
@@ -91,7 +93,7 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 			}
 
 			// Verify SKILL.md files are parseable and spec-compliant
-			for _, skillName := range []string{SkillSendable, SkillReadable} {
+			for _, skillName := range []string{phonewave.SkillSendable, phonewave.SkillReadable} {
 				skillDir := filepath.Join(epDir, "skills", skillName)
 				skillPath := filepath.Join(skillDir, "SKILL.md")
 				data, err := os.ReadFile(skillPath)
@@ -102,7 +104,7 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 					report.addWarn(epLabel, fmt.Sprintf("Failed to read %s SKILL.md: %v", skillName, err))
 					continue
 				}
-				if _, err := ParseSkillFrontmatter(data); err != nil {
+				if _, err := phonewave.ParseSkillFrontmatter(data); err != nil {
 					report.addWarn(epLabel, fmt.Sprintf("%s SKILL.md parse error: %v", skillName, err))
 				}
 				// Run skills-ref spec compliance check (best-effort)
@@ -121,7 +123,7 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 	}
 
 	// Check orphaned routes (per-repo to match routing scope)
-	orphans := DetectOrphansPerRepo(cfg)
+	orphans := phonewave.DetectOrphansPerRepo(cfg)
 	for _, kind := range orphans.UnconsumedKinds {
 		report.addWarn("", fmt.Sprintf("Orphaned: kind=%q is produced but not consumed", kind))
 	}

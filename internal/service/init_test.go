@@ -1,6 +1,7 @@
-package phonewave
+package service
 
 import (
+	phonewave "github.com/hironow/phonewave"
 	"os"
 	"path/filepath"
 	"strings"
@@ -190,8 +191,8 @@ func TestRemove_ExistingRepository(t *testing.T) {
 
 func TestDiffEndpoints_DetectsAdded(t *testing.T) {
 	// given
-	old := map[string]EndpointConfig{}
-	new_ := map[string]EndpointConfig{
+	old := map[string]phonewave.EndpointConfig{}
+	new_ := map[string]phonewave.EndpointConfig{
 		"repo-a/.siren": {Dir: ".siren", Produces: []string{"specification"}},
 	}
 
@@ -209,10 +210,10 @@ func TestDiffEndpoints_DetectsAdded(t *testing.T) {
 
 func TestDiffEndpoints_DetectsRemoved(t *testing.T) {
 	// given
-	old := map[string]EndpointConfig{
+	old := map[string]phonewave.EndpointConfig{
 		"repo-a/.siren": {Dir: ".siren", Produces: []string{"specification"}},
 	}
-	new_ := map[string]EndpointConfig{}
+	new_ := map[string]phonewave.EndpointConfig{}
 
 	// when
 	diffs := diffEndpoints(old, new_)
@@ -228,10 +229,10 @@ func TestDiffEndpoints_DetectsRemoved(t *testing.T) {
 
 func TestDiffEndpoints_DetectsChanged(t *testing.T) {
 	// given
-	old := map[string]EndpointConfig{
+	old := map[string]phonewave.EndpointConfig{
 		"repo-a/.expedition": {Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 	}
-	new_ := map[string]EndpointConfig{
+	new_ := map[string]phonewave.EndpointConfig{
 		"repo-a/.expedition": {Dir: ".expedition", Produces: []string{"report", "analysis"}, Consumes: []string{"specification"}},
 	}
 
@@ -249,10 +250,10 @@ func TestDiffEndpoints_DetectsChanged(t *testing.T) {
 
 func TestDiffRoutes_DetectsAddedAndRemoved(t *testing.T) {
 	// given
-	old := map[string]RouteConfig{
+	old := map[string]phonewave.RouteConfig{
 		"specification:.siren/outbox": {Kind: "specification", From: ".siren/outbox"},
 	}
-	new_ := map[string]RouteConfig{
+	new_ := map[string]phonewave.RouteConfig{
 		"report:.expedition/outbox": {Kind: "report", From: ".expedition/outbox"},
 	}
 

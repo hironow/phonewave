@@ -1,4 +1,4 @@
-package phonewave
+package service
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	phonewave "github.com/hironow/phonewave"
 	pond "github.com/alitto/pond/v2"
 )
 
@@ -27,7 +28,7 @@ type RouteDiff struct {
 
 // SyncReport holds the result of a sync operation including change diffs.
 type SyncReport struct {
-	Orphans         OrphanReport
+	Orphans         phonewave.OrphanReport
 	EndpointChanges []EndpointDiff
 	RouteChanges    []RouteDiff
 	RepoCount       int
@@ -35,10 +36,10 @@ type SyncReport struct {
 	Warnings        []string
 }
 
-// snapshotEndpoints returns a map of "repoPath/dir" → EndpointConfig for diffing.
+// snapshotEndpoints returns a map of "repoPath/dir" -> EndpointConfig for diffing.
 // Uses full repo path to avoid collisions between repos with the same basename.
-func snapshotEndpoints(cfg *Config) map[string]EndpointConfig {
-	snap := make(map[string]EndpointConfig)
+func snapshotEndpoints(cfg *phonewave.Config) map[string]phonewave.EndpointConfig {
+	snap := make(map[string]phonewave.EndpointConfig)
 	for _, repo := range cfg.Repositories {
 		for _, ep := range repo.Endpoints {
 			key := repo.Path + "/" + ep.Dir // nosemgrep: adr0005-string-concat-file-path — map key, not file path
@@ -48,10 +49,10 @@ func snapshotEndpoints(cfg *Config) map[string]EndpointConfig {
 	return snap
 }
 
-// snapshotRoutes returns a map of "repoPath:kind:from" → RouteConfig for diffing.
+// snapshotRoutes returns a map of "repoPath:kind:from" -> RouteConfig for diffing.
 // Includes RepoPath to avoid collisions in multi-repo configs with overlapping kinds/paths.
-func snapshotRoutes(cfg *Config) map[string]RouteConfig {
-	snap := make(map[string]RouteConfig)
+func snapshotRoutes(cfg *phonewave.Config) map[string]phonewave.RouteConfig {
+	snap := make(map[string]phonewave.RouteConfig)
 	for _, r := range cfg.Routes {
 		key := r.RepoPath + ":" + r.Kind + ":" + r.From
 		snap[key] = r
@@ -60,7 +61,7 @@ func snapshotRoutes(cfg *Config) map[string]RouteConfig {
 }
 
 // diffEndpoints computes the difference between old and new endpoint snapshots.
-func diffEndpoints(old, new_ map[string]EndpointConfig) []EndpointDiff {
+func diffEndpoints(old, new_ map[string]phonewave.EndpointConfig) []EndpointDiff {
 	var diffs []EndpointDiff
 
 	for key, newEp := range new_ {
@@ -92,7 +93,7 @@ func splitEndpointKey(key string) (repo, dir string) {
 }
 
 // endpointEqual checks if two EndpointConfigs have the same produces/consumes.
-func endpointEqual(a, b EndpointConfig) bool {
+func endpointEqual(a, b phonewave.EndpointConfig) bool {
 	return slicesEqual(a.Produces, b.Produces) && slicesEqual(a.Consumes, b.Consumes)
 }
 
@@ -116,7 +117,7 @@ func slicesEqual(a, b []string) bool {
 }
 
 // diffRoutes computes the difference between old and new route snapshots.
-func diffRoutes(old, new_ map[string]RouteConfig) []RouteDiff {
+func diffRoutes(old, new_ map[string]phonewave.RouteConfig) []RouteDiff {
 	var diffs []RouteDiff
 
 	for key, r := range new_ {
@@ -136,8 +137,8 @@ func diffRoutes(old, new_ map[string]RouteConfig) []RouteDiff {
 
 // InitResult holds the result of an init operation.
 type InitResult struct {
-	Config    *Config
-	Orphans   OrphanReport
+	Config    *phonewave.Config
+	Orphans   phonewave.OrphanReport
 	RepoCount int
 	Warnings  []string
 }
@@ -145,14 +146,14 @@ type InitResult struct {
 // repoScanResult holds the outcome of scanning a single repository.
 type repoScanResult struct {
 	absPath   string
-	endpoints []Endpoint
+	endpoints []phonewave.Endpoint
 	err       error
 }
 
 // Init scans multiple repositories concurrently, derives routes, and generates
 // a Config. Repository scanning is parallelized via a worker pool.
 func Init(repoPaths []string) (*InitResult, error) {
-	cfg := &Config{
+	cfg := &phonewave.Config{
 		LastSynced: time.Now().UTC(),
 	}
 
@@ -187,7 +188,7 @@ func Init(repoPaths []string) (*InitResult, error) {
 
 	cfg.UpdateRoutes()
 
-	orphans := DetectOrphansPerRepo(cfg)
+	orphans := phonewave.DetectOrphansPerRepo(cfg)
 
 	return &InitResult{
 		Config:    cfg,
@@ -199,12 +200,12 @@ func Init(repoPaths []string) (*InitResult, error) {
 
 // AddResult holds the result of an add operation.
 type AddResult struct {
-	Orphans  OrphanReport
+	Orphans  phonewave.OrphanReport
 	Warnings []string
 }
 
 // Add scans a new repository and adds it to an existing config.
-func Add(cfg *Config, repoPath string) (*AddResult, error) {
+func Add(cfg *phonewave.Config, repoPath string) (*AddResult, error) {
 	absPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid path %q: %w", repoPath, err)
@@ -226,7 +227,7 @@ func Add(cfg *Config, repoPath string) (*AddResult, error) {
 	cfg.UpdateRoutes()
 	cfg.LastSynced = time.Now().UTC()
 
-	orphans := DetectOrphansPerRepo(cfg)
+	orphans := phonewave.DetectOrphansPerRepo(cfg)
 
 	return &AddResult{
 		Orphans:  orphans,
@@ -235,7 +236,7 @@ func Add(cfg *Config, repoPath string) (*AddResult, error) {
 }
 
 // Remove removes a repository from the config and re-derives routes.
-func Remove(cfg *Config, repoPath string) (*OrphanReport, error) {
+func Remove(cfg *phonewave.Config, repoPath string) (*phonewave.OrphanReport, error) {
 	absPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid path %q: %w", repoPath, err)
@@ -248,19 +249,19 @@ func Remove(cfg *Config, repoPath string) (*OrphanReport, error) {
 	cfg.UpdateRoutes()
 	cfg.LastSynced = time.Now().UTC()
 
-	orphans := DetectOrphansPerRepo(cfg)
+	orphans := phonewave.DetectOrphansPerRepo(cfg)
 	return &orphans, nil
 }
 
 // syncRepoResult holds the outcome of re-scanning a single repository.
 type syncRepoResult struct {
-	repoConfig RepoConfig
+	repoConfig phonewave.RepoConfig
 	err        error
 }
 
 // Sync re-scans all repositories concurrently, computes diffs, and updates
 // endpoints/routes. Repository scanning is parallelized via a worker pool.
-func Sync(cfg *Config) (*SyncReport, error) {
+func Sync(cfg *phonewave.Config) (*SyncReport, error) {
 	// Snapshot before re-scan
 	oldEndpoints := snapshotEndpoints(cfg)
 	oldRoutes := snapshotRoutes(cfg)
@@ -276,9 +277,9 @@ func Sync(cfg *Config) (*SyncReport, error) {
 				return syncRepoResult{err: fmt.Errorf("scan %q: %w", repoPath, err)}
 			}
 
-			rc := RepoConfig{Path: repoPath}
+			rc := phonewave.RepoConfig{Path: repoPath}
 			for _, ep := range endpoints {
-				rc.Endpoints = append(rc.Endpoints, EndpointConfig{
+				rc.Endpoints = append(rc.Endpoints, phonewave.EndpointConfig{
 					Dir:      ep.Dir,
 					Produces: ep.Produces,
 					Consumes: ep.Consumes,
@@ -292,7 +293,7 @@ func Sync(cfg *Config) (*SyncReport, error) {
 	scanResults, _ := group.Wait()
 	pool.StopAndWait()
 
-	var newRepos []RepoConfig
+	var newRepos []phonewave.RepoConfig
 	for _, r := range scanResults {
 		if r.err != nil {
 			return nil, r.err
@@ -308,7 +309,7 @@ func Sync(cfg *Config) (*SyncReport, error) {
 	newEndpoints := snapshotEndpoints(cfg)
 	newRoutes := snapshotRoutes(cfg)
 
-	orphans := DetectOrphansPerRepo(cfg)
+	orphans := phonewave.DetectOrphansPerRepo(cfg)
 
 	return &SyncReport{
 		Orphans:         orphans,

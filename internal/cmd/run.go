@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -44,18 +45,18 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
 
 	cfgPath := configPath(cmd)
-	cfg, err := phonewave.LoadConfig(cfgPath)
+	cfg, err := service.LoadConfig(cfgPath)
 	if err != nil {
 		logger.Info("Run 'phonewave init' first")
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	routes, err := phonewave.ResolveRoutes(cfg)
+	routes, err := service.ResolveRoutes(cfg)
 	if err != nil {
 		return fmt.Errorf("resolve routes: %w", err)
 	}
 
-	outboxDirs := phonewave.CollectOutboxDirs(cfg)
+	outboxDirs := service.CollectOutboxDirs(cfg)
 	if len(outboxDirs) == 0 {
 		logger.Warn("No outbox directories to watch")
 		return nil
@@ -63,11 +64,11 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 
 	base := configBase(cmd)
 	stateDir := filepath.Join(base, phonewave.StateDir)
-	if err := phonewave.EnsureStateDir(base); err != nil {
+	if err := service.EnsureStateDir(base); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
 
-	d, err := phonewave.NewDaemon(phonewave.DaemonOptions{
+	d, err := service.NewDaemon(service.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
 		StateDir:      stateDir,

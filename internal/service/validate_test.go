@@ -1,6 +1,7 @@
-package phonewave
+package service
 
 import (
+	phonewave "github.com/hironow/phonewave"
 	"os"
 	"path/filepath"
 	"testing"
@@ -115,7 +116,7 @@ produces:
 		t.Fatal(err)
 	}
 
-	ep := EndpointConfig{
+	ep := phonewave.EndpointConfig{
 		Dir:      ".siren",
 		Produces: nil, // empty — intentional empty
 		Consumes: nil,

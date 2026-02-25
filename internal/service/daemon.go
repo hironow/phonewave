@@ -1,4 +1,4 @@
-package phonewave
+package service
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	phonewave "github.com/hironow/phonewave"
 	pond "github.com/alitto/pond/v2"
 	"github.com/fsnotify/fsnotify"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,7 +21,7 @@ import (
 
 // DaemonOptions configures the daemon behavior.
 type DaemonOptions struct {
-	Routes        []ResolvedRoute
+	Routes        []phonewave.ResolvedRoute
 	OutboxDirs    []string
 	StateDir      string
 	Verbose       bool
@@ -32,7 +33,7 @@ type DaemonOptions struct {
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
 	opts    DaemonOptions
-	logger  *Logger
+	logger  *phonewave.Logger
 	watcher *fsnotify.Watcher
 	dlog    *DeliveryLog
 	pool    pond.Pool
@@ -40,9 +41,9 @@ type Daemon struct {
 
 // NewDaemon creates a new Daemon with the given options and logger.
 // If logger is nil, a silent logger (io.Discard) is used.
-func NewDaemon(opts DaemonOptions, logger *Logger) (*Daemon, error) {
+func NewDaemon(opts DaemonOptions, logger *phonewave.Logger) (*Daemon, error) {
 	if logger == nil {
-		logger = NewLogger(nil, false)
+		logger = phonewave.NewLogger(nil, false)
 	}
 	watcher, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close — stored in Daemon struct, closed in Run()
 	if err != nil {
@@ -255,7 +256,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 
 // retryEntry holds metadata for a single error queue retry.
 // D-Mail data is read lazily inside the worker goroutine to bound
-// memory usage to pool_size × file_size instead of total_backlog × file_size.
+// memory usage to pool_size x file_size instead of total_backlog x file_size.
 type retryEntry struct {
 	sidecarPath  string
 	meta         *ErrorMetadata
@@ -357,7 +358,7 @@ func (d *Daemon) retryPending() {
 // extractKindOrUnknown attempts to extract the kind from D-Mail data,
 // returning "unknown" if parsing fails.
 func extractKindOrUnknown(data []byte) string {
-	kind, err := ExtractDMailKind(data)
+	kind, err := phonewave.ExtractDMailKind(data)
 	if err != nil {
 		return "unknown"
 	}
@@ -366,8 +367,8 @@ func extractKindOrUnknown(data []byte) string {
 
 // ResolveRoutes converts Config routes (relative paths) into ResolvedRoutes
 // (absolute paths) that the delivery pipeline can use directly.
-func ResolveRoutes(cfg *Config) ([]ResolvedRoute, error) {
-	var resolved []ResolvedRoute
+func ResolveRoutes(cfg *phonewave.Config) ([]phonewave.ResolvedRoute, error) {
+	var resolved []phonewave.ResolvedRoute
 
 	for _, route := range cfg.Routes {
 		repoPath := route.RepoPath
@@ -386,7 +387,7 @@ func ResolveRoutes(cfg *Config) ([]ResolvedRoute, error) {
 			toAbs = append(toAbs, filepath.Join(repoPath, to))
 		}
 
-		resolved = append(resolved, ResolvedRoute{
+		resolved = append(resolved, phonewave.ResolvedRoute{
 			Kind:       route.Kind,
 			FromOutbox: fromAbs,
 			ToInboxes:  toAbs,
@@ -398,7 +399,7 @@ func ResolveRoutes(cfg *Config) ([]ResolvedRoute, error) {
 
 // findRepoForRoute locates the repository that contains the given relative
 // outbox path (e.g. ".siren/outbox").
-func findRepoForRoute(cfg *Config, fromPath string) (*RepoConfig, error) {
+func findRepoForRoute(cfg *phonewave.Config, fromPath string) (*phonewave.RepoConfig, error) {
 	parts := strings.SplitN(fromPath, string(filepath.Separator), 2)
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("invalid from path: %q", fromPath)
@@ -418,7 +419,7 @@ func findRepoForRoute(cfg *Config, fromPath string) (*RepoConfig, error) {
 // CollectOutboxDirs returns all absolute outbox directory paths from endpoints
 // that produce at least one kind. Consume-only endpoints are excluded because
 // they may not have an outbox directory.
-func CollectOutboxDirs(cfg *Config) []string {
+func CollectOutboxDirs(cfg *phonewave.Config) []string {
 	var dirs []string
 	for _, repo := range cfg.Repositories {
 		for _, ep := range repo.Endpoints {
@@ -434,9 +435,9 @@ func CollectOutboxDirs(cfg *Config) []string {
 // delivering each one according to the provided routes. Files are delivered
 // concurrently via a worker pool. Failed deliveries are saved to the error queue
 // in stateDir.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRoute, stateDir string, logger *Logger) ([]*DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, stateDir string, logger *phonewave.Logger) ([]*phonewave.DeliveryResult, []error) {
 	if logger == nil {
-		logger = NewLogger(nil, false)
+		logger = phonewave.NewLogger(nil, false)
 	}
 	entries, err := os.ReadDir(outboxDir)
 	if err != nil {
@@ -464,8 +465,8 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRout
 
 	// Deliver files sequentially. The caller (daemon startup scan) already
 	// parallelises per-outbox via its worker pool, so a nested pool here
-	// would multiply concurrency to NumCPU² and spike FD/memory usage.
-	var results []*DeliveryResult
+	// would multiply concurrency to NumCPU^2 and spike FD/memory usage.
+	var results []*phonewave.DeliveryResult
 	var errs []error
 	for _, entry := range filtered {
 		dmailPath := filepath.Join(outboxDir, entry.Name())

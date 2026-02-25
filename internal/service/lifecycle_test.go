@@ -1,6 +1,7 @@
-package phonewave
+package service
 
 import (
+	phonewave "github.com/hironow/phonewave"
 	"context"
 	"io"
 	"os"
@@ -185,7 +186,7 @@ description: "Pre-existing specification"
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -347,7 +348,7 @@ description: "Unknown"
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon (restart): %v", err)
 	}

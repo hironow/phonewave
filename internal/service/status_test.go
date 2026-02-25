@@ -1,6 +1,7 @@
-package phonewave
+package service
 
 import (
+	phonewave "github.com/hironow/phonewave"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,22 +12,22 @@ import (
 func TestStatus_DaemonStopped(t *testing.T) {
 	// given — no PID file, a config with some endpoints
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 	if err := os.MkdirAll(filepath.Join(stateDir, "errors"), 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 				},
 			},
 		},
-		Routes: []RouteConfig{
+		Routes: []phonewave.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}},
 		},
 	}
@@ -55,7 +56,7 @@ func TestStatus_DaemonStopped(t *testing.T) {
 func TestStatus_PendingErrors(t *testing.T) {
 	// given — some files in errors/ directory
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 	errorsDir := filepath.Join(stateDir, "errors")
 	if err := os.MkdirAll(errorsDir, 0755); err != nil {
 		t.Fatal(err)
@@ -68,7 +69,7 @@ func TestStatus_PendingErrors(t *testing.T) {
 		}
 	}
 
-	cfg := &Config{}
+	cfg := &phonewave.Config{}
 
 	// when
 	status := Status(cfg, stateDir)
@@ -130,7 +131,7 @@ func TestParseDeliveryStats_EmptyLog(t *testing.T) {
 func TestStatus_Uptime(t *testing.T) {
 	// given — a running daemon with watch.started file
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +143,7 @@ func TestStatus_Uptime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &Config{}
+	cfg := &phonewave.Config{}
 
 	// when
 	status := Status(cfg, stateDir)
@@ -156,7 +157,7 @@ func TestStatus_Uptime(t *testing.T) {
 func TestStatus_DeliveryStats(t *testing.T) {
 	// given — a state dir with delivery.log
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +173,7 @@ func TestStatus_DeliveryStats(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &Config{}
+	cfg := &phonewave.Config{}
 
 	// when
 	status := Status(cfg, stateDir)

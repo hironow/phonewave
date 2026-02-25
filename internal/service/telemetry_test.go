@@ -1,6 +1,7 @@
-package phonewave
+package service
 
 import (
+	phonewave "github.com/hironow/phonewave"
 	"context"
 	"io"
 	"os"
@@ -101,10 +102,10 @@ func TestDaemon_Run_CreatesStartupScanSpan(t *testing.T) {
 	}
 
 	d, err := NewDaemon(DaemonOptions{
-		Routes:     []ResolvedRoute{},
+		Routes:     []phonewave.ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -160,7 +161,7 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -206,10 +207,10 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 	}
 
 	d, err := NewDaemon(DaemonOptions{
-		Routes:     []ResolvedRoute{},
+		Routes:     []phonewave.ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -257,7 +258,7 @@ func TestDeliverData_CreatesSpan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -306,7 +307,7 @@ func TestDeliverData_RecordsErrorSpan(t *testing.T) {
 	dmailPath := filepath.Join(outbox, "spec-err.md")
 
 	// Empty routes — will fail to find route
-	routes := []ResolvedRoute{}
+	routes := []phonewave.ResolvedRoute{}
 
 	// when
 	_, err := DeliverData(context.Background(), dmailPath, dmailContent, routes)

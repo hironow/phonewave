@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -53,13 +50,19 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 	content := string(data)
 
 	// Find frontmatter delimiters
-	if !strings.HasPrefix(content, "---") {
+	if len(content) < 3 || content[:3] != "---" {
 		return nil, errors.New("no YAML frontmatter found: file must start with ---")
 	}
 
 	// Find the closing ---
 	rest := content[3:]
-	idx := strings.Index(rest, "\n---")
+	idx := -1
+	for i := 0; i < len(rest); i++ {
+		if rest[i] == '\n' && i+3 < len(rest) && rest[i+1:i+4] == "---" {
+			idx = i
+			break
+		}
+	}
 	if idx < 0 {
 		return nil, errors.New("no closing --- found for YAML frontmatter")
 	}
@@ -103,74 +106,4 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 	}
 
 	return &skill, nil
-}
-
-// ScanRepository scans a repository path for dot-directories containing
-// D-Mail skill declarations (skills/dmail-sendable/SKILL.md and
-// skills/dmail-readable/SKILL.md).
-func ScanRepository(repoPath string) ([]Endpoint, error) {
-	entries, err := os.ReadDir(repoPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var endpoints []Endpoint
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		// Only consider dot-prefixed directories
-		if !strings.HasPrefix(name, ".") {
-			continue
-		}
-		// Skip common non-tool dot directories
-		if name == ".git" || name == ".github" || name == ".phonewave" {
-			continue
-		}
-
-		ep, found, err := scanEndpoint(repoPath, name)
-		if err != nil {
-			return nil, err
-		}
-		if found {
-			endpoints = append(endpoints, ep)
-		}
-	}
-
-	return endpoints, nil
-}
-
-// scanEndpoint checks a single dot-directory for D-Mail skill declarations.
-func scanEndpoint(repoPath, dirName string) (Endpoint, bool, error) {
-	ep := Endpoint{Dir: dirName}
-	found := false
-
-	// Check for sendable skill
-	sendablePath := filepath.Join(repoPath, dirName, "skills", SkillSendable, "SKILL.md")
-	if data, err := os.ReadFile(sendablePath); err == nil {
-		skill, err := ParseSkillFrontmatter(data)
-		if err != nil {
-			return ep, false, err
-		}
-		for _, p := range skill.Produces {
-			ep.Produces = append(ep.Produces, p.Kind)
-		}
-		found = true
-	}
-
-	// Check for readable skill
-	readablePath := filepath.Join(repoPath, dirName, "skills", SkillReadable, "SKILL.md")
-	if data, err := os.ReadFile(readablePath); err == nil {
-		skill, err := ParseSkillFrontmatter(data)
-		if err != nil {
-			return ep, false, err
-		}
-		for _, c := range skill.Consumes {
-			ep.Consumes = append(ep.Consumes, c.Kind)
-		}
-		found = true
-	}
-
-	return ep, found, nil
 }

@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hironow/phonewave"
 	cmd "github.com/hironow/phonewave/internal/cmd"
+	"github.com/hironow/phonewave/internal/service"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func run() (exitCode int) {
 		syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	shutdownTracer := phonewave.InitTracer("phonewave", cmd.Version)
+	shutdownTracer := service.InitTracer("phonewave", cmd.Version)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

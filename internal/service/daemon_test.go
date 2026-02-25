@@ -1,6 +1,7 @@
-package phonewave
+package service
 
 import (
+	phonewave "github.com/hironow/phonewave"
 	"context"
 	"io"
 	"os"
@@ -31,18 +32,18 @@ func TestResolveRoutes(t *testing.T) {
 		}
 	}
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
 					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},
-		Routes: []RouteConfig{
+		Routes: []phonewave.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository"},
 			{Kind: "report", From: ".expedition/outbox", To: []string{".gate/inbox"}, Scope: "same_repository"},
 			{Kind: "feedback", From: ".gate/outbox", To: []string{".siren/inbox", ".expedition/inbox"}, Scope: "same_repository"},
@@ -112,18 +113,18 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 		}
 	}
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: repoA,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: nil},
 					{Dir: ".expedition", Produces: nil, Consumes: []string{"specification"}},
 				},
 			},
 			{
 				Path: repoB,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"alert"}, Consumes: nil},
 					{Dir: ".gate", Produces: nil, Consumes: []string{"alert"}},
 				},
@@ -168,7 +169,7 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 	}
 }
 
-func findResolvedRoute(routes []ResolvedRoute, kind string) *ResolvedRoute {
+func findResolvedRoute(routes []phonewave.ResolvedRoute, kind string) *phonewave.ResolvedRoute {
 	for i := range routes {
 		if routes[i].Kind == kind {
 			return &routes[i]
@@ -190,18 +191,18 @@ func TestResolveRoutes_CollectsOutboxDirs(t *testing.T) {
 		}
 	}
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},
-		Routes: []RouteConfig{
+		Routes: []phonewave.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository"},
 		},
 	}
@@ -248,12 +249,12 @@ description: "Pre-existing spec"
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
 
 	// then
 	if len(errs) != 0 {
@@ -289,7 +290,7 @@ func TestDaemon_WatchAndDeliver(t *testing.T) {
 		}
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -298,7 +299,7 @@ func TestDaemon_WatchAndDeliver(t *testing.T) {
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -387,7 +388,7 @@ description: "Startup log test"
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -396,7 +397,7 @@ description: "Startup log test"
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -445,10 +446,10 @@ func TestDaemon_PIDFile(t *testing.T) {
 	}
 
 	d, err := NewDaemon(DaemonOptions{
-		Routes:     []ResolvedRoute{},
+		Routes:     []phonewave.ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}

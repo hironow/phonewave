@@ -1,6 +1,7 @@
-package phonewave
+package service
 
 import (
+	phonewave "github.com/hironow/phonewave"
 	"context"
 	"io"
 	"os"
@@ -26,7 +27,7 @@ func TestDaemon_MalformedDMail(t *testing.T) {
 		}
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -35,7 +36,7 @@ func TestDaemon_MalformedDMail(t *testing.T) {
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -114,7 +115,7 @@ func TestDaemon_UnknownKind(t *testing.T) {
 	}
 
 	// Only route for "specification", not "mystery"
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -122,7 +123,7 @@ func TestDaemon_UnknownKind(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -202,7 +203,7 @@ func TestDaemon_IgnoresNonMdFiles(t *testing.T) {
 		}
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -210,7 +211,7 @@ func TestDaemon_IgnoresNonMdFiles(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -275,12 +276,12 @@ description: "Valid"
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	// when
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
 
 	// then
 	if len(errs) != 0 {
@@ -339,12 +340,12 @@ description: "Also valid"
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	// when
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
 
 	// then — should deliver 2, fail 1, and NOT stop on first error
 	if len(results) != 2 {
@@ -394,7 +395,7 @@ func TestDeliver_FileVanished(t *testing.T) {
 	}
 
 	// Reference a non-existent file
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -439,7 +440,7 @@ description: "New version"
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -488,7 +489,7 @@ description: "No inbox target"
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{nonExistentInbox}},
 	}
 
@@ -519,7 +520,7 @@ func TestDaemon_BurstDelivery(t *testing.T) {
 		}
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -527,7 +528,7 @@ func TestDaemon_BurstDelivery(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -601,12 +602,12 @@ allDelivered:
 func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 	outbox := t.TempDir()
 	stateDir := t.TempDir()
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
 	// when — scan an empty outbox
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
 
 	// then — no results, no errors
 	if len(results) != 0 {
@@ -621,7 +622,7 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 
 func TestDoctor_StalePIDFile(t *testing.T) {
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -633,7 +634,7 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &Config{}
+	cfg := &phonewave.Config{}
 
 	// when
 	report := Doctor(cfg, stateDir)
@@ -659,7 +660,7 @@ func TestDaemon_MultipleOutboxes(t *testing.T) {
 		}
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox1, ToInboxes: []string{inbox1}},
 		{Kind: "feedback", FromOutbox: outbox2, ToInboxes: []string{inbox2}},
 	}
@@ -668,7 +669,7 @@ func TestDaemon_MultipleOutboxes(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox1, outbox2},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -758,7 +759,7 @@ description: "Partial failure test"
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 
@@ -846,7 +847,7 @@ func TestDaemon_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
 	}
 
 	// No route for "specification" from this outbox — delivery WILL fail
-	routes := []ResolvedRoute{}
+	routes := []phonewave.ResolvedRoute{}
 
 	dmailContent := `---
 dmail-schema-version: "1"
@@ -864,7 +865,7 @@ description: "Preserve test"
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -919,10 +920,10 @@ description: "Preserve test"
 	}
 
 	// No routes — delivery will fail
-	routes := []ResolvedRoute{}
+	routes := []phonewave.ResolvedRoute{}
 
 	// when
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir, NewLogger(io.Discard, false))
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
 
 	// then — outbox file must still exist
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
@@ -959,7 +960,7 @@ description: "Rename event test"
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -967,7 +968,7 @@ description: "Rename event test"
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1005,10 +1006,10 @@ func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
 	}
 
 	d, err := NewDaemon(DaemonOptions{
-		Routes:     []ResolvedRoute{},
+		Routes:     []phonewave.ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1058,7 +1059,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 	}
 
 	// Now provide the route that was previously missing
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -1069,7 +1070,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		Verbose:       true,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1149,12 +1150,12 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 
 	// No routes — retry would fail anyway, but it shouldn't even try
 	d, err := NewDaemon(DaemonOptions{
-		Routes:        []ResolvedRoute{},
+		Routes:        []phonewave.ResolvedRoute{},
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1222,7 +1223,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	routes := []ResolvedRoute{
+	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -1231,7 +1232,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
 		RetryInterval: 0, // disabled
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
