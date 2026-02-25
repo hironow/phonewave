@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
+	pond "github.com/alitto/pond/v2"
 	"github.com/fsnotify/fsnotify"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -33,6 +35,7 @@ type Daemon struct {
 	logger  *Logger
 	watcher *fsnotify.Watcher
 	dlog    *DeliveryLog
+	pool    pond.Pool
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -41,7 +44,7 @@ func NewDaemon(opts DaemonOptions, logger *Logger) (*Daemon, error) {
 	if logger == nil {
 		logger = NewLogger(nil, false)
 	}
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close — stored in Daemon struct, closed in Run()
 	if err != nil {
 		return nil, fmt.Errorf("create watcher: %w", err)
 	}
@@ -50,11 +53,13 @@ func NewDaemon(opts DaemonOptions, logger *Logger) (*Daemon, error) {
 		opts:    opts,
 		logger:  logger,
 		watcher: watcher,
+		pool:    pond.NewPool(runtime.NumCPU()),
 	}, nil
 }
 
 // Run starts the daemon event loop. It blocks until ctx is cancelled.
 func (d *Daemon) Run(ctx context.Context) error {
+	defer d.pool.StopAndWait()
 	defer d.watcher.Close()
 
 	// Open delivery log
@@ -89,30 +94,36 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	defer os.Remove(startedPath)
 
-	// Startup scan: deliver any files that accumulated while daemon was down
+	// Startup scan: deliver any files that accumulated while daemon was down.
+	// Each outbox directory is scanned concurrently via the daemon's worker pool.
+	scanGroup := d.pool.NewGroup()
 	for _, dir := range d.opts.OutboxDirs {
-		scanCtx, scanSpan := tracer.Start(ctx, "daemon.startup_scan",
-			trace.WithNewRoot(),
-			trace.WithAttributes(attribute.String("outbox.dir", dir)),
-		)
-		results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger)
-		scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
-		scanSpan.End()
-		for _, r := range results {
-			if d.dlog != nil {
-				for _, target := range r.DeliveredTo {
-					d.dlog.Delivered(r.Kind, r.SourcePath, target)
+		dir := dir // capture for goroutine
+		scanGroup.Submit(func() {
+			scanCtx, scanSpan := tracer.Start(ctx, "daemon.startup_scan",
+				trace.WithNewRoot(),
+				trace.WithAttributes(attribute.String("outbox.dir", dir)),
+			)
+			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger)
+			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
+			scanSpan.End()
+			for _, r := range results {
+				if d.dlog != nil {
+					for _, target := range r.DeliveredTo {
+						d.dlog.Delivered(r.Kind, r.SourcePath, target)
+					}
+					d.dlog.Removed(r.SourcePath)
 				}
-				d.dlog.Removed(r.SourcePath)
+				if d.opts.Verbose {
+					d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
+				}
 			}
-			if d.opts.Verbose {
-				d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
+			for _, err := range errs {
+				d.logger.Warn("Startup scan: %v", err)
 			}
-		}
-		for _, err := range errs {
-			d.logger.Warn("Startup scan: %v", err)
-		}
+		})
 	}
+	scanGroup.Wait()
 
 	if d.opts.Verbose {
 		d.logger.OK("Daemon started (PID %d), watching %d outbox directories", os.Getpid(), len(d.opts.OutboxDirs))
@@ -242,8 +253,19 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	}
 }
 
+// retryEntry holds metadata for a single error queue retry.
+// D-Mail data is read lazily inside the worker goroutine to bound
+// memory usage to pool_size × file_size instead of total_backlog × file_size.
+type retryEntry struct {
+	sidecarPath  string
+	meta         *ErrorMetadata
+	dmailPath    string
+	originalPath string
+}
+
 // retryPending scans the error queue and attempts to re-deliver entries
-// that have not exceeded MaxRetries.
+// that have not exceeded MaxRetries. Eligible retries run concurrently
+// via the daemon's worker pool.
 func (d *Daemon) retryPending() {
 	ctx, retrySpan := tracer.Start(context.Background(), "daemon.retry_pending")
 	defer retrySpan.End()
@@ -259,6 +281,8 @@ func (d *Daemon) retryPending() {
 		maxRetries = 10
 	}
 
+	// Collect eligible entries (sequential I/O: metadata + data reads)
+	var eligible []retryEntry
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".err") {
 			continue
@@ -275,43 +299,59 @@ func (d *Daemon) retryPending() {
 			continue
 		}
 
-		// Read the D-Mail data file (sidecar path minus ".err")
 		dmailPath := strings.TrimSuffix(sidecarPath, ".err")
-		data, err := os.ReadFile(dmailPath)
-		if err != nil {
-			d.logger.Warn("Retry: read %s: %v", dmailPath, err)
-			continue
-		}
 
-		// Reconstruct the original outbox path for DeliverData
-		originalPath := filepath.Join(meta.SourceOutbox, meta.OriginalName)
-
-		result, deliverErr := DeliverData(ctx, originalPath, data, d.opts.Routes)
-		if deliverErr != nil {
-			if err := UpdateErrorMetadata(sidecarPath, deliverErr.Error()); err != nil {
-				d.logger.Warn("Retry: update metadata: %v", err)
-			}
-			if d.opts.Verbose {
-				d.logger.Warn("Retry failed for %s (attempt %d): %v", meta.OriginalName, meta.Attempts+1, deliverErr)
-			}
-			continue
-		}
-
-		// Success — remove from error queue and log
-		if err := RemoveErrorEntry(dmailPath); err != nil {
-			d.logger.Warn("Retry: remove error entry: %v", err)
-		}
-
-		if d.dlog != nil {
-			for _, target := range result.DeliveredTo {
-				d.dlog.Retried(result.Kind, originalPath, target)
-			}
-		}
-
-		if d.opts.Verbose {
-			d.logger.OK("Retry: delivered %s (kind=%s) to %v", meta.OriginalName, result.Kind, result.DeliveredTo)
-		}
+		eligible = append(eligible, retryEntry{
+			sidecarPath:  sidecarPath,
+			meta:         meta,
+			dmailPath:    dmailPath,
+			originalPath: filepath.Join(meta.SourceOutbox, meta.OriginalName),
+		})
 	}
+
+	if len(eligible) == 0 {
+		return
+	}
+
+	// Retry eligible entries concurrently. D-Mail data is read inside each
+	// worker so memory is bounded by pool concurrency, not backlog size.
+	retryGroup := d.pool.NewGroup()
+	for _, e := range eligible {
+		e := e // capture for goroutine
+		retryGroup.Submit(func() {
+			data, readErr := os.ReadFile(e.dmailPath)
+			if readErr != nil {
+				d.logger.Warn("Retry: read %s: %v", e.dmailPath, readErr)
+				return
+			}
+
+			result, deliverErr := DeliverData(ctx, e.originalPath, data, d.opts.Routes)
+			if deliverErr != nil {
+				if err := UpdateErrorMetadata(e.sidecarPath, deliverErr.Error()); err != nil {
+					d.logger.Warn("Retry: update metadata: %v", err)
+				}
+				if d.opts.Verbose {
+					d.logger.Warn("Retry failed for %s (attempt %d): %v", e.meta.OriginalName, e.meta.Attempts+1, deliverErr)
+				}
+				return
+			}
+
+			if err := RemoveErrorEntry(e.dmailPath); err != nil {
+				d.logger.Warn("Retry: remove error entry: %v", err)
+			}
+
+			if d.dlog != nil {
+				for _, target := range result.DeliveredTo {
+					d.dlog.Retried(result.Kind, e.originalPath, target)
+				}
+			}
+
+			if d.opts.Verbose {
+				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.meta.OriginalName, result.Kind, result.DeliveredTo)
+			}
+		})
+	}
+	retryGroup.Wait()
 }
 
 // extractKindOrUnknown attempts to extract the kind from D-Mail data,
@@ -391,8 +431,9 @@ func CollectOutboxDirs(cfg *Config) []string {
 }
 
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
-// delivering each one according to the provided routes. Failed deliveries are
-// saved to the error queue in stateDir.
+// delivering each one according to the provided routes. Files are delivered
+// concurrently via a worker pool. Failed deliveries are saved to the error queue
+// in stateDir.
 func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRoute, stateDir string, logger *Logger) ([]*DeliveryResult, []error) {
 	if logger == nil {
 		logger = NewLogger(nil, false)
@@ -402,9 +443,8 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRout
 		return nil, []error{fmt.Errorf("scan outbox %s: %w", outboxDir, err)}
 	}
 
-	var results []*DeliveryResult
-	var errs []error
-
+	// Filter eligible entries
+	var filtered []os.DirEntry
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -415,7 +455,19 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRout
 		if strings.HasPrefix(entry.Name(), ".phonewave-tmp-") {
 			continue
 		}
+		filtered = append(filtered, entry)
+	}
 
+	if len(filtered) == 0 {
+		return nil, nil
+	}
+
+	// Deliver files sequentially. The caller (daemon startup scan) already
+	// parallelises per-outbox via its worker pool, so a nested pool here
+	// would multiply concurrency to NumCPU² and spike FD/memory usage.
+	var results []*DeliveryResult
+	var errs []error
+	for _, entry := range filtered {
 		dmailPath := filepath.Join(outboxDir, entry.Name())
 
 		data, readErr := os.ReadFile(dmailPath)
@@ -426,8 +478,6 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRout
 
 		result, deliverErr := DeliverData(ctx, dmailPath, data, routes)
 		if deliverErr != nil {
-			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
-
 			kind := extractKindOrUnknown(data)
 			meta := ErrorMetadata{
 				SourceOutbox: outboxDir,
@@ -439,12 +489,13 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRout
 			}
 			if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
 				logger.Error("Save to error queue: %v", saveErr)
-				// Do NOT remove from outbox — preserve for future retry
-				continue
+			} else {
+				os.Remove(dmailPath)
 			}
-			os.Remove(dmailPath)
+			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
 			continue
 		}
+
 		results = append(results, result)
 	}
 

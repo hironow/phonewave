@@ -1,0 +1,221 @@
+rules:
+  # ==========================================================================
+  # ADR enforcement rules
+  # docs/adr/ (0000-0009) のうち Go コードで静的検知できるものをカバー
+  # 対象外: ADR 0000 (governance), ADR 0004 (data format), ADR 0006 (build config)
+  # ==========================================================================
+
+  # --- ADR 0001: cobra CLI conventions ---
+
+  # Rule 1: cobra.Command with Run instead of RunE
+  # Source: ADR 0001 — "All commands use RunE"
+  - id: adr0001-cobra-run-without-rune
+    languages: [go]
+    message: |
+      cobra.Command で Run フィールドを使用しないでください。
+      RunE を使用して error を返すようにしてください。
+      Run は error を返せないため、main() での exit code 制御ができなくなります。
+      Ref: docs/adr/0001-cobra-cli-framework.md
+    severity: ERROR
+    pattern: |
+      &cobra.Command{
+        ...,
+        Run: $FUNC,
+        ...,
+      }
+
+  # --- ADR 0003: OTel noop-default ---
+
+  # Rule 2: otel.SetTracerProvider outside InitTracer
+  # Source: ADR 0003 — centralized tracer initialization
+  - id: adr0003-otel-set-tracer-provider-outside-init
+    languages: [go]
+    message: |
+      otel.SetTracerProvider() は InitTracer() 内でのみ呼び出してください。
+      TracerProvider の設定を分散させると noop デフォルトの保証が崩れます。
+      Ref: docs/adr/0003-opentelemetry-noop-default.md
+    severity: WARNING
+    patterns:
+      - pattern: otel.SetTracerProvider(...)
+      - pattern-not-inside: |
+          func InitTracer(...) $RET {
+            ...
+          }
+    paths:
+      exclude:
+        - "*_test.go"
+
+  # --- ADR 0005: fsnotify daemon ---
+
+  # Rule 3: fsnotify.NewWatcher without defer Close
+  # Source: ADR 0005 — watcher lifecycle management
+  - id: adr0005-fsnotify-watcher-without-close
+    languages: [go]
+    message: |
+      fsnotify.NewWatcher() の後に defer $W.Close() がありません。
+      watcher のファイルディスクリプタがリークします。
+      同一関数内で defer watcher.Close() を呼び出すか、
+      struct に保存して別途 Close する場合は nosemgrep を付与してください。
+      Ref: docs/adr/0005-fsnotify-daemon-design.md
+    severity: ERROR
+    patterns:
+      - pattern: |
+          $W, $ERR := fsnotify.NewWatcher()
+      - pattern-not-inside: |
+          $W, $_ := fsnotify.NewWatcher()
+          ...
+          defer $W.Close()
+
+  # Rule 4: String concatenation for file paths
+  # Source: ADR 0005 + Go convention — use filepath.Join
+  - id: adr0005-string-concat-file-path
+    languages: [go]
+    message: |
+      文字列連結 (+ "/" +) でファイルパスを構築しないでください。
+      filepath.Join() を使用してください。
+      OS 間のパス区切り文字の違いを吸収し、重複スラッシュも正規化されます。
+      マップキーや表示用ラベルの場合は nosemgrep を付与してください。
+      Ref: docs/adr/0005-fsnotify-daemon-design.md
+    severity: WARNING
+    pattern-regex: '\+\s*"/"\s*\+'
+    paths:
+      exclude:
+        - "*_test.go"
+
+  # --- ADR 0007: Docker E2E testing ---
+
+  # Rule 5: testcontainers.GenericContainer without Terminate
+  # Source: ADR 0007 — container cleanup in Docker E2E
+  - id: adr0007-testcontainers-generic-without-terminate
+    languages: [go]
+    message: |
+      testcontainers.GenericContainer() で作成したコンテナに
+      Terminate() が呼ばれていません。
+      defer func() { container.Terminate(ctx) }() または
+      t.Cleanup(func() { container.Terminate(ctx) }) で確実に停止してください。
+      Ref: docs/adr/0007-testcontainers-docker-e2e.md
+    severity: ERROR
+    patterns:
+      - pattern: |
+          $CONTAINER, $ERR := testcontainers.GenericContainer(...)
+      - pattern-not-inside: |
+          $CONTAINER, $_ := testcontainers.GenericContainer(...)
+          ...
+          $CONTAINER.Terminate(...)
+    paths:
+      include:
+        - "*_test.go"
+
+  # Rule 6: Mock/stub usage in Docker E2E tests
+  # Source: ADR 0007 — "All dependencies must be real"
+  - id: adr0007-mock-in-docker-test
+    languages: [go]
+    message: |
+      Docker E2E テスト (_docker_test.go) でモックを使用しないでください。
+      全ての依存は実サービスで構成してください。
+      モックが必要なテストは integration テストに移動してください。
+      Ref: docs/adr/0007-testcontainers-docker-e2e.md
+    severity: WARNING
+    pattern-either:
+      - pattern: gomock.NewController(...)
+      - pattern: httptest.NewServer(...)
+      - pattern: httptest.NewTLSServer(...)
+    paths:
+      include:
+        - "*_docker_test.go"
+
+  # --- ADR 0008: Signal context propagation ---
+
+  # Rule 7: signal.Notify instead of signal.NotifyContext
+  # Source: ADR 0008 — prefer NotifyContext for context-based cancellation
+  # Note: cobra.yaml Rule 7 covers goroutine leak (signal.Stop); this rule covers the API choice
+  - id: adr0008-signal-notify-instead-of-notifycontext
+    languages: [go]
+    message: |
+      signal.Notify() ではなく signal.NotifyContext() を使用してください。
+      signal.NotifyContext は context のキャンセルチェーンに統合され、
+      goroutine リークのリスクも低減されます。
+      Ref: docs/adr/0008-signal-context-propagation.md
+    severity: WARNING
+    pattern: signal.Notify(...)
+    paths:
+      exclude:
+        - "*_test.go"
+
+  # --- ADR 0009: Config-relative state directory ---
+
+  # Rule 8: os.Getwd in cobra command handler
+  # Source: ADR 0009 — state dir from configBase(cmd), not CWD
+  - id: adr0009-os-getwd-in-cobra-cmd
+    languages: [go]
+    message: |
+      cobra コマンド内で os.Getwd() を使用しないでください。
+      状態ディレクトリは configBase(cmd) から取得してください。
+      CWD 依存はテストの非決定性とパスのずれを引き起こします。
+      Ref: docs/adr/0009-config-relative-state-directory.md
+    severity: WARNING
+    patterns:
+      - pattern: os.Getwd()
+      - pattern-inside: |
+          func($CMD *cobra.Command, $ARGS []string) error {
+            ...
+          }
+
+  # --- ADR 0008: Signal context propagation (continued) ---
+
+  # Rule 9: Execute() without context
+  # Source: ADR 0008 — "ExecuteContext(ctx) passes context to cobra root command"
+  - id: adr0008-execute-without-context
+    languages: [go]
+    message: |
+      $CMD.Execute() ではなく $CMD.ExecuteContext(ctx) を使用してください。
+      Execute() ではシグナルコンテキストが cobra コマンドに伝播されません。
+      signal.NotifyContext で作成した ctx を渡すことで、
+      Ctrl+C 時にコマンドツリー全体が適切にキャンセルされます。
+      Ref: docs/adr/0008-signal-context-propagation.md
+    severity: ERROR
+    pattern: $CMD.Execute()
+    paths:
+      exclude:
+        - "*_test.go"
+
+  # --- ADR 0003: OTel noop-default (continued) ---
+
+  # Rule 10: otel.SetMeterProvider outside InitTracer
+  # Source: ADR 0003 — centralized provider initialization
+  - id: adr0003-otel-set-meter-provider-outside-init
+    languages: [go]
+    message: |
+      otel.SetMeterProvider() は InitTracer() 内でのみ呼び出してください。
+      MeterProvider の設定を分散させると noop デフォルトの保証が崩れます。
+      TracerProvider と同様に集中管理してください。
+      Ref: docs/adr/0003-opentelemetry-noop-default.md
+    severity: WARNING
+    patterns:
+      - pattern: otel.SetMeterProvider(...)
+      - pattern-not-inside: |
+          func InitTracer(...) $RET {
+            ...
+          }
+    paths:
+      exclude:
+        - "*_test.go"
+
+  # --- ADR 0005: fsnotify daemon (continued) ---
+
+  # Rule 11: mutex Lock without defer Unlock
+  # Source: ADR 0005 — thread-safe daemon operations
+  - id: adr0005-mutex-lock-without-defer-unlock
+    languages: [go]
+    message: |
+      $M.Lock() の直後に defer $M.Unlock() がありません。
+      Lock/Unlock のペアリングを忘れるとデッドロックの原因になります。
+      条件付き Unlock が必要な場合は nosemgrep を付与してください。
+      Ref: docs/adr/0005-fsnotify-daemon-design.md
+    severity: ERROR
+    patterns:
+      - pattern: $M.Lock()
+      - pattern-not-inside: |
+          $M.Lock()
+          ...
+          defer $M.Unlock()

@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -415,6 +416,40 @@ func TestSaveToErrorQueue_SanitizesPathTraversal(t *testing.T) {
 			t.Errorf("unexpected file outside errors/: %s", e.Name())
 		}
 	}
+}
+
+func TestDeliveryLog_CloseIsConcurrencySafe(t *testing.T) {
+	// given — a delivery log with concurrent writers
+	stateDir := t.TempDir()
+	log, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		t.Fatalf("NewDeliveryLog: %v", err)
+	}
+
+	// when — write and close concurrently to expose race on l.file
+	start := make(chan struct{})
+	done := make(chan struct{}, 11)
+
+	for i := range 10 {
+		go func(n int) {
+			defer func() { done <- struct{}{} }()
+			<-start
+			log.Delivered("feedback", fmt.Sprintf("/outbox/msg-%d.md", n), "/inbox/msg.md")
+		}(i)
+	}
+	go func() {
+		defer func() { done <- struct{}{} }()
+		<-start
+		log.Close()
+	}()
+
+	// Release all goroutines at once to maximize contention
+	close(start)
+	for range 11 {
+		<-done
+	}
+
+	// then — no race detected (verified by -race flag)
 }
 
 func TestSaveToErrorQueue_CreatesErrorsDir(t *testing.T) {

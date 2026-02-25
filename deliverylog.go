@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 // DeliveryLog writes append-only delivery records to .phonewave/delivery.log.
+// All methods are safe for concurrent use.
 type DeliveryLog struct {
 	file *os.File
+	mu   sync.Mutex
 }
 
 // NewDeliveryLog opens (or creates) the delivery log file.
@@ -26,6 +29,8 @@ func NewDeliveryLog(stateDir string) (*DeliveryLog, error) {
 
 // Close closes the log file.
 func (l *DeliveryLog) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	return l.file.Close()
 }
 
@@ -50,6 +55,8 @@ func (l *DeliveryLog) Retried(kind, from, to string) {
 }
 
 func (l *DeliveryLog) write(action, details string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	ts := time.Now().UTC().Format(time.RFC3339)
 	fmt.Fprintf(l.file, "%s %-9s %s\n", ts, action, details)
 }
