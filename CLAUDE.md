@@ -8,8 +8,10 @@
 
 - Entry: `cmd/phonewave/main.go` (signal.NotifyContext + InitTracer defer + ExitCode)
 - CLI: `internal/cmd/` (cobra v1.10.2, `NewRootCommand()` exported for testability)
-- Library: root package `phonewave` (daemon, delivery, config, scanner, router, doctor, status, telemetry, logger)
-- OTel: `telemetry.go` (noop default + OTLP HTTP exporter)
+- Types: root package `phonewave` (types, constants, pure functions — no I/O)
+- Service: `internal/service/` (all filesystem, network, subprocess I/O)
+- Logger: `logger.go` stays in root (infrastructure type, 23+ dependents)
+- OTel: `internal/service/telemetry.go` (noop default + OTLP HTTP exporter)
 - Docker: `docker/compose.yaml` + `docker/jaeger-v2-config.yaml` (Jaeger v2)
 - Docker E2E: `docker/compose-e2e.yaml` (testcontainers-go lifecycle tests)
 - Semgrep: `.semgrep/cobra.yaml` (canonical source — copy to other 3 tools)
@@ -26,14 +28,15 @@
 ## Test Layout
 
 - Unit tests: `*_test.go` colocated with source (Go convention)
-  - All root tests use `package phonewave` (in-package) — daemon/delivery internals require direct access
+  - Root tests use `package phonewave` (types + pure function tests)
+  - Service tests use `package service` in `internal/service/` (I/O tests)
   - `cmd/phonewave/main_test.go` uses `package main` for CLI arg parsing tests
 - Docker E2E: `*_docker_test.go` with `//go:build docker` tag (testcontainers-go)
-  - `cli_docker_test.go` — CLI subcommand tests in container
-  - `daemon_docker_test.go` — daemon behaviour (retry, error queue, burst)
-  - `lifecycle_docker_test.go` — single-container lifecycle
-  - `lifecycle_multicontainer_test.go` — cross-container D-Mail delivery
-  - `otel_docker_test.go` — OTel tracing with Jaeger container
+  - `internal/service/cli_docker_test.go` — CLI subcommand tests in container
+  - `internal/service/daemon_docker_test.go` — daemon behaviour (retry, error queue, burst)
+  - `internal/service/lifecycle_docker_test.go` — single-container lifecycle
+  - `internal/service/lifecycle_multicontainer_test.go` — cross-container D-Mail delivery
+  - `internal/service/otel_docker_test.go` — OTel tracing with Jaeger container
 - No `tests/` directory — all tests colocated with source per Go convention
 
 ## ADR (Architecture Decision Records)
