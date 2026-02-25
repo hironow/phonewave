@@ -253,11 +253,12 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	}
 }
 
-// retryEntry holds the pre-loaded state for a single error queue retry.
+// retryEntry holds metadata for a single error queue retry.
+// D-Mail data is read lazily inside the worker goroutine to bound
+// memory usage to pool_size × file_size instead of total_backlog × file_size.
 type retryEntry struct {
 	sidecarPath  string
 	meta         *ErrorMetadata
-	data         []byte
 	dmailPath    string
 	originalPath string
 }
@@ -299,16 +300,10 @@ func (d *Daemon) retryPending() {
 		}
 
 		dmailPath := strings.TrimSuffix(sidecarPath, ".err")
-		data, err := os.ReadFile(dmailPath)
-		if err != nil {
-			d.logger.Warn("Retry: read %s: %v", dmailPath, err)
-			continue
-		}
 
 		eligible = append(eligible, retryEntry{
 			sidecarPath:  sidecarPath,
 			meta:         meta,
-			data:         data,
 			dmailPath:    dmailPath,
 			originalPath: filepath.Join(meta.SourceOutbox, meta.OriginalName),
 		})
@@ -318,12 +313,19 @@ func (d *Daemon) retryPending() {
 		return
 	}
 
-	// Retry eligible entries concurrently
+	// Retry eligible entries concurrently. D-Mail data is read inside each
+	// worker so memory is bounded by pool concurrency, not backlog size.
 	retryGroup := d.pool.NewGroup()
 	for _, e := range eligible {
 		e := e // capture for goroutine
 		retryGroup.Submit(func() {
-			result, deliverErr := DeliverData(ctx, e.originalPath, e.data, d.opts.Routes)
+			data, readErr := os.ReadFile(e.dmailPath)
+			if readErr != nil {
+				d.logger.Warn("Retry: read %s: %v", e.dmailPath, readErr)
+				return
+			}
+
+			result, deliverErr := DeliverData(ctx, e.originalPath, data, d.opts.Routes)
 			if deliverErr != nil {
 				if err := UpdateErrorMetadata(e.sidecarPath, deliverErr.Error()); err != nil {
 					d.logger.Warn("Retry: update metadata: %v", err)
@@ -428,12 +430,6 @@ func CollectOutboxDirs(cfg *Config) []string {
 	return dirs
 }
 
-// fileDeliveryOutcome holds the result of delivering a single file.
-type fileDeliveryOutcome struct {
-	result *DeliveryResult
-	err    error
-}
-
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
 // delivering each one according to the provided routes. Files are delivered
 // concurrently via a worker pool. Failed deliveries are saved to the error queue
@@ -466,55 +462,41 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []ResolvedRout
 		return nil, nil
 	}
 
-	// Deliver files concurrently via a ResultPool.
-	// ResultTaskGroup.Wait() preserves submission order.
-	pool := pond.NewResultPool[fileDeliveryOutcome](runtime.NumCPU())
-	group := pool.NewGroup()
-
-	for _, entry := range filtered {
-		dmailPath := filepath.Join(outboxDir, entry.Name())
-		entryName := entry.Name()
-
-		group.Submit(func() fileDeliveryOutcome {
-			data, readErr := os.ReadFile(dmailPath)
-			if readErr != nil {
-				return fileDeliveryOutcome{err: fmt.Errorf("read %s: %w", dmailPath, readErr)}
-			}
-
-			result, deliverErr := DeliverData(ctx, dmailPath, data, routes)
-			if deliverErr != nil {
-				kind := extractKindOrUnknown(data)
-				meta := ErrorMetadata{
-					SourceOutbox: outboxDir,
-					Kind:         kind,
-					OriginalName: entryName,
-					Attempts:     1,
-					Error:        deliverErr.Error(),
-					Timestamp:    time.Now().UTC(),
-				}
-				if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
-					logger.Error("Save to error queue: %v", saveErr)
-					return fileDeliveryOutcome{err: fmt.Errorf("deliver %s: %w", dmailPath, deliverErr)}
-				}
-				os.Remove(dmailPath)
-				return fileDeliveryOutcome{err: fmt.Errorf("deliver %s: %w", dmailPath, deliverErr)}
-			}
-
-			return fileDeliveryOutcome{result: result}
-		})
-	}
-
-	outcomes, _ := group.Wait()
-	pool.StopAndWait()
-
+	// Deliver files sequentially. The caller (daemon startup scan) already
+	// parallelises per-outbox via its worker pool, so a nested pool here
+	// would multiply concurrency to NumCPU² and spike FD/memory usage.
 	var results []*DeliveryResult
 	var errs []error
-	for _, o := range outcomes {
-		if o.err != nil {
-			errs = append(errs, o.err)
-		} else if o.result != nil {
-			results = append(results, o.result)
+	for _, entry := range filtered {
+		dmailPath := filepath.Join(outboxDir, entry.Name())
+
+		data, readErr := os.ReadFile(dmailPath)
+		if readErr != nil {
+			errs = append(errs, fmt.Errorf("read %s: %w", dmailPath, readErr))
+			continue
 		}
+
+		result, deliverErr := DeliverData(ctx, dmailPath, data, routes)
+		if deliverErr != nil {
+			kind := extractKindOrUnknown(data)
+			meta := ErrorMetadata{
+				SourceOutbox: outboxDir,
+				Kind:         kind,
+				OriginalName: entry.Name(),
+				Attempts:     1,
+				Error:        deliverErr.Error(),
+				Timestamp:    time.Now().UTC(),
+			}
+			if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
+				logger.Error("Save to error queue: %v", saveErr)
+			} else {
+				os.Remove(dmailPath)
+			}
+			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
+			continue
+		}
+
+		results = append(results, result)
 	}
 
 	return results, errs
