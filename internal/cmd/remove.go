@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -18,8 +17,7 @@ func newRemoveCmd() *cobra.Command {
 		Example: `  phonewave remove ./old-repo
   phonewave remove /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := loggerFrom(cmd)
 
 			cfgPath := configPath(cmd)
 			cfg, err := session.LoadConfig(cfgPath)

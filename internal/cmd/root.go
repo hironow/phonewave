@@ -16,6 +16,10 @@ var (
 	Date    = "unknown"
 )
 
+type loggerKeyType struct{}
+
+var loggerKey loggerKeyType
+
 // shutdownTracer holds the OTel tracer shutdown function registered by
 // PersistentPreRunE. cobra.OnFinalize calls it after Execute completes.
 var (
@@ -37,7 +41,11 @@ func NewRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			ctx := context.WithValue(cmd.Context(), loggerKey, logger)
 			shutdownTracer = initTracer("phonewave", Version)
+			cmd.SetContext(ctx)
 			return nil
 		},
 	}
@@ -66,4 +74,13 @@ func NewRootCommand() *cobra.Command {
 	)
 
 	return rootCmd
+}
+
+// loggerFrom extracts the *phonewave.Logger from the cobra command context.
+// Falls back to a stderr logger if PersistentPreRunE was not executed (e.g., in tests).
+func loggerFrom(cmd *cobra.Command) *phonewave.Logger {
+	if l, ok := cmd.Context().Value(loggerKey).(*phonewave.Logger); ok {
+		return l
+	}
+	return phonewave.NewLogger(cmd.ErrOrStderr(), false)
 }
