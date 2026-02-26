@@ -34,6 +34,7 @@ Infrastructure in root is NOT an exception. It follows a general pattern:
 - All layers import root to use these infrastructure types
 
 Examples:
+
 - `Logger`: `NewLogger(io.Writer)` — pure constructor, I/O delegated to Writer
 - `Tracer`: `var Tracer = noop.Tracer("tool")` — noop default, no I/O
 
@@ -69,15 +70,18 @@ constructor, injected dependency), it may live in root.
 ## Consequences
 
 ### Positive
+
 - Eliminates the false distinction between Logger ("exception") and Tracer ("normal")
 - Single ADR for all layer conventions reduces cross-referencing
 - Clear boundary test for root-vs-session placement decisions
 - Consistent directory naming across all four tools
 
 ### Negative
+
 - Supersedes two existing ADRs, requiring README updates across all tools
 
 ### Neutral
+
 - No code changes required by this ADR itself; telemetry alignment is
   a separate structural refactoring tracked per-tool
 - sightjack's 4-layer architecture remains compatible

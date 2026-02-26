@@ -36,12 +36,14 @@ Implement a signal propagation chain from `main.go` through cobra to the daemon:
 ## Consequences
 
 ### Positive
+
 - Single signal registration point eliminates race conditions
 - Context cancellation flows naturally through Go's context hierarchy
 - Daemon shutdown is testable by cancelling the context in unit tests
 - No signal handlers inside library code — only in `main.go`
 
 ### Negative
+
 - cobra's `PersistentPostRunE` is skipped when `RunE` returns an error,
   so cleanup (e.g., tracer shutdown) must use `defer` in `main.go`
 - Sentinel error pattern (`ErrUpdateAvailable`) requires callers to

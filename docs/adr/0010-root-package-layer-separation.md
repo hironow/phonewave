@@ -36,16 +36,19 @@ Dependency direction: `internal/cmd` → `internal/service` → `phonewave` (roo
 ## Consequences
 
 ### Positive
+
 - Root package is safe to import without pulling in I/O dependencies
 - Clear separation of concerns: types vs operations
 - Aligns with sightjack ADR conventions (0010-0012)
 - Tests split naturally: pure function tests in root, I/O tests in service
 
 ### Negative
+
 - Larger initial commit (atomic move required by Go circular import constraint)
 - `internal/cmd` now imports two packages instead of one
 - `logger.go` exception breaks the pure types-only rule for root
 
 ### Neutral
+
 - Report types (`DoctorReport`, `StatusReport`, `DaemonOptions`) live in
   `internal/service` since they are generated and consumed there

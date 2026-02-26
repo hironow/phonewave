@@ -8,6 +8,18 @@ import (
 	phonewave "github.com/hironow/phonewave"
 )
 
+// Compile-time check that FileScanner implements phonewave.Scanner.
+var _ phonewave.Scanner = (*FileScanner)(nil)
+
+// FileScanner implements phonewave.Scanner using the local filesystem.
+type FileScanner struct{}
+
+// ScanRepository scans a repository path for dot-directories containing
+// D-Mail skill declarations.
+func (FileScanner) ScanRepository(repoPath string) ([]phonewave.Endpoint, error) {
+	return ScanRepository(repoPath)
+}
+
 // ScanRepository scans a repository path for dot-directories containing
 // D-Mail skill declarations (skills/dmail-sendable/SKILL.md and
 // skills/dmail-readable/SKILL.md).

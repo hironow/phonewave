@@ -69,14 +69,17 @@ state management in the phonewave ecosystem.
 ## Consequences
 
 ### Positive
+
 - Shared vocabulary for state management across tools that adopt event sourcing
 - New tools can reference this ADR instead of re-deriving the pattern
 - Tool-specific trade-offs are documented in one place for comparison
 
 ### Negative
+
 - Tools must still write their own tool-specific ADRs for implementation
   decisions (file scope, ID format, projection strategy)
 
 ### Neutral
+
 - phonewave and paintress do not currently use event sourcing; this ADR does
   not mandate adoption

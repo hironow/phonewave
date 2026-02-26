@@ -28,15 +28,15 @@
 ## Test Layout
 
 - Unit tests: `*_test.go` colocated with source (Go convention)
-  - Root tests use `package phonewave` (types + pure function tests)
-  - Session tests use `package session` in `internal/session/` (I/O tests)
-  - `cmd/phonewave/main_test.go` uses `package main` for CLI arg parsing tests
+    - Root tests use `package phonewave` (types + pure function tests)
+    - Session tests use `package session` in `internal/session/` (I/O tests)
+    - `cmd/phonewave/main_test.go` uses `package main` for CLI arg parsing tests
 - Docker E2E: `*_docker_test.go` with `//go:build docker` tag (testcontainers-go)
-  - `internal/session/cli_docker_test.go` — CLI subcommand tests in container
-  - `internal/session/daemon_docker_test.go` — daemon behaviour (retry, error queue, burst)
-  - `internal/session/lifecycle_docker_test.go` — single-container lifecycle
-  - `internal/session/lifecycle_multicontainer_test.go` — cross-container D-Mail delivery
-  - `internal/session/otel_docker_test.go` — OTel tracing with Jaeger container
+    - `internal/session/cli_docker_test.go` — CLI subcommand tests in container
+    - `internal/session/daemon_docker_test.go` — daemon behaviour (retry, error queue, burst)
+    - `internal/session/lifecycle_docker_test.go` — single-container lifecycle
+    - `internal/session/lifecycle_multicontainer_test.go` — cross-container D-Mail delivery
+    - `internal/session/otel_docker_test.go` — OTel tracing with Jaeger container
 - No `tests/` directory — all tests colocated with source per Go convention
 
 ## ADR (Architecture Decision Records)

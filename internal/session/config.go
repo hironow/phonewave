@@ -8,6 +8,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Compile-time check that FileConfigLoader implements phonewave.ConfigLoader.
+var _ phonewave.ConfigLoader = (*FileConfigLoader)(nil)
+
+// FileConfigLoader implements phonewave.ConfigLoader using the local filesystem.
+type FileConfigLoader struct{}
+
+// Load reads and parses a phonewave.yaml file.
+func (FileConfigLoader) Load(path string) (*phonewave.Config, error) {
+	return LoadConfig(path)
+}
+
+// Save writes a Config to the given path as YAML.
+func (FileConfigLoader) Save(path string, cfg *phonewave.Config) error {
+	return WriteConfig(path, cfg)
+}
+
 // LoadConfig reads and parses a phonewave.yaml file.
 func LoadConfig(path string) (*phonewave.Config, error) {
 	data, err := os.ReadFile(path)

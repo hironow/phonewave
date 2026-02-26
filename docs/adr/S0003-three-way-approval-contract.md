@@ -11,6 +11,7 @@ identical three-way return contract and the same set of three Approver
 implementations, despite being designed without cross-tool coordination.
 
 The convergence covers:
+
 - Return contract: `(bool, error)` with three distinct semantic outcomes
 - Fail-closed default: errors always deny
 - Three implementations: StdinApprover, CmdApprover, AutoApprover
@@ -67,14 +68,17 @@ or affect approval decisions.
 ## Consequences
 
 ### Positive
+
 - Shared vocabulary for approval gates across tools
 - New tools can adopt the pattern by implementing the three Approver variants
 - Fail-closed semantics are documented as a cross-tool invariant
 
 ### Negative
+
 - Tools must still decide between gate timing strategies (per-event redrain vs
   session-level) based on their specific requirements
 
 ### Neutral
+
 - phonewave and amadeus do not currently implement approval gates; this ADR
   does not mandate adoption

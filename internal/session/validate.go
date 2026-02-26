@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
 	pond "github.com/alitto/pond/v2"
+	phonewave "github.com/hironow/phonewave"
 )
 
 // skillsRefTimeout is the maximum time allowed for a single skills-ref invocation.

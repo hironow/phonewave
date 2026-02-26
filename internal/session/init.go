@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
 	pond "github.com/alitto/pond/v2"
+	phonewave "github.com/hironow/phonewave"
 )
 
 // EndpointDiff describes a change to an endpoint during sync.

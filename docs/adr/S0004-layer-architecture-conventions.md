@@ -57,16 +57,19 @@ placement remain valid historical records.
 ## Consequences
 
 ### Positive
+
 - Consistent directory naming across all four tools reduces cognitive overhead
 - Developers can navigate any tool's codebase with the same mental model
 - Telemetry convention provides clear guidance for new tools or major refactors
 
 ### Negative
+
 - phonewave requires a directory rename (`service` -> `session`) with import
   path updates across all source files
 - Tools with existing telemetry placement may defer alignment to future work
 
 ### Neutral
+
 - sightjack's 4-layer architecture is compatible (session layer exists alongside
   domain and eventsource)
 - The Tracer-in-root pattern is already adopted by paintress and amadeus

@@ -65,10 +65,12 @@ S-prefix to avoid numbering collisions. Canonical versions live in phonewave.
 ## Consequences
 
 ### Positive
+
 - Single source of truth for shared decisions eliminates drift
 - Each tool retains autonomy for tool-specific decisions
 - Linear issue numbers provide stable cross-references across repositories
 
 ### Negative
+
 - phonewave bears the maintenance burden for shared ADR updates
 - Other tools must check phonewave for shared decision changes

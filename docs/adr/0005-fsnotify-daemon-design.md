@@ -34,11 +34,13 @@ Implement the daemon using fsnotify with the following design:
 ## Consequences
 
 ### Positive
+
 - Near-instant delivery on file creation (no polling delay)
 - Startup scan ensures no messages are lost across daemon restarts
 - PID file enables external health checks and clean shutdown
 
 ### Negative
+
 - fsnotify has platform-specific behavior (e.g., macOS kqueue has limited
   event granularity compared to Linux inotify)
 - Watcher must be added for each outbox directory individually

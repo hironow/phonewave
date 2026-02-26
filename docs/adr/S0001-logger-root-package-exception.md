@@ -38,13 +38,16 @@ types-only root convention across all four tools.
 ## Consequences
 
 ### Positive
+
 - Eliminates repeated justification of the same exception in each tool's ADR
 - Establishes a clear precedent: infrastructure types with 20+ dependents may
   remain in root when the migration cost exceeds the benefit
 
 ### Negative
+
 - The exception weakens the "types-only root" rule — future developers must
   understand that Logger is a special case, not a precedent for other I/O types
 
 ### Neutral
+
 - This ADR documents an existing convention; no code changes are required
