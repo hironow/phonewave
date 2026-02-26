@@ -25,6 +25,7 @@ subsequently recognized as shared conventions.
 | [S0001](S0001-logger-root-package-exception.md) | Logger as root package exception |
 | [S0002](S0002-event-sourcing-jsonl-pattern.md) | JSONL append-only event sourcing pattern |
 | [S0003](S0003-three-way-approval-contract.md) | Three-way approval contract |
+| [S0004](S0004-layer-architecture-conventions.md) | Layer architecture naming and telemetry conventions |
 
 ## phonewave-specific ADRs
 

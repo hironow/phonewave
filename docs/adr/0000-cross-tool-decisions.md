@@ -30,13 +30,15 @@ Adopt **Option C (hybrid)** for cross-tool ADR management:
 
 ## Cross-Tool ADR Index (0001-0005)
 
-| # | Decision | Canonical (phonewave) | Linear (impl) | Linear (decision) |
-|---|----------|-----------------------|----------------|-------------------|
-| 0001 | cobra CLI framework adoption | `docs/adr/0001-cobra-cli-framework.md` | MY-363 | MY-329 |
-| 0002 | stdio convention (stdout=data, stderr=logs) | `docs/adr/0002-stdio-convention.md` | MY-363 | MY-339 |
-| 0003 | OpenTelemetry noop-default + OTLP HTTP | `docs/adr/0003-opentelemetry-noop-default.md` | MY-363 | — |
-| 0004 | D-Mail Schema v1 specification | `docs/adr/0004-dmail-schema-v1.md` | MY-363 | MY-352, MY-353 |
-| 0005 | fsnotify-based file watch daemon | `docs/adr/0005-fsnotify-daemon-design.md` | MY-363 | — |
+| # | Decision | Canonical (phonewave) | Applies to | Linear |
+|---|----------|-----------------------|------------|--------|
+| 0001 | cobra CLI framework adoption | `docs/adr/0001-cobra-cli-framework.md` | all 4 tools | MY-329 |
+| 0002 | stdio convention (stdout=data, stderr=logs) | `docs/adr/0002-stdio-convention.md` | all 4 tools | MY-339 |
+| 0003 | OpenTelemetry noop-default + OTLP HTTP | `docs/adr/0003-opentelemetry-noop-default.md` | all 4 tools | — |
+| 0004 | D-Mail Schema v1 specification | `docs/adr/0004-dmail-schema-v1.md` | all 4 tools | MY-352 |
+| 0005 | fsnotify-based file watch daemon | `docs/adr/0005-fsnotify-daemon-design.md` | phonewave, sightjack, paintress | — |
+
+Note: ADR 0005 does not apply to amadeus (CLI-only, no daemon/watcher).
 
 ## Extended Shared ADRs (S-series)
 
@@ -48,6 +50,7 @@ S-prefix to avoid numbering collisions. Canonical versions live in phonewave.
 | S0001 | Logger as root package exception | `docs/adr/S0001-logger-root-package-exception.md` |
 | S0002 | JSONL append-only event sourcing pattern | `docs/adr/S0002-event-sourcing-jsonl-pattern.md` |
 | S0003 | Three-way approval contract | `docs/adr/S0003-three-way-approval-contract.md` |
+| S0004 | Layer architecture naming and telemetry conventions | `docs/adr/S0004-layer-architecture-conventions.md` |
 
 ## Tool-Specific ADR Ranges
 

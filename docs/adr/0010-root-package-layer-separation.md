@@ -1,7 +1,7 @@
 # 0010. Root Package Layer Separation
 
 **Date:** 2026-02-25
-**Status:** Accepted
+**Status:** Accepted — directory renamed to internal/session/ per S0004
 
 ## Context
 

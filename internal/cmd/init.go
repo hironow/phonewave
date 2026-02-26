@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave"
-	"github.com/hironow/phonewave/internal/service"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -21,17 +21,17 @@ func newInitCmd() *cobra.Command {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
 
-			result, err := service.Init(args)
+			result, err := session.Init(args)
 			if err != nil {
 				return err
 			}
 
 			cfgPath := configPath(cmd)
-			if err := service.WriteConfig(cfgPath, result.Config); err != nil {
+			if err := session.WriteConfig(cfgPath, result.Config); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 
-			if err := service.EnsureStateDir(configBase(cmd)); err != nil {
+			if err := session.EnsureStateDir(configBase(cmd)); err != nil {
 				return fmt.Errorf("create state dir: %w", err)
 			}
 
