@@ -1,7 +1,7 @@
 # S0005. Root Infrastructure Pattern and Layer Conventions
 
 **Date:** 2026-02-26
-**Status:** Accepted — supersedes S0001, S0004
+**Status:** Accepted — supersedes S0001, S0004. All 4 tools now use cmd for InitTracer.
 
 ## Context
 

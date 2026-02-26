@@ -11,7 +11,7 @@
 - Types: root package `phonewave` (types, constants, pure functions — no I/O)
 - Session: `internal/session/` (all filesystem, network, subprocess I/O)
 - Logger: `logger.go` stays in root (root infrastructure per S0005)
-- OTel: `telemetry.go` (Tracer noop default), `internal/session/telemetry.go` (InitTracer + OTLP HTTP)
+- OTel: `telemetry.go` (Tracer noop default), `internal/cmd/telemetry.go` (InitTracer + OTLP HTTP)
 - Docker: `docker/compose.yaml` + `docker/jaeger-v2-config.yaml` (Jaeger v2)
 - Docker E2E: `docker/compose-e2e.yaml` (testcontainers-go lifecycle tests)
 - Semgrep: `.semgrep/cobra.yaml` (canonical source — copy to other 3 tools)

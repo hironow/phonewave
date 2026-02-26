@@ -10,7 +10,6 @@ import (
 	"time"
 
 	cmd "github.com/hironow/phonewave/internal/cmd"
-	"github.com/hironow/phonewave/internal/session"
 )
 
 func main() {
@@ -22,7 +21,7 @@ func run() (exitCode int) {
 		syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	shutdownTracer := session.InitTracer("phonewave", cmd.Version)
+	shutdownTracer := cmd.InitTracer("phonewave", cmd.Version)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

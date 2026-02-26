@@ -33,24 +33,6 @@ func setupTestTracer(t *testing.T) *tracetest.InMemoryExporter {
 	return exp
 }
 
-func TestInitTracer_NoopWhenEndpointUnset(t *testing.T) {
-	// given — no OTLP endpoint configured (neither generic nor trace-specific)
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
-
-	// when
-	shutdown := InitTracer("test-svc", "0.0.1")
-	defer shutdown(context.Background())
-
-	_, span := phonewave.Tracer.Start(context.Background(), "test-span")
-	defer span.End()
-
-	// then — span should not be recording (noop provider)
-	if span.IsRecording() {
-		t.Error("span should NOT be recording when endpoint is unset (noop provider)")
-	}
-}
-
 func TestSetupTestTracer_SpansAvailableImmediately(t *testing.T) {
 	// given — test tracer with in-memory exporter (sync processor)
 	exp := setupTestTracer(t)
