@@ -2,6 +2,14 @@ package phonewave
 
 import "time"
 
+// DeliveryLogger records D-Mail delivery events.
+type DeliveryLogger interface {
+	Delivered(kind, from, to string)
+	Removed(from string)
+	Failed(kind, from, reason string)
+	Retried(kind, from, to string)
+}
+
 // ConfigLoader loads and saves phonewave configuration files.
 // The session layer provides a filesystem-backed implementation.
 type ConfigLoader interface {
