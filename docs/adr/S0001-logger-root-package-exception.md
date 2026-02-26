@@ -1,7 +1,7 @@
 # S0001. Logger as Root Package Exception
 
 **Date:** 2026-02-25
-**Status:** Accepted
+**Status:** Superseded by S0005
 
 ## Context
 

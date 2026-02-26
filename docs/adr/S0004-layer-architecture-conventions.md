@@ -1,7 +1,7 @@
 # S0004. Layer Architecture Naming and Telemetry Conventions
 
 **Date:** 2026-02-26
-**Status:** Accepted
+**Status:** Superseded by S0005
 
 ## Context
 

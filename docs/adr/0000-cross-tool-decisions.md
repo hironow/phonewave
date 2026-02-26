@@ -47,10 +47,11 @@ S-prefix to avoid numbering collisions. Canonical versions live in phonewave.
 
 | # | Decision | Canonical (phonewave) |
 |---|----------|-----------------------|
-| S0001 | Logger as root package exception | `docs/adr/S0001-logger-root-package-exception.md` |
+| S0001 | ~~Logger as root package exception~~ (superseded by S0005) | `docs/adr/S0001-logger-root-package-exception.md` |
 | S0002 | JSONL append-only event sourcing pattern | `docs/adr/S0002-event-sourcing-jsonl-pattern.md` |
 | S0003 | Three-way approval contract | `docs/adr/S0003-three-way-approval-contract.md` |
-| S0004 | Layer architecture naming and telemetry conventions | `docs/adr/S0004-layer-architecture-conventions.md` |
+| S0004 | ~~Layer architecture conventions~~ (superseded by S0005) | `docs/adr/S0004-layer-architecture-conventions.md` |
+| S0005 | Root infrastructure pattern and layer conventions | `docs/adr/S0005-root-infrastructure-and-layer-conventions.md` |
 
 ## Tool-Specific ADR Ranges
 

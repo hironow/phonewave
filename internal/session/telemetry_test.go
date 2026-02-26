@@ -24,11 +24,11 @@ func setupTestTracer(t *testing.T) *tracetest.InMemoryExporter {
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exp))
 	prev := otel.GetTracerProvider()
 	otel.SetTracerProvider(tp)
-	tracer = tp.Tracer("phonewave-test")
+	phonewave.Tracer = tp.Tracer("phonewave-test")
 	t.Cleanup(func() {
 		tp.Shutdown(context.Background())
 		otel.SetTracerProvider(prev)
-		tracer = prev.Tracer("phonewave")
+		phonewave.Tracer = prev.Tracer("phonewave")
 	})
 	return exp
 }
@@ -42,7 +42,7 @@ func TestInitTracer_NoopWhenEndpointUnset(t *testing.T) {
 	shutdown := InitTracer("test-svc", "0.0.1")
 	defer shutdown(context.Background())
 
-	_, span := tracer.Start(context.Background(), "test-span")
+	_, span := phonewave.Tracer.Start(context.Background(), "test-span")
 	defer span.End()
 
 	// then — span should not be recording (noop provider)
@@ -56,7 +56,7 @@ func TestSetupTestTracer_SpansAvailableImmediately(t *testing.T) {
 	exp := setupTestTracer(t)
 
 	// when — create and end a span
-	_, span := tracer.Start(context.Background(), "sync-span")
+	_, span := phonewave.Tracer.Start(context.Background(), "sync-span")
 	span.End()
 
 	// then — span should appear in exporter immediately (sync processor)
