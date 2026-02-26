@@ -68,10 +68,17 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("create state dir: %w", err)
 	}
 
+	errStore, err := session.NewSQLiteErrorStore(stateDir)
+	if err != nil {
+		return fmt.Errorf("open error store: %w", err)
+	}
+	defer errStore.Close()
+
 	d, err := session.NewDaemon(session.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
 		StateDir:      stateDir,
+		ErrorStore:    errStore,
 		Verbose:       verbose,
 		DryRun:        dryRun,
 		RetryInterval: retryInterval,

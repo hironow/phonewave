@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
 	pond "github.com/alitto/pond/v2"
 	"github.com/fsnotify/fsnotify"
+	phonewave "github.com/hironow/phonewave"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -24,6 +24,7 @@ type DaemonOptions struct {
 	Routes        []phonewave.ResolvedRoute
 	OutboxDirs    []string
 	StateDir      string
+	ErrorStore    phonewave.ErrorStore
 	Verbose       bool
 	DryRun        bool
 	RetryInterval time.Duration // 0 = disabled (default)
@@ -32,11 +33,12 @@ type DaemonOptions struct {
 
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
-	opts    DaemonOptions
-	logger  *phonewave.Logger
-	watcher *fsnotify.Watcher
-	dlog    *DeliveryLog
-	pool    pond.Pool
+	opts       DaemonOptions
+	logger     *phonewave.Logger
+	watcher    *fsnotify.Watcher
+	dlog       *DeliveryLog
+	errorStore phonewave.ErrorStore
+	pool       pond.Pool
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -51,10 +53,11 @@ func NewDaemon(opts DaemonOptions, logger *phonewave.Logger) (*Daemon, error) {
 	}
 
 	return &Daemon{
-		opts:    opts,
-		logger:  logger,
-		watcher: watcher,
-		pool:    pond.NewPool(runtime.NumCPU()),
+		opts:       opts,
+		logger:     logger,
+		watcher:    watcher,
+		errorStore: opts.ErrorStore,
+		pool:       pond.NewPool(runtime.NumCPU()),
 	}, nil
 }
 
@@ -99,13 +102,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Each outbox directory is scanned concurrently via the daemon's worker pool.
 	scanGroup := d.pool.NewGroup()
 	for _, dir := range d.opts.OutboxDirs {
-		dir := dir // capture for goroutine
 		scanGroup.Submit(func() {
 			scanCtx, scanSpan := phonewave.Tracer.Start(ctx, "daemon.startup_scan",
 				trace.WithNewRoot(),
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
-			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger)
+			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.errorStore, d.logger)
 			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
 			scanSpan.End()
 			for _, r := range results {
@@ -223,21 +225,32 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 			d.dlog.Failed(kind, event.Name, err.Error())
 		}
 
-		meta := ErrorMetadata{
+		if d.errorStore == nil {
+			// No error store — leave file in outbox for retry on next restart
+			return
+		}
+
+		now := time.Now().UTC()
+		ts := now.Format("2006-01-02T150405.000000000")
+		entryName := fmt.Sprintf("%s-%s-%s", ts, kind, filepath.Base(event.Name))
+		entry := phonewave.RetryEntry{
+			Name:         entryName,
 			SourceOutbox: filepath.Dir(event.Name),
 			Kind:         kind,
 			OriginalName: filepath.Base(event.Name),
+			Data:         data,
 			Attempts:     1,
 			Error:        err.Error(),
-			Timestamp:    time.Now().UTC(),
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		}
-		if saveErr := SaveToErrorQueue(d.opts.StateDir, meta, data); saveErr != nil {
+		if saveErr := d.errorStore.RecordFailure(entry); saveErr != nil {
 			d.logger.Error("Save to error queue: %v", saveErr)
 			// Do NOT remove from outbox — startup scan will retry on next restart
 			return
 		}
 
-		// Error queue write succeeded — safe to remove from outbox
+		// Error store write succeeded — safe to remove from outbox
 		os.Remove(event.Name)
 		return
 	}
@@ -254,101 +267,59 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	}
 }
 
-// retryEntry holds metadata for a single error queue retry.
-// D-Mail data is read lazily inside the worker goroutine to bound
-// memory usage to pool_size x file_size instead of total_backlog x file_size.
-type retryEntry struct {
-	sidecarPath  string
-	meta         *ErrorMetadata
-	dmailPath    string
-	originalPath string
-}
-
-// retryPending scans the error queue and attempts to re-deliver entries
-// that have not exceeded MaxRetries. Eligible retries run concurrently
-// via the daemon's worker pool.
+// retryPending queries the error store for pending entries and attempts to
+// re-deliver them. Eligible retries run concurrently via the daemon's worker pool.
 func (d *Daemon) retryPending() {
+	if d.errorStore == nil {
+		return
+	}
+
 	ctx, retrySpan := phonewave.Tracer.Start(context.Background(), "daemon.retry_pending")
 	defer retrySpan.End()
-
-	errorsDir := filepath.Join(d.opts.StateDir, "errors")
-	entries, err := os.ReadDir(errorsDir)
-	if err != nil {
-		return // no error queue directory yet
-	}
 
 	maxRetries := d.opts.MaxRetries
 	if maxRetries <= 0 {
 		maxRetries = 10
 	}
 
-	// Collect eligible entries (sequential I/O: metadata + data reads)
-	var eligible []retryEntry
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".err") {
-			continue
-		}
-
-		sidecarPath := filepath.Join(errorsDir, entry.Name())
-		meta, err := LoadErrorMetadata(sidecarPath)
-		if err != nil {
-			d.logger.Warn("Retry: load metadata %s: %v", sidecarPath, err)
-			continue
-		}
-
-		if meta.Attempts >= maxRetries {
-			continue
-		}
-
-		dmailPath := strings.TrimSuffix(sidecarPath, ".err")
-
-		eligible = append(eligible, retryEntry{
-			sidecarPath:  sidecarPath,
-			meta:         meta,
-			dmailPath:    dmailPath,
-			originalPath: filepath.Join(meta.SourceOutbox, meta.OriginalName),
-		})
+	eligible, err := d.errorStore.ListPending(maxRetries)
+	if err != nil {
+		d.logger.Warn("Retry: list pending: %v", err)
+		return
 	}
 
 	if len(eligible) == 0 {
 		return
 	}
 
-	// Retry eligible entries concurrently. D-Mail data is read inside each
-	// worker so memory is bounded by pool concurrency, not backlog size.
 	retryGroup := d.pool.NewGroup()
 	for _, e := range eligible {
-		e := e // capture for goroutine
 		retryGroup.Submit(func() {
-			data, readErr := os.ReadFile(e.dmailPath)
-			if readErr != nil {
-				d.logger.Warn("Retry: read %s: %v", e.dmailPath, readErr)
-				return
-			}
+			originalPath := filepath.Join(e.SourceOutbox, e.OriginalName)
 
-			result, deliverErr := DeliverData(ctx, e.originalPath, data, d.opts.Routes)
+			result, deliverErr := DeliverData(ctx, originalPath, e.Data, d.opts.Routes)
 			if deliverErr != nil {
-				if err := UpdateErrorMetadata(e.sidecarPath, deliverErr.Error()); err != nil {
-					d.logger.Warn("Retry: update metadata: %v", err)
+				if markErr := d.errorStore.MarkRetried(e.Name, deliverErr.Error()); markErr != nil {
+					d.logger.Warn("Retry: update metadata: %v", markErr)
 				}
 				if d.opts.Verbose {
-					d.logger.Warn("Retry failed for %s (attempt %d): %v", e.meta.OriginalName, e.meta.Attempts+1, deliverErr)
+					d.logger.Warn("Retry failed for %s (attempt %d): %v", e.OriginalName, e.Attempts+1, deliverErr)
 				}
 				return
 			}
 
-			if err := RemoveErrorEntry(e.dmailPath); err != nil {
-				d.logger.Warn("Retry: remove error entry: %v", err)
+			if removeErr := d.errorStore.RemoveEntry(e.Name); removeErr != nil {
+				d.logger.Warn("Retry: remove error entry: %v", removeErr)
 			}
 
 			if d.dlog != nil {
 				for _, target := range result.DeliveredTo {
-					d.dlog.Retried(result.Kind, e.originalPath, target)
+					d.dlog.Retried(result.Kind, originalPath, target)
 				}
 			}
 
 			if d.opts.Verbose {
-				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.meta.OriginalName, result.Kind, result.DeliveredTo)
+				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.OriginalName, result.Kind, result.DeliveredTo)
 			}
 		})
 	}
@@ -433,9 +404,8 @@ func CollectOutboxDirs(cfg *phonewave.Config) []string {
 
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
 // delivering each one according to the provided routes. Files are delivered
-// concurrently via a worker pool. Failed deliveries are saved to the error queue
-// in stateDir.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, stateDir string, logger *phonewave.Logger) ([]*phonewave.DeliveryResult, []error) {
+// sequentially. Failed deliveries are saved to the error store (if provided).
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, errStore phonewave.ErrorStore, logger *phonewave.Logger) ([]*phonewave.DeliveryResult, []error) {
 	if logger == nil {
 		logger = phonewave.NewLogger(nil, false)
 	}
@@ -479,19 +449,27 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.Re
 
 		result, deliverErr := DeliverData(ctx, dmailPath, data, routes)
 		if deliverErr != nil {
-			kind := extractKindOrUnknown(data)
-			meta := ErrorMetadata{
-				SourceOutbox: outboxDir,
-				Kind:         kind,
-				OriginalName: entry.Name(),
-				Attempts:     1,
-				Error:        deliverErr.Error(),
-				Timestamp:    time.Now().UTC(),
-			}
-			if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
-				logger.Error("Save to error queue: %v", saveErr)
-			} else {
-				os.Remove(dmailPath)
+			if errStore != nil {
+				kind := extractKindOrUnknown(data)
+				now := time.Now().UTC()
+				ts := now.Format("2006-01-02T150405.000000000")
+				entryName := fmt.Sprintf("%s-%s-%s", ts, kind, entry.Name())
+				retryEntry := phonewave.RetryEntry{
+					Name:         entryName,
+					SourceOutbox: outboxDir,
+					Kind:         kind,
+					OriginalName: entry.Name(),
+					Data:         data,
+					Attempts:     1,
+					Error:        deliverErr.Error(),
+					CreatedAt:    now,
+					UpdatedAt:    now,
+				}
+				if saveErr := errStore.RecordFailure(retryEntry); saveErr != nil {
+					logger.Error("Save to error queue: %v", saveErr)
+				} else {
+					os.Remove(dmailPath)
+				}
 			}
 			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
 			continue

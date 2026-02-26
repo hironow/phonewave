@@ -1,8 +1,8 @@
 package session
 
 import (
-	phonewave "github.com/hironow/phonewave"
 	"context"
+	phonewave "github.com/hironow/phonewave"
 	"io"
 	"os"
 	"path/filepath"
@@ -254,7 +254,7 @@ description: "Pre-existing spec"
 	}
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, nil, phonewave.NewLogger(io.Discard, false))
 
 	// then
 	if len(errs) != 0 {

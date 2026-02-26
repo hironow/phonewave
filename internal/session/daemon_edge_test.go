@@ -1,8 +1,8 @@
 package session
 
 import (
-	phonewave "github.com/hironow/phonewave"
 	"context"
+	phonewave "github.com/hironow/phonewave"
 	"io"
 	"os"
 	"path/filepath"
@@ -114,6 +114,12 @@ func TestDaemon_UnknownKind(t *testing.T) {
 		}
 	}
 
+	errStore, err := NewSQLiteErrorStore(stateDir)
+	if err != nil {
+		t.Fatalf("NewSQLiteErrorStore: %v", err)
+	}
+	defer errStore.Close()
+
 	// Only route for "specification", not "mystery"
 	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
@@ -123,6 +129,7 @@ func TestDaemon_UnknownKind(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
+		ErrorStore: errStore,
 	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
@@ -164,26 +171,16 @@ description: "Unknown kind"
 		t.Error("source should be removed from outbox on delivery failure (moved to error queue)")
 	}
 
-	// Error queue should contain the failed D-Mail
-	errorsDir := filepath.Join(stateDir, "errors")
-	errEntries, readErr := os.ReadDir(errorsDir)
-	if readErr != nil {
-		t.Fatalf("read errors dir: %v", readErr)
+	// Error store should contain the failed D-Mail
+	pending, listErr := errStore.ListPending(10)
+	if listErr != nil {
+		t.Fatalf("ListPending: %v", listErr)
 	}
-	var mdCount int
-	var errCount int
-	for _, e := range errEntries {
-		if strings.HasSuffix(e.Name(), ".err") {
-			errCount++
-		} else {
-			mdCount++
-		}
+	if len(pending) != 1 {
+		t.Errorf("error store entries = %d, want 1", len(pending))
 	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1", mdCount)
-	}
-	if errCount != 1 {
-		t.Errorf("error queue .err sidecars = %d, want 1", errCount)
+	if len(pending) > 0 && pending[0].OriginalName != "mystery-001.md" {
+		t.Errorf("error entry OriginalName = %q, want %q", pending[0].OriginalName, "mystery-001.md")
 	}
 
 	cancel()
@@ -281,7 +278,7 @@ description: "Valid"
 	}
 
 	// when
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, nil, phonewave.NewLogger(io.Discard, false))
 
 	// then
 	if len(errs) != 0 {
@@ -312,6 +309,12 @@ func TestScanAndDeliver_MixedValidInvalid(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
+	errStore, err := NewSQLiteErrorStore(stateDir)
+	if err != nil {
+		t.Fatalf("NewSQLiteErrorStore: %v", err)
+	}
+	defer errStore.Close()
 
 	// Valid D-Mail
 	if err := os.WriteFile(filepath.Join(outbox, "spec-001.md"), []byte(`---
@@ -345,7 +348,7 @@ description: "Also valid"
 	}
 
 	// when
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, errStore, phonewave.NewLogger(io.Discard, false))
 
 	// then — should deliver 2, fail 1, and NOT stop on first error
 	if len(results) != 2 {
@@ -363,22 +366,25 @@ description: "Also valid"
 		t.Error("spec-003.md should be in inbox")
 	}
 
-	// Invalid file should be removed from outbox (moved to error queue)
+	// Invalid file should be removed from outbox (moved to error store)
 	if _, err := os.Stat(filepath.Join(outbox, "bad-002.md")); !os.IsNotExist(err) {
-		t.Error("bad-002.md should be removed from outbox (moved to error queue)")
+		t.Error("bad-002.md should be removed from outbox (moved to error store)")
 	}
 
-	// Verify it's in the error queue
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	foundInErrorQueue := false
-	for _, e := range errorEntries {
-		if strings.Contains(e.Name(), "bad-002.md") && !strings.HasSuffix(e.Name(), ".err") {
-			foundInErrorQueue = true
+	// Verify it's in the error store
+	pending, listErr := errStore.ListPending(10)
+	if listErr != nil {
+		t.Fatalf("ListPending: %v", listErr)
+	}
+	foundInErrorStore := false
+	for _, e := range pending {
+		if e.OriginalName == "bad-002.md" {
+			foundInErrorStore = true
 			break
 		}
 	}
-	if !foundInErrorQueue {
-		t.Error("bad-002.md should be in the error queue")
+	if !foundInErrorStore {
+		t.Error("bad-002.md should be in the error store")
 	}
 }
 
@@ -601,13 +607,12 @@ allDelivered:
 
 func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 	outbox := t.TempDir()
-	stateDir := t.TempDir()
 	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
 	// when — scan an empty outbox
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, nil, phonewave.NewLogger(io.Discard, false))
 
 	// then — no results, no errors
 	if len(results) != 0 {
@@ -823,30 +828,20 @@ func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
 
 // --- Edge Case: preserve D-Mail when error queue write fails ---
 
-func TestDaemon_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
-	// given — a daemon where the error queue directory is broken (file instead of dir).
-	// If SaveToErrorQueue fails, the outbox file must NOT be deleted.
+func TestDaemon_PreservesOutboxFileWhenNoErrorStore(t *testing.T) {
+	// given — a daemon with nil ErrorStore. When delivery fails, the outbox
+	// file must NOT be deleted because there is no error store to back it up.
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
-	inbox := filepath.Join(repoDir, ".expedition", "inbox")
 	stateDir := filepath.Join(repoDir, ".phonewave")
 	if err := os.MkdirAll(outbox, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(inbox, 0755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Sabotage: create "errors" as a regular file so MkdirAll inside SaveToErrorQueue fails
-	errorsBlocker := filepath.Join(stateDir, "errors")
-	if err := os.WriteFile(errorsBlocker, []byte("blocker"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// No route for "specification" from this outbox — delivery WILL fail
+	// No route for "specification" — delivery WILL fail
 	routes := []phonewave.ResolvedRoute{}
 
 	dmailContent := `---
@@ -865,6 +860,7 @@ description: "Preserve test"
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
+		// ErrorStore intentionally nil
 	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
@@ -877,33 +873,23 @@ description: "Preserve test"
 	d.dlog = dlog
 	defer dlog.Close()
 
-	// when — handleEvent fires for a file that will fail delivery AND error queue save
+	// when — handleEvent fires for a file that will fail delivery
 	d.handleEvent(fsnotify.Event{
 		Name: dmailPath,
 		Op:   fsnotify.Create,
 	})
 
-	// then — outbox file must still exist (not deleted)
+	// then — outbox file must still exist (no error store to persist failure)
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
-		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
+		t.Error("outbox file was deleted even though no error store exists — D-Mail lost permanently")
 	}
 }
 
-func TestScanAndDeliver_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
-	// given — same sabotage for ScanAndDeliver path
+func TestScanAndDeliver_PreservesOutboxFileWhenNoErrorStore(t *testing.T) {
+	// given — nil ErrorStore: when delivery fails, outbox file must stay
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
-	stateDir := filepath.Join(repoDir, ".phonewave")
 	if err := os.MkdirAll(outbox, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Sabotage error queue
-	errorsBlocker := filepath.Join(stateDir, "errors")
-	if err := os.WriteFile(errorsBlocker, []byte("blocker"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -922,12 +908,12 @@ description: "Preserve test"
 	// No routes — delivery will fail
 	routes := []phonewave.ResolvedRoute{}
 
-	// when
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	// when — nil ErrorStore
+	ScanAndDeliver(context.Background(), outbox, routes, nil, phonewave.NewLogger(io.Discard, false))
 
-	// then — outbox file must still exist
+	// then — outbox file must still exist (no error store to persist failure)
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
-		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
+		t.Error("outbox file was deleted even though no error store exists — D-Mail lost permanently")
 	}
 }
 
@@ -1032,7 +1018,7 @@ func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
 // --- Retry mechanism tests ---
 
 func TestDaemon_RetrySucceeds(t *testing.T) {
-	// given — an error queue entry and a daemon with RetryInterval
+	// given — an error store entry and a daemon with RetryInterval.
 	// The error entry was created when no route existed, but now a route is available.
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
@@ -1044,17 +1030,27 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		}
 	}
 
-	// Place a D-Mail in the error queue (simulating a prior failure)
+	errStore, err := NewSQLiteErrorStore(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer errStore.Close()
+
+	// Place a D-Mail in the error store (simulating a prior failure)
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-retry\nkind: specification\ndescription: \"Retry test\"\n---\n\n# Retry Test\n")
-	meta := ErrorMetadata{
+	now := time.Now().UTC()
+	entry := phonewave.RetryEntry{
+		Name:         "retry-test-entry",
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-retry.md",
+		Data:         dmailData,
 		Attempts:     1,
 		Error:        "no route for kind",
-		Timestamp:    time.Now().UTC(),
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+	if err := errStore.RecordFailure(entry); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1067,6 +1063,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		Routes:        routes,
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
+		ErrorStore:    errStore,
 		Verbose:       true,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
@@ -1102,16 +1099,10 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		t.Error("D-Mail not found in inbox after retry")
 	}
 
-	// Error queue entry should be removed
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
-	}
-	if mdCount != 0 {
-		t.Errorf("error queue still has %d files, want 0", mdCount)
+	// Error store should be empty
+	pending, _ := errStore.ListPending(10)
+	if len(pending) != 0 {
+		t.Errorf("error store still has %d entries, want 0", len(pending))
 	}
 
 	// Delivery log should contain RETRIED
@@ -1125,7 +1116,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 }
 
 func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
-	// given — an error queue entry with attempts already at max
+	// given — an error store entry with attempts already at max
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
 	stateDir := filepath.Join(repoDir, ".phonewave")
@@ -1135,16 +1126,26 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		}
 	}
 
+	errStore, err := NewSQLiteErrorStore(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer errStore.Close()
+
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-maxed\nkind: specification\ndescription: \"Max retry\"\n---\n")
-	meta := ErrorMetadata{
+	now := time.Now().UTC()
+	entry := phonewave.RetryEntry{
+		Name:         "maxed-out-entry",
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-maxed.md",
+		Data:         dmailData,
 		Attempts:     10, // already at max
 		Error:        "no route for kind",
-		Timestamp:    time.Now().UTC(),
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+	if err := errStore.RecordFailure(entry); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1153,6 +1154,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		Routes:        []phonewave.ResolvedRoute{},
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
+		ErrorStore:    errStore,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
 	}, phonewave.NewLogger(io.Discard, false))
@@ -1169,29 +1171,19 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 	// Wait for a couple retry ticks
 	time.Sleep(350 * time.Millisecond)
 
-	// then — error queue entry should still be there (skipped, not retried)
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
+	// then — error store entry should still be there (skipped, not retried)
+	// ListPending with maxRetries=10 excludes entries with attempts >= 10
+	pending, _ := errStore.ListPending(10)
+	if len(pending) != 0 {
+		t.Errorf("ListPending(10) = %d, want 0 (entry should be excluded)", len(pending))
 	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1 (should be skipped)", mdCount)
+	// But the entry is still in the store (attempts not incremented)
+	all, _ := errStore.ListPending(11) // include entries with attempts=10
+	if len(all) != 1 {
+		t.Errorf("ListPending(11) = %d, want 1 (entry should still exist)", len(all))
 	}
-
-	// Sidecar should NOT have incremented (attempts still 10)
-	for _, e := range errorEntries {
-		if strings.HasSuffix(e.Name(), ".err") {
-			loaded, err := LoadErrorMetadata(filepath.Join(stateDir, "errors", e.Name()))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if loaded.Attempts != 10 {
-				t.Errorf("attempts = %d, want 10 (should not have been retried)", loaded.Attempts)
-			}
-		}
+	if len(all) > 0 && all[0].Attempts != 10 {
+		t.Errorf("attempts = %d, want 10 (should not have been retried)", all[0].Attempts)
 	}
 
 	cancel()
@@ -1199,7 +1191,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 }
 
 func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
-	// given — error queue has an entry, but RetryInterval is 0 (disabled)
+	// given — error store has an entry, but RetryInterval is 0 (disabled)
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
 	inbox := filepath.Join(repoDir, ".expedition", "inbox")
@@ -1210,17 +1202,26 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		}
 	}
 
-	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-nope\nkind: specification\ndescription: \"No retry\"\n---\n")
-	meta := ErrorMetadata{
+	errStore, err := NewSQLiteErrorStore(stateDir)
+	if err != nil {
+		t.Fatalf("NewSQLiteErrorStore: %v", err)
+	}
+	defer errStore.Close()
+
+	now := time.Now().UTC()
+	entry := phonewave.RetryEntry{
+		Name:         now.Format("2006-01-02T150405.000000000") + "-specification-spec-nope.md",
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-nope.md",
+		Data:         []byte("---\ndmail-schema-version: \"1\"\nname: spec-nope\nkind: specification\ndescription: \"No retry\"\n---\n"),
 		Attempts:     1,
 		Error:        "no route for kind",
-		Timestamp:    time.Now().UTC(),
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
-		t.Fatal(err)
+	if err := errStore.RecordFailure(entry); err != nil {
+		t.Fatalf("RecordFailure: %v", err)
 	}
 
 	routes := []phonewave.ResolvedRoute{
@@ -1231,6 +1232,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		Routes:        routes,
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
+		ErrorStore:    errStore,
 		RetryInterval: 0, // disabled
 	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
@@ -1251,16 +1253,13 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		t.Error("D-Mail should NOT be in inbox (retry disabled)")
 	}
 
-	// Error queue should still have the entry
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
+	// Error store should still have the entry (untouched)
+	pending, _ := errStore.ListPending(10)
+	if len(pending) != 1 {
+		t.Errorf("ListPending = %d, want 1 (retry disabled, entry untouched)", len(pending))
 	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1 (retry disabled)", mdCount)
+	if len(pending) > 0 && pending[0].Attempts != 1 {
+		t.Errorf("attempts = %d, want 1 (should not have been retried)", pending[0].Attempts)
 	}
 
 	cancel()

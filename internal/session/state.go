@@ -11,7 +11,7 @@ import (
 func EnsureStateDir(base string) error {
 	dirs := []string{
 		filepath.Join(base, phonewave.StateDir),
-		filepath.Join(base, phonewave.StateDir, "errors"),
+		filepath.Join(base, phonewave.StateDir, ".run"),
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0755); err != nil {
