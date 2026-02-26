@@ -8,7 +8,7 @@
 
 - Entry: `cmd/phonewave/main.go` (signal.NotifyContext + ExitCode)
 - CLI: `internal/cmd/` (cobra v1.10.2, `NewRootCommand()` exported for testability)
-- Types: root package `phonewave` (types, constants, pure functions — no I/O)
+- Types: root package `phonewave` (types, constants, pure functions, interfaces — no I/O)
 - Session: `internal/session/` (all filesystem, network, subprocess I/O)
 - Logger: `logger.go` stays in root (root infrastructure per S0005)
 - OTel: `telemetry.go` (Tracer noop default), `internal/cmd/telemetry.go` (initTracer + OTLP HTTP, shutdown via cobra.OnFinalize)

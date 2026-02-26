@@ -7,8 +7,12 @@ import (
 	"sync"
 	"time"
 
+	phonewave "github.com/hironow/phonewave"
 	"gopkg.in/yaml.v3"
 )
+
+// Compile-time check that DeliveryLog implements phonewave.DeliveryLogger.
+var _ phonewave.DeliveryLogger = (*DeliveryLog)(nil)
 
 // DeliveryLog writes append-only delivery records to .phonewave/delivery.log.
 // All methods are safe for concurrent use.
