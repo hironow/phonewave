@@ -1,7 +1,7 @@
 # S0005. Root Infrastructure Pattern and Layer Conventions
 
 **Date:** 2026-02-26
-**Status:** Accepted — supersedes S0001, S0004. All 4 tools now use cmd for InitTracer.
+**Status:** Accepted — supersedes S0001, S0004. All 4 tools use cmd initTracer + PersistentPreRunE + cobra.OnFinalize.
 
 ## Context
 
@@ -56,7 +56,7 @@ internal/cmd  -->  internal/session  -->  root (types, pure fn, go:embed, infra)
 |------|-------|-----|
 | Logger type + NewLogger() | root | Pure constructor, I/O via injected Writer |
 | Tracer variable (noop) | root | Noop default, exported for all layers |
-| InitTracer() | cmd (or session) | Performs OTLP HTTP connection = I/O |
+| initTracer() | cmd (unexported) | Performs OTLP HTTP connection = I/O; called from PersistentPreRunE, shutdown via cobra.OnFinalize |
 | NewLogger call site (os.Stderr) | cmd | I/O target decision = cmd responsibility |
 
 ### Boundary Test

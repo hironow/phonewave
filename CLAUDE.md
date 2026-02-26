@@ -6,12 +6,12 @@
 
 ## Repository Structure
 
-- Entry: `cmd/phonewave/main.go` (signal.NotifyContext + InitTracer defer + ExitCode)
+- Entry: `cmd/phonewave/main.go` (signal.NotifyContext + ExitCode)
 - CLI: `internal/cmd/` (cobra v1.10.2, `NewRootCommand()` exported for testability)
 - Types: root package `phonewave` (types, constants, pure functions — no I/O)
 - Session: `internal/session/` (all filesystem, network, subprocess I/O)
 - Logger: `logger.go` stays in root (root infrastructure per S0005)
-- OTel: `telemetry.go` (Tracer noop default), `internal/cmd/telemetry.go` (InitTracer + OTLP HTTP)
+- OTel: `telemetry.go` (Tracer noop default), `internal/cmd/telemetry.go` (initTracer + OTLP HTTP, shutdown via cobra.OnFinalize)
 - Docker: `docker/compose.yaml` + `docker/jaeger-v2-config.yaml` (Jaeger v2)
 - Docker E2E: `docker/compose-e2e.yaml` (testcontainers-go lifecycle tests)
 - Semgrep: `.semgrep/cobra.yaml` (canonical source — copy to other 3 tools)
@@ -22,7 +22,7 @@
 - `cobra.EnableTraverseRunHooks = true` in `init()` (not constructor)
 - All commands use `RunE` (not `Run`)
 - `--verbose`, `--config` are PersistentFlags on root
-- Tracer lifecycle: `main.go` defer (NOT cobra hooks — PersistentPostRunE skipped on error)
+- Tracer lifecycle: PersistentPreRunE + `cobra.OnFinalize` + `sync.Once` (consistent across all 4 tools)
 - State directory: derived from config path via `configBase(cmd)`
 
 ## Test Layout

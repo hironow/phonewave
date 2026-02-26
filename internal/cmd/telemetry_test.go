@@ -11,7 +11,7 @@ func TestInitTracer_NoopWhenEndpointUnset(t *testing.T) {
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "")
 
-	shutdown := InitTracer("test-svc", "0.0.1")
+	shutdown := initTracer("test-svc", "0.0.1")
 	defer shutdown(context.Background())
 
 	_, span := phonewave.Tracer.Start(context.Background(), "test-span")
