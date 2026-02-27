@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/hironow/phonewave/internal/session"
@@ -19,12 +20,15 @@ func newInitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := loggerFrom(cmd)
 
+			cfgPath := configPath(cmd)
+			if _, err := os.Stat(cfgPath); err == nil {
+				return fmt.Errorf("%s already exists", cfgPath)
+			}
+
 			result, err := session.Init(args)
 			if err != nil {
 				return err
 			}
-
-			cfgPath := configPath(cmd)
 			if err := session.WriteConfig(cfgPath, result.Config); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}

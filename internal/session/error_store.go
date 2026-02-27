@@ -43,6 +43,7 @@ func NewSQLiteErrorStore(stateDir string) (*SQLiteErrorStore, error) {
 	// underscore-prefixed query parameters like mattn/go-sqlite3.
 	for _, pragma := range []string{
 		"PRAGMA journal_mode=WAL",
+		"PRAGMA synchronous=NORMAL",
 		"PRAGMA busy_timeout=5000",
 	} {
 		if _, err := db.Exec(pragma); err != nil {
@@ -77,8 +78,26 @@ func createErrorSchema(db *sql.DB) error {
 
 // RecordFailure inserts a failed D-Mail into the error table. Idempotent:
 // re-recording the same name is silently ignored (INSERT OR IGNORE).
+// Uses BEGIN IMMEDIATE to prevent concurrent access deadlocks.
 func (s *SQLiteErrorStore) RecordFailure(entry phonewave.RetryEntry) error {
-	_, err := s.db.Exec(
+	ctx := context.Background()
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("error store: get conn: %w", err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+		return fmt.Errorf("error store: begin immediate: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			conn.ExecContext(ctx, "ROLLBACK") //nolint:errcheck
+		}
+	}()
+
+	_, err = conn.ExecContext(ctx,
 		`INSERT OR IGNORE INTO delivery_errors
 			(name, source_outbox, kind, original_name, data, attempts, error, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -95,6 +114,11 @@ func (s *SQLiteErrorStore) RecordFailure(entry phonewave.RetryEntry) error {
 	if err != nil {
 		return fmt.Errorf("error store: record %s: %w", entry.Name, err)
 	}
+
+	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
+		return fmt.Errorf("error store: commit: %w", err)
+	}
+	committed = true
 	return nil
 }
 

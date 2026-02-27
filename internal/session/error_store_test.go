@@ -21,6 +21,22 @@ func testErrorStore(t *testing.T) *session.SQLiteErrorStore {
 	return store
 }
 
+func TestSQLiteErrorStore_PragmaSynchronousNormal(t *testing.T) {
+	// given
+	store := testErrorStore(t)
+
+	// when: query PRAGMA on the store's own connection
+	var synchronous string
+	if err := store.DBForTest().QueryRow("PRAGMA synchronous").Scan(&synchronous); err != nil {
+		t.Fatalf("query PRAGMA synchronous: %v", err)
+	}
+
+	// then: synchronous = 1 (NORMAL)
+	if synchronous != "1" {
+		t.Errorf("PRAGMA synchronous: got %q, want %q (NORMAL)", synchronous, "1")
+	}
+}
+
 func TestSQLiteErrorStore_RecordAndList(t *testing.T) {
 	// given
 	store := testErrorStore(t)
@@ -246,6 +262,53 @@ func TestSQLiteErrorStore_ListPendingOrderByCreatedAt(t *testing.T) {
 	}
 	if entries[2].Name != "entry-0" {
 		t.Errorf("last entry: got %q, want %q", entries[2].Name, "entry-0")
+	}
+}
+
+func TestSQLiteErrorStore_RecordFailure_ConcurrentWrites(t *testing.T) {
+	// given: single store with 20 concurrent goroutines
+	store := testErrorStore(t)
+
+	const writers = 20
+	var wg sync.WaitGroup
+	errs := make(chan error, writers)
+
+	// when: 20 goroutines write unique entries concurrently
+	wg.Add(writers)
+	for i := range writers {
+		go func(idx int) {
+			defer wg.Done()
+			entry := phonewave.RetryEntry{
+				Name:         fmt.Sprintf("concurrent-%03d", idx),
+				SourceOutbox: "/tmp/outbox",
+				Kind:         "report",
+				OriginalName: fmt.Sprintf("c-%03d.md", idx),
+				Data:         []byte(fmt.Sprintf("data-%d", idx)),
+				Attempts:     1,
+				Error:        "test error",
+				CreatedAt:    time.Now().UTC(),
+				UpdatedAt:    time.Now().UTC(),
+			}
+			errs <- store.RecordFailure(entry)
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+
+	// then: all writes succeed
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("RecordFailure: %v", err)
+		}
+	}
+
+	// then: all 20 entries recorded
+	entries, err := store.ListPending(10)
+	if err != nil {
+		t.Fatalf("ListPending: %v", err)
+	}
+	if len(entries) != writers {
+		t.Errorf("count: got %d, want %d", len(entries), writers)
 	}
 }
 
