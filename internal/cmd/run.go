@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -73,11 +74,22 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	}
 	defer errStore.Close()
 
+	// Build delivery function for the outbox store — wraps DeliverData with resolved routes.
+	deliverFn := func(ctx context.Context, dmailPath string, data []byte) (*phonewave.DeliveryResult, error) {
+		return session.DeliverData(ctx, dmailPath, data, routes)
+	}
+	outboxStore, err := session.NewOutboxStore(stateDir, deliverFn)
+	if err != nil {
+		return fmt.Errorf("open outbox store: %w", err)
+	}
+	defer outboxStore.Close()
+
 	d, err := session.NewDaemon(session.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
 		StateDir:      stateDir,
 		ErrorStore:    errStore,
+		OutboxStore:   outboxStore,
 		Verbose:       verbose,
 		DryRun:        dryRun,
 		RetryInterval: retryInterval,

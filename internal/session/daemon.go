@@ -26,6 +26,7 @@ type DaemonOptions struct {
 	StateDir      string
 	ErrorStore    phonewave.ErrorStore
 	EventStore    phonewave.EventStore
+	OutboxStore   phonewave.OutboxStore // nil = direct delivery (no transactional outbox)
 	Verbose       bool
 	DryRun        bool
 	RetryInterval time.Duration // 0 = disabled (default)
@@ -40,6 +41,7 @@ type Daemon struct {
 	dlog        *DeliveryLog
 	errorStore  phonewave.ErrorStore
 	eventStore  phonewave.EventStore
+	outboxStore phonewave.OutboxStore
 	pool        pond.Pool
 }
 
@@ -60,6 +62,7 @@ func NewDaemon(opts DaemonOptions, logger *phonewave.Logger) (*Daemon, error) {
 		watcher:     watcher,
 		errorStore:  opts.ErrorStore,
 		eventStore:  opts.EventStore,
+		outboxStore: opts.OutboxStore,
 		pool:        pond.NewPool(runtime.NumCPU()),
 	}, nil
 }
@@ -227,6 +230,50 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
+	// Transactional outbox path: Stage → remove source → Flush
+	if d.outboxStore != nil {
+		d.handleEventViaOutbox(ctx, event, data, span)
+		return
+	}
+
+	// Direct delivery path (no outbox store)
+	d.handleEventDirect(ctx, event, data, span)
+}
+
+// handleEventViaOutbox stages the D-Mail in the outbox store, removes the
+// source file (data is now safe in SQLite), then flushes to deliver.
+func (d *Daemon) handleEventViaOutbox(ctx context.Context, event fsnotify.Event, data []byte, span trace.Span) {
+	kind := extractKindOrUnknown(data)
+	sourceDir := filepath.Dir(event.Name)
+	fileName := filepath.Base(event.Name)
+
+	if err := d.outboxStore.Stage(fileName, kind, sourceDir, data); err != nil {
+		d.logger.Error("Outbox stage %s: %v", event.Name, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return
+	}
+
+	// Data is now durable in SQLite — safe to remove source file
+	if err := os.Remove(event.Name); err != nil && !errors.Is(err, os.ErrNotExist) {
+		d.logger.Warn("Remove source after stage: %v", err)
+	}
+
+	n, err := d.outboxStore.Flush()
+	if err != nil {
+		d.logger.Error("Outbox flush: %v", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return
+	}
+
+	if n > 0 && d.opts.Verbose {
+		d.logger.OK("Outbox flushed %d item(s) for %s", n, event.Name)
+	}
+}
+
+// handleEventDirect delivers a D-Mail directly without the outbox store.
+func (d *Daemon) handleEventDirect(ctx context.Context, event fsnotify.Event, data []byte, span trace.Span) {
 	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes)
 	if err != nil {
 		kind := extractKindOrUnknown(data)

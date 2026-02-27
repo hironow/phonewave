@@ -55,6 +55,31 @@ type ErrorStore interface {
 	Close() error
 }
 
+// OutboxStore provides transactional outbox semantics for D-Mail delivery.
+// phonewave acts as a transport daemon: Stage records delivery intent in a
+// durable store with routing context (kind + sourceDir); Flush invokes a
+// delivery function to route items to target inboxes.
+//
+// All methods must be safe for concurrent use by multiple goroutines
+// within a single process and tolerant of concurrent access from
+// separate CLI processes.
+type OutboxStore interface {
+	// Stage atomically records a D-Mail for delivery. Idempotent: re-staging
+	// the same (sourceDir, name) pair is a no-op.
+	Stage(name, kind, sourceDir string, data []byte) error
+
+	// Flush delivers all staged-but-unflushed D-Mails via the injected
+	// delivery function. Returns the number of items successfully flushed.
+	Flush() (int, error)
+
+	// FlushPending returns the number of staged items that have not yet
+	// been flushed (delivery pending).
+	FlushPending() (int, error)
+
+	// Close releases database resources.
+	Close() error
+}
+
 // RetryEntry holds metadata and payload for a failed D-Mail delivery.
 type RetryEntry struct {
 	Name         string    // unique key (timestamp-kind-originalName)
