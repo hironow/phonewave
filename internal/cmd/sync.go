@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -15,22 +15,21 @@ func newSyncCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		Example: `  phonewave sync`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := loggerFrom(cmd)
 
 			cfgPath := configPath(cmd)
-			cfg, err := phonewave.LoadConfig(cfgPath)
+			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			report, err := phonewave.Sync(cfg)
+			report, err := session.Sync(cfg)
 			if err != nil {
 				return fmt.Errorf("sync: %w", err)
 			}
 
-			if err := phonewave.WriteConfig(cfgPath, cfg); err != nil {
+			if err := session.WriteConfig(cfgPath, cfg); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 

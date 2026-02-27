@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -17,20 +18,22 @@ func newInitCmd() *cobra.Command {
 		Example: `  phonewave init ./sightjack-repo ./paintress-repo ./amadeus-repo
   phonewave init /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := loggerFrom(cmd)
 
-			result, err := phonewave.Init(args)
+			cfgPath := configPath(cmd)
+			if _, err := os.Stat(cfgPath); err == nil {
+				return fmt.Errorf("%s already exists", cfgPath)
+			}
+
+			result, err := session.Init(args)
 			if err != nil {
 				return err
 			}
-
-			cfgPath := configPath(cmd)
-			if err := phonewave.WriteConfig(cfgPath, result.Config); err != nil {
+			if err := session.WriteConfig(cfgPath, result.Config); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 
-			if err := phonewave.EnsureStateDir(configBase(cmd)); err != nil {
+			if err := session.EnsureStateDir(configBase(cmd)); err != nil {
 				return fmt.Errorf("create state dir: %w", err)
 			}
 

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -16,18 +17,17 @@ func newDoctorCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		Example: `  phonewave doctor`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := loggerFrom(cmd)
 
 			cfgPath := configPath(cmd)
-			cfg, err := phonewave.LoadConfig(cfgPath)
+			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
 			stateDir := filepath.Join(configBase(cmd), phonewave.StateDir)
-			report := phonewave.Doctor(cfg, stateDir)
+			report := session.Doctor(cfg, stateDir)
 
 			for _, issue := range report.Issues {
 				switch issue.Severity {

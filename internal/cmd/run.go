@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -41,21 +43,20 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	retryInterval, _ := cmd.Flags().GetDuration("retry-interval")
 	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+	logger := loggerFrom(cmd)
 
 	cfgPath := configPath(cmd)
-	cfg, err := phonewave.LoadConfig(cfgPath)
+	cfg, err := session.LoadConfig(cfgPath)
 	if err != nil {
-		logger.Info("Run 'phonewave init' first")
-		return fmt.Errorf("load config: %w", err)
+		return fmt.Errorf("not initialized — run 'phonewave init' first: %w", err)
 	}
 
-	routes, err := phonewave.ResolveRoutes(cfg)
+	routes, err := session.ResolveRoutes(cfg)
 	if err != nil {
 		return fmt.Errorf("resolve routes: %w", err)
 	}
 
-	outboxDirs := phonewave.CollectOutboxDirs(cfg)
+	outboxDirs := session.CollectOutboxDirs(cfg)
 	if len(outboxDirs) == 0 {
 		logger.Warn("No outbox directories to watch")
 		return nil
@@ -63,14 +64,32 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 
 	base := configBase(cmd)
 	stateDir := filepath.Join(base, phonewave.StateDir)
-	if err := phonewave.EnsureStateDir(base); err != nil {
+	if err := session.EnsureStateDir(base); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
 
-	d, err := phonewave.NewDaemon(phonewave.DaemonOptions{
+	errStore, err := session.NewSQLiteErrorStore(stateDir)
+	if err != nil {
+		return fmt.Errorf("open error store: %w", err)
+	}
+	defer errStore.Close()
+
+	// Build delivery function for the outbox store — wraps DeliverData with resolved routes.
+	deliverFn := func(ctx context.Context, dmailPath string, data []byte) (*phonewave.DeliveryResult, error) {
+		return session.DeliverData(ctx, dmailPath, data, routes)
+	}
+	outboxStore, err := session.NewOutboxStore(stateDir, deliverFn)
+	if err != nil {
+		return fmt.Errorf("open outbox store: %w", err)
+	}
+	defer outboxStore.Close()
+
+	d, err := session.NewDaemon(session.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
 		StateDir:      stateDir,
+		ErrorStore:    errStore,
+		OutboxStore:   outboxStore,
 		Verbose:       verbose,
 		DryRun:        dryRun,
 		RetryInterval: retryInterval,

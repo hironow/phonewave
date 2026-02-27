@@ -36,15 +36,18 @@ Enforce the following stdio convention across all four tools:
 ## Consequences
 
 ### Positive
+
 - Pipeline composability: `phonewave status --json | jq .endpoints`
 - Testable output: cobra's `SetOut`/`SetErr` enable buffer-based assertions
 - Consistent user experience across all four tools
 
 ### Negative
+
 - Developers must consciously choose the correct stream for each output
 - Existing code using direct `fmt.Print` requires migration
 
 ### Neutral
+
 - `main.go` outside cobra `Execute()` may use `os.Stderr` directly (e.g., fatal
   startup errors before cobra initializes)
 - DI default values (e.g., `dataOut = os.Stdout`) are acceptable as they

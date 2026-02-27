@@ -1,7 +1,7 @@
 # 0009. Config-Relative State Directory
 
 **Date:** 2026-02-23
-**Status:** Accepted
+**Status:** Superseded by S0007
 
 ## Context
 
@@ -9,6 +9,7 @@ phonewave stores runtime state (PID file, delivery log, error queue) in a
 `.phonewave/` directory. The question is where this directory should be rooted.
 
 Options considered:
+
 - **CWD-relative**: `.phonewave/` in the current working directory. Simple but
   fragile — running from different directories creates orphaned state.
 - **Home directory**: `~/.phonewave/`. Global but conflicts when managing
@@ -33,6 +34,7 @@ Derive the state directory from the config file's location using `configBase(cmd
 ## Consequences
 
 ### Positive
+
 - Running `phonewave run` from any directory produces consistent behavior
   as long as `--config` points to the same file
 - No orphaned state directories from accidental CWD changes
@@ -40,5 +42,6 @@ Derive the state directory from the config file's location using `configBase(cmd
 - Single `--config` flag controls both config and state location
 
 ### Negative
+
 - State directory location is implicit (derived, not configured directly)
 - Users must understand that `--config` affects state directory placement

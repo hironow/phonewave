@@ -63,15 +63,18 @@ description: Implementation specification
 ## Consequences
 
 ### Positive
+
 - No conflict with Claude Code skills-ref specification
 - Explicit versioning enables future schema evolution
 - Strict validation catches misconfiguration early (fail-fast)
 
 ### Negative
+
 - Existing SKILL.md files required migration from top-level to metadata format
 - Additional nesting adds verbosity to the YAML structure
 
 ### Neutral
+
 - Only version "1" is currently supported; future versions will require a new ADR
 - Some tools generate internal D-Mails (e.g., amadeus `convergence` kind) that
   are written directly to archive/ without passing through the phonewave routing

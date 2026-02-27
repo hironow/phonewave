@@ -40,12 +40,14 @@ Use testcontainers-go for Docker-based E2E tests with the following strategy:
 ## Consequences
 
 ### Positive
+
 - Full daemon lifecycle validation in an isolated, reproducible environment
 - Cross-process delivery verification via shared Docker volumes
 - OTel integration testing with real Jaeger backend
 - Build tag isolation prevents Docker tests from slowing standard test runs
 
 ### Negative
+
 - Docker must be available on the test machine (CI and local)
 - Container image build adds latency to first test run (~120s timeout)
 - testcontainers-go dependency is test-only but adds to go.sum

@@ -34,11 +34,13 @@ the following conventions:
 ## Consequences
 
 ### Positive
+
 - Consistent CLI behavior across all four tools
 - Testable command construction without process execution
 - POSIX short aliases improve usability for experienced CLI users
 - Convention enforcement prevents regression to prohibited patterns
 
 ### Negative
+
 - cobra dependency must be kept in sync across repositories
 - Enforcement mechanisms differ per tool (semgrep, go vet, pre-commit hooks)

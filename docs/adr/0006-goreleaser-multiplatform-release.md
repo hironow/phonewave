@@ -33,12 +33,14 @@ configuration:
 ## Consequences
 
 ### Positive
+
 - Reproducible, automated releases across 6 platform combinations
 - Supply chain security via cosign signatures and SHA-256 checksums
 - Users can install via `brew install hironow/tap/phonewave`
 - Version information is embedded at build time, not hardcoded
 
 ### Negative
+
 - goreleaser v2 configuration must be maintained alongside Go version upgrades
 - cosign signing requires key management in CI environment
 - Homebrew tap token must be kept in sync with CI secrets
