@@ -47,8 +47,7 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	cfgPath := configPath(cmd)
 	cfg, err := session.LoadConfig(cfgPath)
 	if err != nil {
-		logger.Info("Run 'phonewave init' first")
-		return fmt.Errorf("load config: %w", err)
+		return fmt.Errorf("not initialized — run 'phonewave init' first: %w", err)
 	}
 
 	routes, err := session.ResolveRoutes(cfg)

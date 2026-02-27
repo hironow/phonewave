@@ -1,7 +1,7 @@
 # 0008. Signal Context Propagation and Daemon Lifecycle
 
 **Date:** 2026-02-23
-**Status:** Accepted
+**Status:** Superseded by S0006
 
 ## Context
 

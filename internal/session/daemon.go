@@ -25,6 +25,7 @@ type DaemonOptions struct {
 	OutboxDirs    []string
 	StateDir      string
 	ErrorStore    phonewave.ErrorStore
+	EventStore    phonewave.EventStore
 	Verbose       bool
 	DryRun        bool
 	RetryInterval time.Duration // 0 = disabled (default)
@@ -33,12 +34,13 @@ type DaemonOptions struct {
 
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
-	opts       DaemonOptions
-	logger     *phonewave.Logger
-	watcher    *fsnotify.Watcher
-	dlog       *DeliveryLog
-	errorStore phonewave.ErrorStore
-	pool       pond.Pool
+	opts        DaemonOptions
+	logger      *phonewave.Logger
+	watcher     *fsnotify.Watcher
+	dlog        *DeliveryLog
+	errorStore  phonewave.ErrorStore
+	eventStore  phonewave.EventStore
+	pool        pond.Pool
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -53,11 +55,12 @@ func NewDaemon(opts DaemonOptions, logger *phonewave.Logger) (*Daemon, error) {
 	}
 
 	return &Daemon{
-		opts:       opts,
-		logger:     logger,
-		watcher:    watcher,
-		errorStore: opts.ErrorStore,
-		pool:       pond.NewPool(runtime.NumCPU()),
+		opts:        opts,
+		logger:      logger,
+		watcher:     watcher,
+		errorStore:  opts.ErrorStore,
+		eventStore:  opts.EventStore,
+		pool:        pond.NewPool(runtime.NumCPU()),
 	}, nil
 }
 
@@ -117,6 +120,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 					}
 					d.dlog.Removed(r.SourcePath)
 				}
+				d.emitEvent(phonewave.EventDeliverySucceeded, phonewave.DeliverySucceededData{
+					Kind:        r.Kind,
+					SourcePath:  r.SourcePath,
+					DeliveredTo: r.DeliveredTo,
+				})
 				if d.opts.Verbose {
 					d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
 				}
@@ -124,6 +132,10 @@ func (d *Daemon) Run(ctx context.Context) error {
 			for _, err := range errs {
 				d.logger.Warn("Startup scan: %v", err)
 			}
+			d.emitEvent(phonewave.EventStartupScanCompleted, phonewave.StartupScanCompletedData{
+				Delivered: len(results),
+				Failed:    len(errs),
+			})
 		})
 	}
 	scanGroup.Wait()
@@ -224,6 +236,12 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		if d.dlog != nil {
 			d.dlog.Failed(kind, event.Name, err.Error())
 		}
+		d.emitEvent(phonewave.EventDeliveryFailed, phonewave.DeliveryFailedData{
+			Kind:       kind,
+			SourcePath: event.Name,
+			Reason:     err.Error(),
+			Attempt:    1,
+		})
 
 		if d.errorStore == nil {
 			// No error store — leave file in outbox for retry on next restart
@@ -261,6 +279,11 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		}
 		d.dlog.Removed(result.SourcePath)
 	}
+	d.emitEvent(phonewave.EventDeliverySucceeded, phonewave.DeliverySucceededData{
+		Kind:        result.Kind,
+		SourcePath:  result.SourcePath,
+		DeliveredTo: result.DeliveredTo,
+	})
 
 	if d.opts.Verbose {
 		d.logger.OK("Delivered %s (kind=%s) to %v", result.SourcePath, result.Kind, result.DeliveredTo)
@@ -317,6 +340,12 @@ func (d *Daemon) retryPending() {
 					d.dlog.Retried(result.Kind, originalPath, target)
 				}
 			}
+			d.emitEvent(phonewave.EventDeliveryRetried, phonewave.DeliveryRetriedData{
+				Kind:        result.Kind,
+				SourcePath:  originalPath,
+				DeliveredTo: result.DeliveredTo,
+				Attempt:     e.Attempts + 1,
+			})
 
 			if d.opts.Verbose {
 				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.OriginalName, result.Kind, result.DeliveredTo)
@@ -334,6 +363,22 @@ func extractKindOrUnknown(data []byte) string {
 		return "unknown"
 	}
 	return kind
+}
+
+// emitEvent appends an event to the event store if configured.
+// Errors are logged but do not propagate — event recording is non-fatal.
+func (d *Daemon) emitEvent(eventType phonewave.EventType, data any) {
+	if d.eventStore == nil {
+		return
+	}
+	ev, err := phonewave.NewEvent(eventType, data, time.Now())
+	if err != nil {
+		d.logger.Warn("Create event %s: %v", eventType, err)
+		return
+	}
+	if err := d.eventStore.Append(ev); err != nil {
+		d.logger.Warn("Append event %s: %v", eventType, err)
+	}
 }
 
 // ResolveRoutes converts Config routes (relative paths) into ResolvedRoutes
