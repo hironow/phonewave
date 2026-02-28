@@ -2,10 +2,12 @@ package phonewave
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDoctor_HealthyEcosystem(t *testing.T) {
@@ -295,6 +297,64 @@ func TestFormatDoctorJSON_Parseable(t *testing.T) {
 	}
 	if _, ok := parsed["issues"]; !ok {
 		t.Error("missing 'issues' key in JSON output")
+	}
+}
+
+func TestDoctor_IncludesSuccessRate(t *testing.T) {
+	// given — a state dir with delivery.log containing recent entries
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, StateDir)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().UTC()
+	logContent := fmt.Sprintf("%s DELIVERED file1.md\n%s DELIVERED file2.md\n%s FAILED file3.md\n",
+		now.Format(time.RFC3339), now.Format(time.RFC3339), now.Format(time.RFC3339))
+	if err := os.WriteFile(filepath.Join(stateDir, "delivery.log"), []byte(logContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &Config{}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — should include a success-rate issue with correct stats
+	var found bool
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "success-rate" && issue.Severity == "ok" {
+			found = true
+			if !strings.Contains(issue.Message, "66.7%") || !strings.Contains(issue.Message, "(2/3)") {
+				t.Errorf("unexpected success-rate message: %s", issue.Message)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected success-rate issue in doctor report, got: %v", report.Issues)
+	}
+}
+
+func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
+	// given — a state dir with no delivery.log
+	stateDir := t.TempDir()
+	cfg := &Config{}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — should still include success-rate with "no deliveries"
+	var found bool
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "success-rate" {
+			found = true
+			if issue.Message != "no deliveries" {
+				t.Errorf("expected 'no deliveries', got %q", issue.Message)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected success-rate issue even with no deliveries")
 	}
 }
 

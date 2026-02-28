@@ -135,6 +135,11 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 		report.addWarn("", fmt.Sprintf("Orphaned: kind=%q is consumed but not produced", kind))
 	}
 
+	// Success rate (informational)
+	stats := ParseDeliveryStats(stateDir)
+	m := DeliveryMetrics{Delivered: stats.Delivered, Failed: stats.Failed}
+	report.addOK("success-rate", FormatSuccessRate(m.SuccessRate(), stats.Delivered, stats.Delivered+stats.Failed))
+
 	// Check daemon status
 	report.DaemonStatus = checkDaemonStatus(stateDir)
 
