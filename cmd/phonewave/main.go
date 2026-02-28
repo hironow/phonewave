@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/hironow/phonewave"
@@ -19,7 +18,7 @@ func main() {
 
 func run() (exitCode int) {
 	ctx, stop := signal.NotifyContext(context.Background(),
-		syscall.SIGINT, syscall.SIGTERM)
+		shutdownSignals...)
 	defer stop()
 
 	shutdownTracer := phonewave.InitTracer("phonewave", cmd.Version)
