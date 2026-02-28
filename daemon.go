@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +18,41 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// RetryBackoff implements exponential backoff with jitter for retry burst control.
+// When consecutive retries fail, the interval increases exponentially up to a max.
+// A successful retry resets the interval to the base value.
+type RetryBackoff struct {
+	base    time.Duration
+	max     time.Duration
+	current time.Duration
+}
+
+// NewRetryBackoff creates a new RetryBackoff with the given base and max intervals.
+func NewRetryBackoff(base, max time.Duration) *RetryBackoff {
+	return &RetryBackoff{base: base, max: max, current: base}
+}
+
+// Next returns the current interval with ±25% jitter applied.
+func (b *RetryBackoff) Next() time.Duration {
+	// jitter: ±25% of current
+	quarter := b.current / 4
+	jitter := time.Duration(rand.Int64N(int64(quarter)*2+1)) - quarter
+	return b.current + jitter
+}
+
+// RecordSuccess resets the backoff interval to the base value.
+func (b *RetryBackoff) RecordSuccess() {
+	b.current = b.base
+}
+
+// RecordFailure doubles the backoff interval, capped at the max value.
+func (b *RetryBackoff) RecordFailure() {
+	b.current *= 2
+	if b.current > b.max {
+		b.current = b.max
+	}
+}
 
 // DaemonOptions configures the daemon behavior.
 type DaemonOptions struct {
@@ -129,12 +165,15 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.logger.OK("Daemon started (PID %d), watching %d outbox directories", os.Getpid(), len(d.opts.OutboxDirs))
 	}
 
-	// Optional retry ticker (nil channel disables the case)
+	// Optional retry timer with exponential backoff (nil channel disables the case)
 	var retryCh <-chan time.Time
+	var retryTimer *time.Timer
+	var backoff *RetryBackoff
 	if d.opts.RetryInterval > 0 {
-		ticker := time.NewTicker(d.opts.RetryInterval)
-		retryCh = ticker.C
-		defer ticker.Stop()
+		backoff = NewRetryBackoff(d.opts.RetryInterval, d.opts.RetryInterval*32)
+		retryTimer = time.NewTimer(backoff.Next())
+		retryCh = retryTimer.C
+		defer retryTimer.Stop()
 	}
 
 	// Event loop
@@ -159,7 +198,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 			d.logger.Warn("Watcher error: %v", err)
 
 		case <-retryCh:
-			d.retryPending()
+			successes := d.retryPending()
+			if successes > 0 {
+				backoff.RecordSuccess()
+			} else {
+				backoff.RecordFailure()
+			}
+			retryTimer.Reset(backoff.Next())
 		}
 	}
 }
@@ -265,15 +310,15 @@ type retryEntry struct {
 
 // retryPending scans the error queue and attempts to re-deliver entries
 // that have not exceeded MaxRetries. Eligible retries run concurrently
-// via the daemon's worker pool.
-func (d *Daemon) retryPending() {
+// via the daemon's worker pool. Returns the number of successful retries.
+func (d *Daemon) retryPending() int {
 	ctx, retrySpan := tracer.Start(context.Background(), "daemon.retry_pending")
 	defer retrySpan.End()
 
 	errorsDir := filepath.Join(d.opts.StateDir, "errors")
 	entries, err := os.ReadDir(errorsDir)
 	if err != nil {
-		return // no error queue directory yet
+		return 0 // no error queue directory yet
 	}
 
 	maxRetries := d.opts.MaxRetries
@@ -310,8 +355,12 @@ func (d *Daemon) retryPending() {
 	}
 
 	if len(eligible) == 0 {
-		return
+		return 0
 	}
+
+	// Track successes across goroutines. Using a channel avoids mutexes
+	// while keeping the counting simple for the pool-based concurrency model.
+	successCh := make(chan struct{}, len(eligible))
 
 	// Retry eligible entries concurrently. D-Mail data is read inside each
 	// worker so memory is bounded by pool concurrency, not backlog size.
@@ -349,9 +398,18 @@ func (d *Daemon) retryPending() {
 			if d.opts.Verbose {
 				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.meta.OriginalName, result.Kind, result.DeliveredTo)
 			}
+
+			successCh <- struct{}{}
 		})
 	}
 	retryGroup.Wait()
+	close(successCh)
+
+	successes := 0
+	for range successCh {
+		successes++
+	}
+	return successes
 }
 
 // extractKindOrUnknown attempts to extract the kind from D-Mail data,

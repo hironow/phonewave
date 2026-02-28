@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -260,6 +261,40 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 	}
 	if !hasSpecWarn {
 		t.Errorf("expected skills-ref validation warning for non-compliant SKILL.md, got issues: %v", report.Issues)
+	}
+}
+
+func TestFormatDoctorJSON_Parseable(t *testing.T) {
+	// given — a DoctorReport with mixed issues
+	report := DoctorReport{
+		Healthy: true,
+		Issues: []DoctorIssue{
+			{Endpoint: "repo/.siren", Message: "OK", Severity: "ok"},
+			{Endpoint: "repo/.expedition", Message: "Created outbox", Severity: "fixed"},
+		},
+		Endpoints: []EndpointHealth{
+			{Repo: "/tmp/repo", Dir: ".siren", Produces: []string{"specification"}, OK: true},
+		},
+		DaemonStatus: DaemonHealthStatus{Checked: true, Running: false},
+	}
+
+	// when
+	data, err := FormatDoctorJSON(report)
+
+	// then — must be valid JSON
+	if err != nil {
+		t.Fatalf("FormatDoctorJSON: %v", err)
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, string(data))
+	}
+	// Should have top-level keys
+	if _, ok := parsed["healthy"]; !ok {
+		t.Error("missing 'healthy' key in JSON output")
+	}
+	if _, ok := parsed["issues"]; !ok {
+		t.Error("missing 'issues' key in JSON output")
 	}
 }
 

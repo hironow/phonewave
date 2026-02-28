@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,33 +12,38 @@ import (
 
 // DoctorIssue represents a single health check finding.
 type DoctorIssue struct {
-	Endpoint string // e.g. "repo-a/.siren" or "" for global issues
-	Message  string
-	Severity string // "error", "warn", "fixed", "ok"
+	Endpoint string `json:"endpoint"`
+	Message  string `json:"message"`
+	Severity string `json:"severity"` // "error", "warn", "fixed", "ok"
 }
 
 // DaemonHealthStatus holds daemon-related health info.
 type DaemonHealthStatus struct {
-	Checked bool
-	Running bool
-	PID     int
+	Checked bool `json:"checked"`
+	Running bool `json:"running"`
+	PID     int  `json:"pid,omitempty"`
 }
 
 // EndpointHealth holds health info for a single endpoint.
 type EndpointHealth struct {
-	Repo     string
-	Dir      string
-	Produces []string
-	Consumes []string
-	OK       bool
+	Repo     string   `json:"repo"`
+	Dir      string   `json:"dir"`
+	Produces []string `json:"produces,omitempty"`
+	Consumes []string `json:"consumes,omitempty"`
+	OK       bool     `json:"ok"`
 }
 
 // DoctorReport holds the complete health check result.
 type DoctorReport struct {
-	Healthy      bool
-	Issues       []DoctorIssue
-	Endpoints    []EndpointHealth
-	DaemonStatus DaemonHealthStatus
+	Healthy      bool               `json:"healthy"`
+	Issues       []DoctorIssue      `json:"issues"`
+	Endpoints    []EndpointHealth   `json:"endpoints,omitempty"`
+	DaemonStatus DaemonHealthStatus `json:"daemon_status"`
+}
+
+// FormatDoctorJSON marshals a DoctorReport to indented JSON.
+func FormatDoctorJSON(report DoctorReport) ([]byte, error) {
+	return json.MarshalIndent(report, "", "  ")
 }
 
 // Doctor verifies ecosystem health and returns a report.

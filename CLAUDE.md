@@ -28,13 +28,13 @@
 - Unit tests: `*_test.go` colocated with source (Go convention)
   - All root tests use `package phonewave` (in-package) — daemon/delivery internals require direct access
   - `cmd/phonewave/main_test.go` uses `package main` for CLI arg parsing tests
-- Docker E2E: `*_docker_test.go` with `//go:build docker` tag (testcontainers-go)
+- E2E tests: `tests/e2e/*_test.go` with `//go:build e2e` tag, `package e2e` (testcontainers-go)
   - `cli_docker_test.go` — CLI subcommand tests in container
   - `daemon_docker_test.go` — daemon behaviour (retry, error queue, burst)
   - `lifecycle_docker_test.go` — single-container lifecycle
-  - `lifecycle_multicontainer_test.go` — cross-container D-Mail delivery
   - `otel_docker_test.go` — OTel tracing with Jaeger container
-- No `tests/` directory — all tests colocated with source per Go convention
+  - `compose-e2e.yaml` + `Dockerfile.e2e` — Docker compose for E2E
+- Race tests: `race_test.go` colocated with source (run with `just test-race`)
 
 ## ADR (Architecture Decision Records)
 
@@ -57,8 +57,8 @@ just build          # build with version from git tags
 just install        # build + install to /usr/local/bin
 just test           # all tests, 300s timeout
 just test-race      # with race detector
-just test-docker    # Docker lifecycle tests (requires Docker)
-just test-all       # test + test-docker
+just test-e2e       # Docker E2E tests
+just test-all       # test + test-e2e
 just check          # fmt + vet + test
 just semgrep        # cobra semgrep rules
 just lint           # vet + markdown lint + gofmt check

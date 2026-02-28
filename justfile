@@ -82,28 +82,23 @@ lint: vet lint-md
 # Format, vet, test — full check before commit
 check: fmt vet test
 
-# Run Docker lifecycle tests (requires Docker)
-test-docker:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run TestLifecycleDocker
+# Run E2E tests in Docker
+test-e2e:
+    docker compose -f tests/e2e/compose-e2e.yaml build
+    docker compose -f tests/e2e/compose-e2e.yaml run --rm e2e \
+        go test -tags e2e ./tests/e2e/ -count=1 -v -timeout=600s
 
-# Run Docker CLI tests only
-test-docker-cli:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(MultiRepo|AddRepo|RemoveRepo|Sync$|Doctor_|Status|ConfigFlag|Version$)'
+# Open interactive shell in E2E Docker container
+test-e2e-shell:
+    docker compose -f tests/e2e/compose-e2e.yaml build
+    docker compose -f tests/e2e/compose-e2e.yaml run --rm -it e2e /bin/sh
 
-# Run Docker daemon behaviour tests only
-test-docker-daemon:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(DryRun|ErrorQueue|MaxRetries|PartialDelivery|GracefulShutdown|BurstDelivery|MalformedDMail|NonMdFiles|DeliveryLog|Uptime|StartupScan)'
+# Clean up E2E Docker containers
+test-e2e-down:
+    docker compose -f tests/e2e/compose-e2e.yaml down -v
 
-# Run Docker OTel tracing test only
-test-docker-otel:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run TestLifecycleDocker_OTelTracing
-
-# Run manual E2E test script (docker compose)
-test-e2e-manual:
-    bash testdata/manual-e2e.sh
-
-# Run all tests including Docker tests
-test-all: test test-docker
+# Run all tests including E2E tests
+test-all: test test-e2e
 
 # Start Jaeger v2 (OTel trace viewer + MCP) on http://localhost:16686
 jaeger:

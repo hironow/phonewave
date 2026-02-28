@@ -1,0 +1,37 @@
+rules:
+  # ==========================================================================
+  # Layer dependency direction enforcement
+  # phonewave は 2 層構造 (他ツールの 3-4 層と異なる):
+  #   internal/cmd     — cobra CLI (top layer)
+  #   phonewave (root) — types, daemon, delivery, config, pure functions
+  #
+  # 依存方向: cmd → root (逆方向禁止)
+  #
+  # Ref: phonewave docs/adr/S0005-root-infrastructure-and-layer-conventions.md
+  # ==========================================================================
+
+  # --- Rule 1: Root package must not import internal/ ---
+
+  - id: layer-root-no-import-internal
+    languages: [go]
+    message: |
+      root パッケージから internal/ への import は禁止です。
+      依存方向: cmd → root（逆方向不可）
+      root は types, interfaces, constants, pure functions, daemon, delivery のみ。
+      cobra 依存の処理は internal/cmd/ で実装してください。
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: |
+              import "$PKG"
+          - pattern: |
+              import $_ALIAS "$PKG"
+      - metavariable-regex:
+          metavariable: $PKG
+          regex: ".*/internal/.*"
+    paths:
+      include:
+        - "/*.go"
+      exclude:
+        - "/internal/**"
+        - "/cmd/**"

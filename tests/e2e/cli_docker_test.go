@@ -1,6 +1,6 @@
-//go:build docker
+//go:build e2e
 
-package phonewave
+package e2e
 
 import (
 	"context"

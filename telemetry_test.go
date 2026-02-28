@@ -50,6 +50,52 @@ func TestInitTracer_NoopWhenEndpointUnset(t *testing.T) {
 	}
 }
 
+func TestMultiExporter_BothReceive(t *testing.T) {
+	exp1 := tracetest.NewInMemoryExporter()
+	exp2 := tracetest.NewInMemoryExporter()
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSyncer(exp1),
+		sdktrace.WithSyncer(exp2),
+	)
+	prev := otel.GetTracerProvider()
+	otel.SetTracerProvider(tp)
+	oldTracer := tracer
+	tracer = tp.Tracer("phonewave-test")
+	t.Cleanup(func() {
+		tp.Shutdown(context.Background())
+		otel.SetTracerProvider(prev)
+		tracer = oldTracer
+	})
+
+	_, span := tracer.Start(context.Background(), "multi-span")
+	span.End()
+
+	if len(exp1.GetSpans()) == 0 {
+		t.Error("exporter 1 received no spans")
+	}
+	if len(exp2.GetSpans()) == 0 {
+		t.Error("exporter 2 received no spans")
+	}
+}
+
+func TestParseExtraEndpoints_CommaSeparated(t *testing.T) {
+	eps := parseExtraEndpoints("localhost:4318,weave.local:4318")
+	if len(eps) != 2 {
+		t.Fatalf("got %d endpoints, want 2", len(eps))
+	}
+	if eps[0] != "localhost:4318" {
+		t.Errorf("eps[0] = %q, want %q", eps[0], "localhost:4318")
+	}
+}
+
+func TestParseExtraEndpoints_Empty(t *testing.T) {
+	eps := parseExtraEndpoints("")
+	if len(eps) != 0 {
+		t.Errorf("got %d endpoints, want 0", len(eps))
+	}
+}
+
 func TestSetupTestTracer_SpansAvailableImmediately(t *testing.T) {
 	// given — test tracer with in-memory exporter (sync processor)
 	exp := setupTestTracer(t)
