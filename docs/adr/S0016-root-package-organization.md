@@ -40,6 +40,7 @@ category, but files that exist follow this naming convention.
 ### Tool-Specific Domain Files
 
 Tools may have additional files for domain-specific pure logic:
+
 - phonewave: `daemon.go`, `delivery.go`, `scanner.go`, `router.go`
 - sightjack: `prompt.go`
 - paintress: `expedition.go`, `flag.go`, `gradient.go`, `lumina.go`
@@ -55,12 +56,15 @@ Tools may have additional files for domain-specific pure logic:
 ## Consequences
 
 ### Positive
+
 - Consistent file discovery across tools
 - Clear separation between ports (interfaces.go) and domain types
 - New contributors can predict where to find specific constructs
 
 ### Negative
+
 - Some tools have a large number of root files (16 for amadeus)
 
 ### Neutral
+
 - The exact set of domain files varies per tool, reflecting different problem domains

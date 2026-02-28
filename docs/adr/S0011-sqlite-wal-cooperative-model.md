@@ -13,6 +13,7 @@ different terminals, or `phonewave run` alongside `phonewave status`).
 SQLite's default journal mode (DELETE) serializes all access, which causes
 `database is locked` errors under concurrent load. We need a concurrency
 model that allows:
+
 1. Multiple readers to proceed without blocking
 2. Serialized writes with reasonable contention tolerance
 3. No data loss under concurrent Stage/Flush operations
@@ -30,6 +31,7 @@ PRAGMA synchronous=NORMAL;
 ```
 
 Go-level settings:
+
 ```go
 db.SetMaxOpenConns(1)
 ```
@@ -56,6 +58,7 @@ avoiding upgrade-deadlocks between concurrent writers.
 ## Consequences
 
 ### Positive
+
 - Concurrent CLI instances coexist without `database is locked` errors
 - Read operations (status, log) never block write operations (Stage, Flush)
 - Concurrent test suites in all 4 tools pass reliably (verified: phonewave,
@@ -63,6 +66,7 @@ avoiding upgrade-deadlocks between concurrent writers.
 - Simple configuration — no external lock manager or coordinator needed
 
 ### Negative
+
 - WAL mode creates `-wal` and `-shm` sidecar files alongside the database
 - Only one writer at a time per database file (acceptable for CLI tools)
 - `busy_timeout=5000` means a blocked writer may wait up to 5 seconds
@@ -70,6 +74,7 @@ avoiding upgrade-deadlocks between concurrent writers.
   high-throughput services)
 
 ### Neutral
+
 - Each tool independently configures these pragmas in its SQLite open
   function — no shared library (consistent with the independent-tool design)
 - At-least-once delivery means duplicate Stage is possible; idempotent Flush

@@ -50,12 +50,15 @@ to determine state location.
 ## Consequences
 
 ### Positive
+
 - Each tool has a clear, recognizable state directory
 - No naming collisions when multiple tools operate on the same repository
 - Internal structure consistency enables cross-tool knowledge transfer
 
 ### Negative
+
 - New contributors must learn each tool's directory name individually
 
 ### Neutral
+
 - The `.gitignore` pattern differs per tool but follows the same structure

@@ -29,13 +29,16 @@ rule is needed.
 ## Consequences
 
 ### Positive
+
 - Clear distinction between intent (COMMAND) and fact (EVENT) at the type level
 - Consistent naming across all 4 tools
 - Reads naturally in POLICY definitions: "WHEN ScanCompleted THEN DeliverDMail"
 
 ### Negative
+
 - Existing EventType constants already use `{Noun}{PastVerb}`; new COMMAND constants
   must use `{Verb}{Noun}` which is a different word order
 
 ### Neutral
+
 - This convention aligns with standard Event Storming practice

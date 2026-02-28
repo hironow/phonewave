@@ -73,7 +73,7 @@ type Daemon struct {
 	dlog       *DeliveryLog
 	pool       pond.Pool
 	eventCh    chan fsnotify.Event // buffered channel for async event processing
-	Dispatcher EventDispatcher    // optional: POLICY dispatch after event production
+	Dispatcher EventDispatcher     // optional: POLICY dispatch after event production
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.

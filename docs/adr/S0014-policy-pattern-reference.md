@@ -54,12 +54,15 @@ delivery.DeliverData()      ← COMMAND execution (pure routing logic)
 ## Consequences
 
 ### Positive
+
 - Clear reference for other tools implementing dispatch engines
 - Documents the implicit-to-explicit evolution path
 - Validates that the existing implicit pattern is correct
 
 ### Negative
+
 - phonewave's implicit pattern works well; making it explicit adds indirection
 
 ### Neutral
+
 - Other tools can reference this ADR when implementing their dispatch engines

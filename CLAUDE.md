@@ -26,14 +26,14 @@
 ## Test Layout
 
 - Unit tests: `*_test.go` colocated with source (Go convention)
-  - All root tests use `package phonewave` (in-package) — daemon/delivery internals require direct access
-  - `cmd/phonewave/main_test.go` uses `package main` for CLI arg parsing tests
+    - All root tests use `package phonewave` (in-package) — daemon/delivery internals require direct access
+    - `cmd/phonewave/main_test.go` uses `package main` for CLI arg parsing tests
 - E2E tests: `tests/e2e/*_test.go` with `//go:build e2e` tag, `package e2e` (testcontainers-go)
-  - `cli_docker_test.go` — CLI subcommand tests in container
-  - `daemon_docker_test.go` — daemon behaviour (retry, error queue, burst)
-  - `lifecycle_docker_test.go` — single-container lifecycle
-  - `otel_docker_test.go` — OTel tracing with Jaeger container
-  - `compose-e2e.yaml` + `Dockerfile.e2e` — Docker compose for E2E
+    - `cli_docker_test.go` — CLI subcommand tests in container
+    - `daemon_docker_test.go` — daemon behaviour (retry, error queue, burst)
+    - `lifecycle_docker_test.go` — single-container lifecycle
+    - `otel_docker_test.go` — OTel tracing with Jaeger container
+    - `compose-e2e.yaml` + `Dockerfile.e2e` — Docker compose for E2E
 - Race tests: `race_test.go` colocated with source (run with `just test-race`)
 
 ## ADR (Architecture Decision Records)
