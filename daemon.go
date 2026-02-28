@@ -67,12 +67,13 @@ type DaemonOptions struct {
 
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
-	opts    DaemonOptions
-	logger  *Logger
-	watcher *fsnotify.Watcher
-	dlog    *DeliveryLog
-	pool    pond.Pool
-	eventCh chan fsnotify.Event // buffered channel for async event processing
+	opts       DaemonOptions
+	logger     *Logger
+	watcher    *fsnotify.Watcher
+	dlog       *DeliveryLog
+	pool       pond.Pool
+	eventCh    chan fsnotify.Event // buffered channel for async event processing
+	Dispatcher EventDispatcher    // optional: POLICY dispatch after event production
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.

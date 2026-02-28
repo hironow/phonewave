@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,11 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// EventDispatcher processes events after persistence (e.g. POLICY dispatch).
+type EventDispatcher interface {
+	Dispatch(ctx context.Context, event Event) error
+}
 
 // EventStore is the interface for an append-only event log.
 type EventStore interface {

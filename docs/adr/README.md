@@ -38,6 +38,7 @@ do not copy them.
 | [S0014](S0014-policy-pattern-reference.md) | POLICY pattern reference implementation | — |
 | [S0015](S0015-state-directory-naming.md) | State directory naming convention | — |
 | [S0016](S0016-root-package-organization.md) | Root package file organization | — |
+| [S0017](S0017-aggregate-root-and-usecase-layer.md) | Aggregate root and use case layer | — |
 
 ## phonewave-specific ADRs
 

@@ -1,13 +1,15 @@
 rules:
   # ==========================================================================
   # Layer dependency direction enforcement
-  # phonewave は 2 層構造 (他ツールの 3-4 層と異なる):
+  # phonewave は 3 層構造:
   #   internal/cmd     — cobra CLI (top layer)
-  #   phonewave (root) — types, daemon, delivery, config, pure functions
+  #   internal/usecase — orchestration (COMMAND, Aggregate, POLICY dispatch)
+  #   phonewave (root) — types, daemon, delivery, config, pure functions, aggregates
   #
-  # 依存方向: cmd → root (逆方向禁止)
+  # 依存方向: cmd → usecase → root (逆方向禁止)
   #
   # Ref: phonewave docs/adr/S0005-root-infrastructure-and-layer-conventions.md
+  #      phonewave docs/adr/S0017-aggregate-root-and-usecase-layer.md
   # ==========================================================================
 
   # --- Rule 1: Root package must not import internal/ ---
@@ -35,3 +37,49 @@ rules:
       exclude:
         - "/internal/**"
         - "/cmd/**"
+
+  # --- Rule 2: usecase must not import cmd (ADR S0017) ---
+
+  - id: layer-usecase-no-import-cmd
+    languages: [go]
+    message: |
+      usecase 層から cmd 層への import は禁止です。
+      依存方向: cmd → usecase → root（逆方向不可）
+      usecase は root のみ import できます。
+      Ref: phonewave docs/adr/S0017-aggregate-root-and-usecase-layer.md
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: |
+              import "$PKG"
+          - pattern: |
+              import $_ALIAS "$PKG"
+      - metavariable-regex:
+          metavariable: $PKG
+          regex: ".*/internal/cmd"
+    paths:
+      include:
+        - "/internal/usecase/**"
+
+  # --- Rule 3: usecase must not import eventsource directly (ADR S0017) ---
+  # Note: phonewave currently has no eventsource layer, but this rule is
+  # added for forward compatibility and consistency with other tools.
+
+  - id: layer-usecase-no-import-eventsource
+    languages: [go]
+    message: |
+      usecase 層から eventsource 層への直接 import は禁止です。
+      Ref: phonewave docs/adr/S0017-aggregate-root-and-usecase-layer.md
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: |
+              import "$PKG"
+          - pattern: |
+              import $_ALIAS "$PKG"
+      - metavariable-regex:
+          metavariable: $PKG
+          regex: ".*/internal/eventsource"
+    paths:
+      include:
+        - "/internal/usecase/**"
