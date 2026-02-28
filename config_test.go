@@ -3,6 +3,7 @@ package phonewave
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -151,5 +152,138 @@ func TestWriteConfig_CreatesYAMLFile(t *testing.T) {
 	// Should contain comment header
 	if len(content) == 0 {
 		t.Fatal("config file is empty")
+	}
+}
+
+func TestWriteConfig_StoresRelativePaths(t *testing.T) {
+	// given — config with absolute repo paths
+	dir := t.TempDir()
+	repoPath := filepath.Join(dir, "my-repo")
+	configPath := filepath.Join(dir, ConfigFile)
+	cfg := &Config{
+		Repositories: []RepoConfig{
+			{Path: repoPath, Endpoints: []EndpointConfig{{Dir: ".siren"}}},
+		},
+		Routes: []RouteConfig{
+			{Kind: "specification", From: ".siren/outbox", To: []string{".siren/inbox"}, RepoPath: repoPath},
+		},
+	}
+
+	// when
+	if err := WriteConfig(configPath, cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+
+	// then — on-disk YAML should contain relative path, not absolute
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	content := string(data)
+
+	if strings.Contains(content, dir) {
+		t.Errorf("YAML should not contain absolute directory %q, got:\n%s", dir, content)
+	}
+	if !strings.Contains(content, "my-repo") {
+		t.Errorf("YAML should contain relative path 'my-repo', got:\n%s", content)
+	}
+
+	// original cfg should not be mutated
+	if cfg.Repositories[0].Path != repoPath {
+		t.Errorf("WriteConfig mutated original config: path = %q, want %q", cfg.Repositories[0].Path, repoPath)
+	}
+}
+
+func TestLoadConfig_ResolvesRelativePaths(t *testing.T) {
+	// given — YAML with relative paths
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ConfigFile)
+	yamlContent := `repositories:
+  - path: my-repo
+    endpoints:
+      - dir: .siren
+routes:
+  - kind: specification
+    from: .siren/outbox
+    to: [.siren/inbox]
+    repo_path: my-repo
+`
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0o644); err != nil {
+		t.Fatalf("write yaml: %v", err)
+	}
+
+	// when
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	// then — paths should be resolved to absolute
+	expectedPath := filepath.Join(dir, "my-repo")
+	if cfg.Repositories[0].Path != expectedPath {
+		t.Errorf("repo path = %q, want %q", cfg.Repositories[0].Path, expectedPath)
+	}
+	if cfg.Routes[0].RepoPath != expectedPath {
+		t.Errorf("route repo_path = %q, want %q", cfg.Routes[0].RepoPath, expectedPath)
+	}
+}
+
+func TestLoadConfig_BackwardCompat_AbsolutePaths(t *testing.T) {
+	// given — YAML with absolute paths (legacy format)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ConfigFile)
+	yamlContent := `repositories:
+  - path: /absolute/path/to/repo
+    endpoints:
+      - dir: .siren
+routes:
+  - kind: specification
+    from: .siren/outbox
+    to: [.siren/inbox]
+    repo_path: /absolute/path/to/repo
+`
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0o644); err != nil {
+		t.Fatalf("write yaml: %v", err)
+	}
+
+	// when
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	// then — absolute paths should be kept as-is
+	if cfg.Repositories[0].Path != "/absolute/path/to/repo" {
+		t.Errorf("repo path = %q, want %q", cfg.Repositories[0].Path, "/absolute/path/to/repo")
+	}
+	if cfg.Routes[0].RepoPath != "/absolute/path/to/repo" {
+		t.Errorf("route repo_path = %q, want %q", cfg.Routes[0].RepoPath, "/absolute/path/to/repo")
+	}
+}
+
+func TestWriteConfig_RoutesAlsoRelative(t *testing.T) {
+	// given — config with routes containing absolute repo_path
+	dir := t.TempDir()
+	repoPath := filepath.Join(dir, "project")
+	configPath := filepath.Join(dir, ConfigFile)
+	cfg := &Config{
+		Routes: []RouteConfig{
+			{Kind: "report", From: ".expedition/outbox", To: []string{".siren/inbox"}, RepoPath: repoPath},
+		},
+	}
+
+	// when
+	if err := WriteConfig(configPath, cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+
+	// then
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	content := string(data)
+	if strings.Contains(content, dir) {
+		t.Errorf("route repo_path should be relative, found absolute directory in:\n%s", content)
 	}
 }
