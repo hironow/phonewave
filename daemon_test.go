@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -559,5 +560,63 @@ func TestDaemon_PIDFile(t *testing.T) {
 	// PID file should be removed after shutdown
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
 		t.Error("PID file should be removed after shutdown")
+	}
+}
+
+func TestDaemon_ConcurrentBurstDelivery(t *testing.T) {
+	// given — daemon watching an outbox, burst of 5 files written rapidly
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, inbox, stateDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	routes := []ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+
+	d, err := NewDaemon(DaemonOptions{
+		Routes:     routes,
+		OutboxDirs: []string{outbox},
+		StateDir:   stateDir,
+		Verbose:    true,
+	}, NewLogger(io.Discard, false))
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Give watcher time to start
+	time.Sleep(200 * time.Millisecond)
+
+	// when — write 5 files in rapid succession (burst)
+	const burstCount = 5
+	for i := range burstCount {
+		content := strings.NewReader("---\ndmail-schema-version: \"1\"\nname: burst-" + strconv.Itoa(i) + "\nkind: specification\ndescription: \"burst\"\n---\n\n# Burst\n")
+		data, _ := io.ReadAll(content)
+		name := "burst-" + strconv.Itoa(i) + ".md"
+		if err := os.WriteFile(filepath.Join(outbox, name), data, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// then — all 5 files should be delivered to inbox within timeout
+	for i := range burstCount {
+		name := "burst-" + strconv.Itoa(i) + ".md"
+		waitForFile(t, filepath.Join(inbox, name), 10*time.Second)
+	}
+
+	cancel()
+	if err := <-errCh; err != nil {
+		t.Errorf("daemon error: %v", err)
 	}
 }

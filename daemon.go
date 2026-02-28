@@ -72,6 +72,7 @@ type Daemon struct {
 	watcher *fsnotify.Watcher
 	dlog    *DeliveryLog
 	pool    pond.Pool
+	eventCh chan fsnotify.Event // buffered channel for async event processing
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -90,6 +91,7 @@ func NewDaemon(opts DaemonOptions, logger *Logger) (*Daemon, error) {
 		logger:  logger,
 		watcher: watcher,
 		pool:    pond.NewPool(runtime.NumCPU()),
+		eventCh: make(chan fsnotify.Event, runtime.NumCPU()*16),
 	}, nil
 }
 
@@ -165,6 +167,18 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.logger.OK("Daemon started (PID %d), watching %d outbox directories", os.Getpid(), len(d.opts.OutboxDirs))
 	}
 
+	// Start worker goroutine that drains eventCh and processes events
+	// asynchronously via the pool. This decouples fsnotify event reception
+	// from the (potentially slow) handleEvent I/O, preventing event loop
+	// stalls during delivery bursts.
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		for event := range d.eventCh {
+			d.handleEvent(event)
+		}
+	}()
+
 	// Optional retry timer with exponential backoff (nil channel disables the case)
 	var retryCh <-chan time.Time
 	var retryTimer *time.Timer
@@ -176,23 +190,29 @@ func (d *Daemon) Run(ctx context.Context) error {
 		defer retryTimer.Stop()
 	}
 
-	// Event loop
+	// Event loop: receives fsnotify events and enqueues them for the worker.
 	for {
 		select {
 		case <-ctx.Done():
 			if d.opts.Verbose {
 				d.logger.Info("Shutting down daemon")
 			}
+			close(d.eventCh)
+			<-workerDone // wait for in-flight event processing to finish
 			return nil
 
 		case event, ok := <-d.watcher.Events:
 			if !ok {
+				close(d.eventCh)
+				<-workerDone
 				return nil
 			}
-			d.handleEvent(event)
+			d.eventCh <- event
 
 		case err, ok := <-d.watcher.Errors:
 			if !ok {
+				close(d.eventCh)
+				<-workerDone
 				return nil
 			}
 			d.logger.Warn("Watcher error: %v", err)

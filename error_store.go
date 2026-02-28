@@ -42,6 +42,7 @@ func NewSQLiteErrorStore(stateDir string) (*SQLiteErrorStore, error) {
 	db.SetMaxOpenConns(1)
 
 	for _, pragma := range []string{
+		"PRAGMA auto_vacuum=INCREMENTAL",
 		"PRAGMA journal_mode=WAL",
 		"PRAGMA synchronous=NORMAL",
 		"PRAGMA busy_timeout=5000",
@@ -139,6 +140,14 @@ func (s *SQLiteErrorStore) MarkResolved(name string) error {
 		return fmt.Errorf("error store: mark resolved %s: %w", name, err)
 	}
 	return nil
+}
+
+// IncrementalVacuum reclaims free pages without acquiring an exclusive lock.
+// Call after bulk deletes to shrink the DB file.
+// Requires PRAGMA auto_vacuum=INCREMENTAL set at DB open time.
+func (s *SQLiteErrorStore) IncrementalVacuum() error {
+	_, err := s.db.Exec("PRAGMA incremental_vacuum")
+	return err
 }
 
 // Close closes the underlying database connection.
