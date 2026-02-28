@@ -1,13 +1,15 @@
-package phonewave
+package phonewave_test
 
 import (
 	"testing"
 	"time"
+
+	"github.com/hironow/phonewave"
 )
 
 func TestRunDaemonCommand_Validate_Valid(t *testing.T) {
 	// given
-	cmd := RunDaemonCommand{
+	cmd := phonewave.RunDaemonCommand{
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    10,
 	}
@@ -23,7 +25,7 @@ func TestRunDaemonCommand_Validate_Valid(t *testing.T) {
 
 func TestRunDaemonCommand_Validate_InvalidRetryInterval(t *testing.T) {
 	// given
-	cmd := RunDaemonCommand{
+	cmd := phonewave.RunDaemonCommand{
 		RetryInterval: 0,
 		MaxRetries:    10,
 	}
@@ -39,7 +41,7 @@ func TestRunDaemonCommand_Validate_InvalidRetryInterval(t *testing.T) {
 
 func TestRunDaemonCommand_Validate_InvalidMaxRetries(t *testing.T) {
 	// given
-	cmd := RunDaemonCommand{
+	cmd := phonewave.RunDaemonCommand{
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    -1,
 	}
@@ -55,7 +57,7 @@ func TestRunDaemonCommand_Validate_InvalidMaxRetries(t *testing.T) {
 
 func TestAddRepoCommand_Validate_Valid(t *testing.T) {
 	// given
-	cmd := AddRepoCommand{
+	cmd := phonewave.AddRepoCommand{
 		RepoPath: "/tmp/repo",
 	}
 
@@ -70,7 +72,7 @@ func TestAddRepoCommand_Validate_Valid(t *testing.T) {
 
 func TestAddRepoCommand_Validate_MissingRepoPath(t *testing.T) {
 	// given
-	cmd := AddRepoCommand{}
+	cmd := phonewave.AddRepoCommand{}
 
 	// when
 	errs := cmd.Validate()
@@ -83,7 +85,7 @@ func TestAddRepoCommand_Validate_MissingRepoPath(t *testing.T) {
 
 func TestRemoveRepoCommand_Validate_Valid(t *testing.T) {
 	// given
-	cmd := RemoveRepoCommand{
+	cmd := phonewave.RemoveRepoCommand{
 		RepoPath: "/tmp/repo",
 	}
 
@@ -98,7 +100,7 @@ func TestRemoveRepoCommand_Validate_Valid(t *testing.T) {
 
 func TestRemoveRepoCommand_Validate_MissingRepoPath(t *testing.T) {
 	// given
-	cmd := RemoveRepoCommand{}
+	cmd := phonewave.RemoveRepoCommand{}
 
 	// when
 	errs := cmd.Validate()
@@ -111,7 +113,7 @@ func TestRemoveRepoCommand_Validate_MissingRepoPath(t *testing.T) {
 
 func TestSyncCommand_Validate(t *testing.T) {
 	// given — SyncCommand has no required fields
-	cmd := SyncCommand{}
+	cmd := phonewave.SyncCommand{}
 
 	// when
 	errs := cmd.Validate()
@@ -124,7 +126,7 @@ func TestSyncCommand_Validate(t *testing.T) {
 
 func TestStatusCommand_Validate(t *testing.T) {
 	// given — StatusCommand has no required fields
-	cmd := StatusCommand{}
+	cmd := phonewave.StatusCommand{}
 
 	// when
 	errs := cmd.Validate()
