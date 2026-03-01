@@ -16,7 +16,7 @@ func ListExpiredEventFiles(stateDir string, days int) ([]string, error) {
 	if days < 0 {
 		return nil, fmt.Errorf("days must be non-negative, got %d", days)
 	}
-	dir := filepath.Join(stateDir, "events")
+	dir := EventsDir(stateDir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -46,7 +46,7 @@ func ListExpiredEventFiles(stateDir string, days int) ([]string, error) {
 // Files that no longer exist are silently skipped (idempotent).
 // Returns the list of names that were processed.
 func PruneEventFiles(stateDir string, files []string) ([]string, error) {
-	dir := filepath.Join(stateDir, "events")
+	dir := EventsDir(stateDir)
 	var deleted []string
 	for _, name := range files {
 		path := filepath.Join(dir, name)
