@@ -45,6 +45,9 @@ func NewRootCommand() *cobra.Command {
 			cmd.SetContext(spanCtx)
 			return nil
 		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("no subcommand specified. Run 'phonewave help' for usage")
+		},
 	}
 
 	finalizerOnce.Do(func() {
@@ -62,6 +65,7 @@ func NewRootCommand() *cobra.Command {
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Log all delivery events to stderr")
 	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", phonewave.ConfigFile), "Path to phonewave config file")
+	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format: text, json")
 
 	rootCmd.AddCommand(
 		newInitCmd(),

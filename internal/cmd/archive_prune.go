@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 
@@ -29,12 +30,16 @@ Pass --execute to actually remove the files.`,
   # Delete expired files
   phonewave archive-prune --execute
 
+  # JSON output for scripting
+  phonewave archive-prune -o json
+
   # Custom retention period
   phonewave archive-prune --days 7 --execute`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			base := configBase(cmd)
 			stateDir := filepath.Join(base, phonewave.StateDir)
+			outputFmt, _ := cmd.Flags().GetString("output")
 			errW := cmd.ErrOrStderr()
 
 			files, err := session.ListExpiredEventFiles(stateDir, days)
@@ -42,6 +47,31 @@ Pass --execute to actually remove the files.`,
 				return fmt.Errorf("failed to list expired events: %w", err)
 			}
 
+			if outputFmt == "json" {
+				out := struct {
+					Candidates int      `json:"candidates"`
+					Deleted    int      `json:"deleted"`
+					Files      []string `json:"files"`
+				}{
+					Candidates: len(files),
+					Files:      files,
+				}
+				if execute && len(files) > 0 {
+					deleted, delErr := session.PruneEventFiles(stateDir, files)
+					if delErr != nil {
+						return fmt.Errorf("event prune failed: %w", delErr)
+					}
+					out.Deleted = len(deleted)
+				}
+				data, jsonErr := json.Marshal(out)
+				if jsonErr != nil {
+					return jsonErr
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(data))
+				return nil
+			}
+
+			// text output
 			if len(files) == 0 {
 				fmt.Fprintf(errW, "No expired event files (threshold: %d days).\n", days)
 				return nil

@@ -18,7 +18,8 @@ func newDoctorCmd() *cobra.Command {
 		Example: `  phonewave doctor`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
-			jsonOut, _ := cmd.Flags().GetBool("json")
+			outputFmt, _ := cmd.Flags().GetString("output")
+			jsonOut := outputFmt == "json"
 			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
@@ -70,7 +71,6 @@ func newDoctorCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolP("json", "j", false, "output as JSON")
 
 	return cmd
 }
