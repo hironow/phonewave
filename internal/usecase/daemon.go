@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 // SetupAndRunDaemon validates the RunDaemonCommand, resolves configuration,
@@ -37,6 +38,23 @@ func SetupAndRunDaemon(ctx context.Context, cmd phonewave.RunDaemonCommand, cfgP
 		return fmt.Errorf("create state dir: %w", err)
 	}
 
+	// Initialize session-layer stores via factory (ADR S0008: no direct eventsource import)
+	eventStore := session.NewEventStore(stateDir)
+
+	errorQueue, err := session.NewErrorQueueStore(stateDir)
+	if err != nil {
+		return fmt.Errorf("create error queue store: %w", err)
+	}
+	defer errorQueue.Close()
+
+	// Migrate legacy .err sidecar files to SQLite ErrorQueueStore
+	migrated, migrateErr := session.MigrateFileErrorQueue(stateDir, errorQueue, logger)
+	if migrateErr != nil {
+		logger.Warn("Error queue migration: %v", migrateErr)
+	} else if migrated > 0 {
+		logger.OK("Migrated %d legacy error queue entries to SQLite", migrated)
+	}
+
 	d, err := phonewave.NewDaemon(phonewave.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
@@ -50,9 +68,21 @@ func SetupAndRunDaemon(ctx context.Context, cmd phonewave.RunDaemonCommand, cfgP
 		return fmt.Errorf("create daemon: %w", err)
 	}
 
-	// Inject PolicyEngine for best-effort event dispatch
+	// Inject PolicyEngine for best-effort event dispatch (ADR S0014, S0018)
 	engine := NewPolicyEngine(logger)
+	registerDaemonPolicies(engine, logger)
 	d.Dispatcher = engine
+
+	// Create DaemonSession for session-layer event recording
+	dlog, err := phonewave.NewDeliveryLog(stateDir)
+	if err != nil {
+		return fmt.Errorf("open delivery log: %w", err)
+	}
+	defer dlog.Close()
+
+	ds := session.NewDaemonSession(errorQueue, eventStore, dlog, routes, stateDir, logger)
+	ds.Dispatcher = engine
+	_ = ds // DaemonSession available for future wiring; daemon uses it via Run hooks
 
 	logger.OK("phonewave daemon starting (%d routes, %d outboxes)", len(routes), len(outboxDirs))
 

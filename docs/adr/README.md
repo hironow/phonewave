@@ -39,6 +39,8 @@ do not copy them.
 | [S0015](S0015-state-directory-naming.md) | State directory naming convention | — |
 | [S0016](S0016-root-package-organization.md) | Root package file organization | — |
 | [S0017](S0017-aggregate-root-and-usecase-layer.md) | Aggregate root and use case layer | — |
+| [S0018](S0018-event-storming-alignment.md) | Event Storming alignment and per-tool applicability | — |
+| [S0019](S0019-data-persistence-boundaries.md) | Data persistence boundaries (Linear/GitHub/local) | — |
 
 ## phonewave-specific ADRs
 

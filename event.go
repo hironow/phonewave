@@ -23,6 +23,17 @@ type EventStore interface {
 	LoadSince(after time.Time) ([]Event, error)
 }
 
+// ErrorQueueStore manages failed D-Mail delivery records with atomic claim
+// semantics to prevent duplicate processing across concurrent daemon instances.
+type ErrorQueueStore interface {
+	Enqueue(name string, data []byte, meta ErrorMetadata) error
+	ClaimPendingRetries(claimerID string, maxRetries int) ([]ErrorEntry, error)
+	PendingCount(maxRetries int) (int, error)
+	IncrementRetry(name string, newError string) error
+	MarkResolved(name string) error
+	Close() error
+}
+
 // EventType identifies the kind of domain event.
 type EventType string
 
