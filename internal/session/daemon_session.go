@@ -44,6 +44,7 @@ func NewDaemonSession(
 // RecordDeliveryEvent records a delivery.completed event to the event store.
 // Best-effort: errors are logged but do not fail the delivery.
 func (s *DaemonSession) RecordDeliveryEvent(result *phonewave.DeliveryResult) {
+	phonewave.RecordDelivery(context.Background(), "completed", result.Kind)
 	if s.EventStore == nil {
 		return
 	}
@@ -66,6 +67,7 @@ func (s *DaemonSession) RecordDeliveryEvent(result *phonewave.DeliveryResult) {
 // RecordFailureEvent records a delivery.failed event to the event store.
 // Best-effort: errors are logged but do not fail the error recording.
 func (s *DaemonSession) RecordFailureEvent(filePath string, kind string, deliverErr error) {
+	phonewave.RecordDelivery(context.Background(), "failed", kind)
 	if s.EventStore == nil {
 		return
 	}
