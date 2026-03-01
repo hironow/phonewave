@@ -25,6 +25,12 @@ func NewErrorQueueStore(stateDir string) (*SQLiteErrorQueueStore, error) {
 	return NewSQLiteErrorQueueStore(stateDir)
 }
 
+// NewDeliveryStore creates a SQLiteDeliveryStore at {stateDir}/.run/delivery.db.
+// cmd layer should use this instead of instantiating directly (ADR S0008).
+func NewDeliveryStore(stateDir string) (*SQLiteDeliveryStore, error) {
+	return NewSQLiteDeliveryStore(stateDir)
+}
+
 // ListExpiredEventFiles returns .jsonl files older than the given days.
 // cmd layer should use this instead of importing eventsource directly (ADR S0008).
 func ListExpiredEventFiles(stateDir string, days int) ([]string, error) {
