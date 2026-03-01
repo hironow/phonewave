@@ -1,12 +1,14 @@
 package contract_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/hironow/phonewave/tests/contract"
+	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 const goldenDir = "testdata/golden"
@@ -288,5 +290,91 @@ func TestGroup6_TargetsField(t *testing.T) {
 	}
 	if dm.Targets[1] != "session-management" {
 		t.Errorf("Targets[1] = %q, want %q", dm.Targets[1], "session-management")
+	}
+}
+
+// ──────────────────────────────────────────────
+// Group 7: JSON Schema Validation
+// Tool-produced golden files must validate against the v1 JSON Schema.
+// Edge cases (unknown kind, future schema) must fail schema validation
+// but still parse successfully (Postel's Law in action).
+// ──────────────────────────────────────────────
+
+const schemaPath = "testdata/schema/dmail-frontmatter.v1.schema.json"
+
+// compileSchema loads and compiles the D-Mail v1 JSON Schema.
+func compileSchema(t *testing.T) *jsonschema.Schema {
+	t.Helper()
+	sch, err := jsonschema.Compile(schemaPath)
+	if err != nil {
+		t.Fatalf("compile schema: %v", err)
+	}
+	return sch
+}
+
+// frontmatterToValidatable converts raw D-Mail bytes to a JSON-compatible
+// value suitable for JSON Schema validation. YAML frontmatter is extracted,
+// round-tripped through JSON to normalize types (YAML int → JSON number).
+func frontmatterToValidatable(t *testing.T, data []byte) any {
+	t.Helper()
+	m, err := contract.ParseFrontmatterMap(data)
+	if err != nil {
+		t.Fatalf("parse frontmatter map: %v", err)
+	}
+	// Round-trip through JSON to ensure types match JSON Schema expectations.
+	// YAML might infer integers for unquoted numbers; JSON Schema expects
+	// the types declared in the schema (string for dmail-schema-version).
+	jsonBytes, err := json.Marshal(m)
+	if err != nil {
+		t.Fatalf("marshal to JSON: %v", err)
+	}
+	var v any
+	if err := json.Unmarshal(jsonBytes, &v); err != nil {
+		t.Fatalf("unmarshal JSON: %v", err)
+	}
+	return v
+}
+
+func TestGroup7_JSONSchemaToolFilesValid(t *testing.T) {
+	sch := compileSchema(t)
+
+	toolFiles := []string{
+		"sightjack-spec.md",
+		"sightjack-report.md",
+		"sightjack-feedback.md",
+		"paintress-report.md",
+		"amadeus-feedback-high.md",
+		"amadeus-convergence.md",
+		"minimal.md",
+	}
+	for _, name := range toolFiles {
+		t.Run(name, func(t *testing.T) {
+			data := readGolden(t, name)
+			v := frontmatterToValidatable(t, data)
+			if err := sch.Validate(v); err != nil {
+				t.Errorf("schema validation failed: %v", err)
+			}
+		})
+	}
+}
+
+func TestGroup7_JSONSchemaRejectsEdgeCases(t *testing.T) {
+	sch := compileSchema(t)
+
+	cases := []struct {
+		file   string
+		reason string
+	}{
+		{"unknown-kind.md", "kind 'advisory' not in schema v1 enum"},
+		{"future-schema.md", "dmail-schema-version '2' does not match const '1'"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.file, func(t *testing.T) {
+			data := readGolden(t, tc.file)
+			v := frontmatterToValidatable(t, data)
+			if err := sch.Validate(v); err == nil {
+				t.Errorf("expected schema validation to fail (%s), but it passed", tc.reason)
+			}
+		})
 	}
 }

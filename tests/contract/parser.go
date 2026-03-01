@@ -77,6 +77,31 @@ func Marshal(dm DMail) ([]byte, error) {
 	return []byte(buf.String()), nil
 }
 
+// ParseFrontmatterMap extracts YAML frontmatter as a generic map.
+// Used for JSON Schema validation where typed struct fields are insufficient.
+func ParseFrontmatterMap(data []byte) (map[string]any, error) {
+	s := string(data)
+	if !strings.HasPrefix(s, "---\n") {
+		return nil, fmt.Errorf("missing opening frontmatter delimiter")
+	}
+	rest := s[4:]
+	idx := strings.Index(rest, "\n---\n")
+	if idx < 0 {
+		if strings.HasSuffix(rest, "\n---") {
+			idx = len(rest) - 4
+		} else {
+			return nil, fmt.Errorf("missing closing frontmatter delimiter")
+		}
+	}
+	yamlPart := rest[:idx]
+
+	var m map[string]any
+	if err := yaml.Unmarshal([]byte(yamlPart), &m); err != nil {
+		return nil, fmt.Errorf("parse frontmatter: %w", err)
+	}
+	return m, nil
+}
+
 // IdempotencyKey computes the SHA256 content-based key from core fields.
 // This matches the algorithm used by all 4 tools:
 // SHA256(name + \x00 + kind + \x00 + description + \x00 + body)
