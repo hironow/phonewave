@@ -139,7 +139,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	for _, dir := range d.opts.OutboxDirs {
 		dir := dir // capture for goroutine
 		scanGroup.Submit(func() {
-			scanCtx, scanSpan := tracer.Start(ctx, "daemon.startup_scan",
+			scanCtx, scanSpan := Tracer.Start(ctx, "daemon.startup_scan",
 				trace.WithNewRoot(),
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
@@ -248,7 +248,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	ctx, span := tracer.Start(context.Background(), "daemon.handle_event",
+	ctx, span := Tracer.Start(context.Background(), "daemon.handle_event",
 		trace.WithAttributes(
 			attribute.String("event.name", event.Name),
 			attribute.String("event.op", event.Op.String()),
@@ -333,7 +333,7 @@ type retryEntry struct {
 // that have not exceeded MaxRetries. Eligible retries run concurrently
 // via the daemon's worker pool. Returns the number of successful retries.
 func (d *Daemon) retryPending() int {
-	ctx, retrySpan := tracer.Start(context.Background(), "daemon.retry_pending")
+	ctx, retrySpan := Tracer.Start(context.Background(), "daemon.retry_pending")
 	defer retrySpan.End()
 
 	errorsDir := filepath.Join(d.opts.StateDir, "errors")

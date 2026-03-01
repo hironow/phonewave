@@ -126,7 +126,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []Re
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
 	}
 
-	ctx, span := tracer.Start(ctx, "delivery.deliver",
+	ctx, span := Tracer.Start(ctx, "delivery.deliver",
 		trace.WithAttributes(
 			attribute.String("dmail.path", dmailPath),
 			attribute.String("dmail.kind", kind),

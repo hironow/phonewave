@@ -1,7 +1,12 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
+	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/hironow/phonewave"
 	"github.com/spf13/cobra"
@@ -12,6 +17,13 @@ var (
 	Version = "dev"
 	Commit  = "none"
 	Date    = "unknown"
+)
+
+// shutdownTracer holds the OTel tracer shutdown function registered by
+// PersistentPreRunE. cobra.OnFinalize calls it after Execute completes.
+var (
+	shutdownTracerFn func(context.Context) error
+	finalizerOnce    sync.Once
 )
 
 func init() {
@@ -27,7 +39,23 @@ func NewRootCommand() *cobra.Command {
 		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			shutdownTracerFn = initTracer("phonewave", Version)
+			return nil
+		},
 	}
+
+	finalizerOnce.Do(func() {
+		cobra.OnFinalize(func() {
+			if shutdownTracerFn != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := shutdownTracerFn(ctx); err != nil {
+					fmt.Fprintf(os.Stderr, "tracer shutdown: %v\n", err)
+				}
+			}
+		})
+	})
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Log all delivery events to stderr")
 	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", phonewave.ConfigFile), "Path to phonewave config file")
