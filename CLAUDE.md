@@ -10,6 +10,7 @@
 - CLI: `internal/cmd/` (cobra v1.10.2, `NewRootCommand()` exported for testability)
 - Library: root package `phonewave` (daemon, delivery, config types, router, event, command, policy, logger, telemetry, metrics)
 - Session: `internal/session/` (config I/O, scanner, init/add/remove/sync, doctor, status, validate, daemon setup)
+- Eventsource: `internal/eventsource/` (event store + lifecycle; flat `.jsonl` storage, `os.Remove` pruning)
 - OTel: `internal/cmd/telemetry.go` (initTracer + OTLP HTTP exporter), `telemetry.go` (noop default)
 - Docker: `docker/compose.yaml` + `docker/jaeger-v2-config.yaml` (Jaeger v2)
 - Docker E2E: `docker/compose-e2e.yaml` (testcontainers-go lifecycle tests)
@@ -21,6 +22,7 @@
 - `cobra.EnableTraverseRunHooks = true` in `init()` (not constructor)
 - All commands use `RunE` (not `Run`)
 - `--verbose`, `--config` are PersistentFlags on root
+- Default subcommand: `phonewave [flags]` → prepends `run` via `NeedsDefaultRun`
 - OTel tracer shutdown: `PersistentPreRunE` + `cobra.OnFinalize` + `sync.Once`
 - State directory: derived from config path via `configBase(cmd)`
 
