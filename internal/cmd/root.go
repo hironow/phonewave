@@ -23,6 +23,7 @@ var (
 // PersistentPreRunE. cobra.OnFinalize calls it after Execute completes.
 var (
 	shutdownTracerFn func(context.Context) error
+	shutdownMeterFn  func(context.Context) error
 	finalizerOnce    sync.Once
 )
 
@@ -41,6 +42,7 @@ func NewRootCommand() *cobra.Command {
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			shutdownTracerFn = initTracer("phonewave", Version)
+			shutdownMeterFn = initMeter("phonewave", Version)
 			spanCtx := startRootSpan(cmd.Context(), cmd.Name())
 			cmd.SetContext(spanCtx)
 			return nil
@@ -53,6 +55,13 @@ func NewRootCommand() *cobra.Command {
 	finalizerOnce.Do(func() {
 		cobra.OnFinalize(func() {
 			endRootSpan()
+			if shutdownMeterFn != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := shutdownMeterFn(ctx); err != nil {
+					fmt.Fprintf(os.Stderr, "meter shutdown: %v\n", err)
+				}
+			}
 			if shutdownTracerFn != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
