@@ -16,25 +16,25 @@ func SetupAndRunDaemon(ctx context.Context, cmd phonewave.RunDaemonCommand, cfgP
 		return fmt.Errorf("command validation: %w", errs[0])
 	}
 
-	cfg, err := phonewave.LoadConfig(cfgPath)
+	cfg, err := session.LoadConfig(cfgPath)
 	if err != nil {
 		logger.Info("Run 'phonewave init' first")
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	routes, err := phonewave.ResolveRoutes(cfg)
+	routes, err := session.ResolveRoutes(cfg)
 	if err != nil {
 		return fmt.Errorf("resolve routes: %w", err)
 	}
 
-	outboxDirs := phonewave.CollectOutboxDirs(cfg)
+	outboxDirs := session.CollectOutboxDirs(cfg)
 	if len(outboxDirs) == 0 {
 		logger.Warn("No outbox directories to watch")
 		return nil
 	}
 
 	stateDir := filepath.Join(baseDir, phonewave.StateDir)
-	if err := phonewave.EnsureStateDir(baseDir); err != nil {
+	if err := session.EnsureStateDir(baseDir); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
 

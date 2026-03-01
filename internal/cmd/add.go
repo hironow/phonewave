@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -21,18 +22,18 @@ func newAddCmd() *cobra.Command {
 			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
-			cfg, err := phonewave.LoadConfig(cfgPath)
+			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			result, err := phonewave.Add(cfg, args[0])
+			result, err := session.Add(cfg, args[0])
 			if err != nil {
 				return err
 			}
 
-			if err := phonewave.WriteConfig(cfgPath, cfg); err != nil {
+			if err := session.WriteConfig(cfgPath, cfg); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 

@@ -1,9 +1,11 @@
-package phonewave
+package session
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/hironow/phonewave"
 )
 
 func TestValidateSkillDir_ValidSkill(t *testing.T) {
@@ -115,7 +117,7 @@ produces:
 		t.Fatal(err)
 	}
 
-	ep := EndpointConfig{
+	ep := phonewave.EndpointConfig{
 		Dir:      ".siren",
 		Produces: nil, // empty — intentional empty
 		Consumes: nil,

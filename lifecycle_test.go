@@ -1,4 +1,4 @@
-package phonewave
+package phonewave_test
 
 import (
 	"context"
@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 // setupEcosystemDir creates a full 3-tool ecosystem in a temp directory.
@@ -83,8 +86,8 @@ func setupEcosystemDir(t *testing.T) string {
 	return repoDir
 }
 
-// waitForFile polls until a file exists at path, or fails after timeout.
-func waitForFile(t *testing.T, path string, timeout time.Duration) {
+// waitForFileExt polls until a file exists at path, or fails after timeout.
+func waitForFileExt(t *testing.T, path string, timeout time.Duration) {
 	t.Helper()
 	deadline := time.After(timeout)
 	for {
@@ -123,7 +126,7 @@ func TestLifecycle_FullEcosystem(t *testing.T) {
 	// =====================================================================
 	repoDir := setupEcosystemDir(t)
 
-	result, err := Init([]string{repoDir})
+	result, err := session.Init([]string{repoDir})
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -147,11 +150,11 @@ func TestLifecycle_FullEcosystem(t *testing.T) {
 	}
 
 	// Prepare daemon dependencies
-	routes, err := ResolveRoutes(result.Config)
+	routes, err := session.ResolveRoutes(result.Config)
 	if err != nil {
 		t.Fatalf("ResolveRoutes: %v", err)
 	}
-	outboxDirs := CollectOutboxDirs(result.Config)
+	outboxDirs := session.CollectOutboxDirs(result.Config)
 	if len(outboxDirs) < 3 {
 		t.Fatalf("outboxDirs = %d, want >= 3", len(outboxDirs))
 	}
@@ -180,12 +183,12 @@ description: "Pre-existing specification"
 	// =====================================================================
 	// Phase 3: Start daemon — startup scan should deliver pre-existing file
 	// =====================================================================
-	d, err := NewDaemon(DaemonOptions{
+	d, err := phonewave.NewDaemon(phonewave.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -197,7 +200,7 @@ description: "Pre-existing specification"
 
 	// Verify startup scan delivered pre-existing file
 	expeditionInbox := filepath.Join(repoDir, ".expedition", "inbox")
-	waitForFile(t, filepath.Join(expeditionInbox, "spec-preexist.md"), 5*time.Second)
+	waitForFileExt(t, filepath.Join(expeditionInbox, "spec-preexist.md"), 5*time.Second)
 	waitForFileAbsent(t, preExistPath, 5*time.Second)
 
 	// =====================================================================
@@ -216,7 +219,7 @@ description: "Runtime specification"
 		t.Fatal(err)
 	}
 
-	waitForFile(t, filepath.Join(expeditionInbox, "spec-runtime.md"), 5*time.Second)
+	waitForFileExt(t, filepath.Join(expeditionInbox, "spec-runtime.md"), 5*time.Second)
 	waitForFileAbsent(t, runtimeSpec, 5*time.Second)
 
 	// =====================================================================
@@ -236,8 +239,8 @@ description: "Lifecycle feedback"
 	}
 
 	sirenInbox := filepath.Join(repoDir, ".siren", "inbox")
-	waitForFile(t, filepath.Join(sirenInbox, "fb-lifecycle.md"), 5*time.Second)
-	waitForFile(t, filepath.Join(expeditionInbox, "fb-lifecycle.md"), 5*time.Second)
+	waitForFileExt(t, filepath.Join(sirenInbox, "fb-lifecycle.md"), 5*time.Second)
+	waitForFileExt(t, filepath.Join(expeditionInbox, "fb-lifecycle.md"), 5*time.Second)
 	waitForFileAbsent(t, feedbackPath, 5*time.Second)
 
 	// =====================================================================
@@ -291,7 +294,7 @@ description: "After malformed"
 `), 0644); err != nil {
 		t.Fatal(err)
 	}
-	waitForFile(t, filepath.Join(expeditionInbox, "spec-after-bad.md"), 5*time.Second)
+	waitForFileExt(t, filepath.Join(expeditionInbox, "spec-after-bad.md"), 5*time.Second)
 
 	// =====================================================================
 	// Phase 8: Unknown kind — FAILED logged
@@ -342,12 +345,12 @@ description: "Unknown"
 	}
 	linesBefore := strings.Count(string(logBeforeRestart), "\n")
 
-	d2, err := NewDaemon(DaemonOptions{
+	d2, err := phonewave.NewDaemon(phonewave.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, NewLogger(io.Discard, false))
+	}, phonewave.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon (restart): %v", err)
 	}
@@ -371,7 +374,7 @@ description: "After restart"
 	}
 
 	gateInbox := filepath.Join(repoDir, ".gate", "inbox")
-	waitForFile(t, filepath.Join(gateInbox, "report-restart.md"), 5*time.Second)
+	waitForFileExt(t, filepath.Join(gateInbox, "report-restart.md"), 5*time.Second)
 
 	cancel2()
 	if err := <-errCh2; err != nil {

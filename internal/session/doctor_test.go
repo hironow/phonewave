@@ -1,4 +1,4 @@
-package phonewave
+package session
 
 import (
 	"encoding/json"
@@ -8,12 +8,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hironow/phonewave"
 )
 
 func TestDoctor_HealthyEcosystem(t *testing.T) {
 	// given — a fully set up repo with all dirs and SKILL.md files
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 
 	for _, dir := range []string{
 		filepath.Join(repoDir, ".siren", "outbox"),
@@ -41,17 +43,17 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 	writeSkillFile(t, filepath.Join(repoDir, ".expedition", "skills", "dmail-readable", "SKILL.md"),
 		"---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: specification\n---\n")
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 				},
 			},
 		},
-		Routes: []RouteConfig{
+		Routes: []phonewave.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository"},
 		},
 	}
@@ -71,7 +73,7 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 func TestDoctor_MissingDirs(t *testing.T) {
 	// given — repo path exists but outbox/inbox dirs are missing
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -81,11 +83,11 @@ func TestDoctor_MissingDirs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}},
 				},
 			},
@@ -119,11 +121,11 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 	// given — config references a non-existent repository path
 	stateDir := t.TempDir()
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: "/nonexistent/repo/path",
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}},
 				},
 			},
@@ -151,7 +153,7 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
 	// given — SKILL.md with an invalid kind
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 
 	for _, dir := range []string{
 		filepath.Join(repoDir, ".siren", "outbox"),
@@ -167,11 +169,11 @@ func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
 	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-sendable", "SKILL.md"),
 		"---\nname: dmail-sendable\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: invalid_type\n---\n")
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}},
 				},
 			},
@@ -196,12 +198,12 @@ func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
 func TestDoctor_DaemonNotRunning(t *testing.T) {
 	// given — no PID file
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	cfg := &Config{}
+	cfg := &phonewave.Config{}
 
 	// when
 	report := Doctor(cfg, stateDir)
@@ -222,7 +224,7 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 
 	// given — SKILL.md with name not matching directory (Agent Skills spec violation)
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 
 	sendableDir := filepath.Join(repoDir, ".siren", "skills", "dmail-sendable")
 	for _, dir := range []string{
@@ -240,11 +242,11 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
 		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &phonewave.Config{
+		Repositories: []phonewave.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []EndpointConfig{
+				Endpoints: []phonewave.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}},
 				},
 			},
@@ -303,7 +305,7 @@ func TestFormatDoctorJSON_Parseable(t *testing.T) {
 func TestDoctor_IncludesSuccessRate(t *testing.T) {
 	// given — a state dir with delivery.log containing recent entries
 	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +317,7 @@ func TestDoctor_IncludesSuccessRate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := &Config{}
+	cfg := &phonewave.Config{}
 
 	// when
 	report := Doctor(cfg, stateDir)
@@ -338,7 +340,7 @@ func TestDoctor_IncludesSuccessRate(t *testing.T) {
 func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
 	// given — a state dir with no delivery.log
 	stateDir := t.TempDir()
-	cfg := &Config{}
+	cfg := &phonewave.Config{}
 
 	// when
 	report := Doctor(cfg, stateDir)
@@ -355,6 +357,31 @@ func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected success-rate issue even with no deliveries")
+	}
+}
+
+func TestDoctor_StalePIDFile(t *testing.T) {
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a PID file with a PID that definitely doesn't exist
+	// Use PID 999999999 which almost certainly isn't running
+	pidPath := filepath.Join(stateDir, "watch.pid")
+	if err := os.WriteFile(pidPath, []byte("999999999"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &phonewave.Config{}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — daemon should NOT be reported as running (stale PID)
+	if report.DaemonStatus.Running {
+		t.Error("daemon should not be reported as running with stale PID")
 	}
 }
 

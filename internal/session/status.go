@@ -1,4 +1,4 @@
-package phonewave
+package session
 
 import (
 	"bufio"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/hironow/phonewave"
 )
 
 // StatusReport holds daemon and ecosystem status information.
@@ -85,7 +87,7 @@ func ParseDeliveryStats(stateDir string) DeliveryStats24h {
 }
 
 // Status collects current daemon and ecosystem status.
-func Status(cfg *Config, stateDir string) StatusReport {
+func Status(cfg *phonewave.Config, stateDir string) StatusReport {
 	report := StatusReport{
 		RouteCount: len(cfg.Routes),
 		RepoCount:  len(cfg.Repositories),

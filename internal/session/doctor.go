@@ -1,4 +1,4 @@
-package phonewave
+package session
 
 import (
 	"encoding/json"
@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/hironow/phonewave"
 )
 
 // DoctorIssue represents a single health check finding.
@@ -47,7 +49,7 @@ func FormatDoctorJSON(report DoctorReport) ([]byte, error) {
 }
 
 // Doctor verifies ecosystem health and returns a report.
-func Doctor(cfg *Config, stateDir string) DoctorReport {
+func Doctor(cfg *phonewave.Config, stateDir string) DoctorReport {
 	report := DoctorReport{
 		Healthy: true,
 		DaemonStatus: DaemonHealthStatus{
@@ -127,7 +129,7 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 	}
 
 	// Check orphaned routes (per-repo to match routing scope)
-	orphans := DetectOrphansPerRepo(cfg)
+	orphans := phonewave.DetectOrphansPerRepo(cfg)
 	for _, kind := range orphans.UnconsumedKinds {
 		report.addWarn("", fmt.Sprintf("Orphaned: kind=%q is produced but not consumed", kind))
 	}
@@ -137,8 +139,8 @@ func Doctor(cfg *Config, stateDir string) DoctorReport {
 
 	// Success rate (informational)
 	stats := ParseDeliveryStats(stateDir)
-	m := DeliveryMetrics{Delivered: stats.Delivered, Failed: stats.Failed}
-	report.addOK("success-rate", FormatSuccessRate(m.SuccessRate(), stats.Delivered, stats.Delivered+stats.Failed))
+	m := phonewave.DeliveryMetrics{Delivered: stats.Delivered, Failed: stats.Failed}
+	report.addOK("success-rate", phonewave.FormatSuccessRate(m.SuccessRate(), stats.Delivered, stats.Delivered+stats.Failed))
 
 	// Check daemon status
 	report.DaemonStatus = checkDaemonStatus(stateDir)

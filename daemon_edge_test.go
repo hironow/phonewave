@@ -617,33 +617,6 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 	}
 }
 
-// --- Edge Case: stale PID file ---
-
-func TestDoctor_StalePIDFile(t *testing.T) {
-	repoDir := t.TempDir()
-	stateDir := filepath.Join(repoDir, StateDir)
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Write a PID file with a PID that definitely doesn't exist
-	// Use PID 999999999 which almost certainly isn't running
-	pidPath := filepath.Join(stateDir, "watch.pid")
-	if err := os.WriteFile(pidPath, []byte("999999999"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := &Config{}
-
-	// when
-	report := Doctor(cfg, stateDir)
-
-	// then — daemon should NOT be reported as running (stale PID)
-	if report.DaemonStatus.Running {
-		t.Error("daemon should not be reported as running with stale PID")
-	}
-}
-
 // --- Edge Case: multiple outboxes with concurrent activity ---
 
 func TestDaemon_MultipleOutboxes(t *testing.T) {

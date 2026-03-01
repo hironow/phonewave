@@ -8,7 +8,8 @@
 
 - Entry: `cmd/phonewave/main.go` (signal.NotifyContext + ExitCode)
 - CLI: `internal/cmd/` (cobra v1.10.2, `NewRootCommand()` exported for testability)
-- Library: root package `phonewave` (daemon, delivery, config, scanner, router, doctor, status, telemetry, logger)
+- Library: root package `phonewave` (daemon, delivery, config types, router, event, command, policy, logger, telemetry, metrics)
+- Session: `internal/session/` (config I/O, scanner, init/add/remove/sync, doctor, status, validate, daemon setup)
 - OTel: `internal/cmd/telemetry.go` (initTracer + OTLP HTTP exporter), `telemetry.go` (noop default)
 - Docker: `docker/compose.yaml` + `docker/jaeger-v2-config.yaml` (Jaeger v2)
 - Docker E2E: `docker/compose-e2e.yaml` (testcontainers-go lifecycle tests)
@@ -26,7 +27,8 @@
 ## Test Layout
 
 - Unit tests: `*_test.go` colocated with source (Go convention)
-    - All root tests use `package phonewave` (in-package) — daemon/delivery internals require direct access
+    - Root tests use `package phonewave` (in-package) — daemon/delivery internals require direct access
+    - `lifecycle_test.go` uses `package phonewave_test` (external) — imports both root and `internal/session`
     - `cmd/phonewave/main_test.go` uses `package main` for CLI arg parsing tests
 - E2E tests: `tests/e2e/*_test.go` with `//go:build e2e` tag, `package e2e` (testcontainers-go)
     - `cli_docker_test.go` — CLI subcommand tests in container
@@ -47,7 +49,7 @@
 
 - phonewave validates `dmail-schema-version: "1"` on all D-Mail files
 - Valid kinds: `specification`, `report`, `feedback`, `convergence`
-- Kind validation: `delivery.go` (`ValidateKind`) + `scanner.go` (SKILL.md parsing)
+- Kind validation: `delivery.go` (`ValidateKind`) + `internal/session/scanner.go` (SKILL.md parsing)
 - SKILL.md capabilities must be under `metadata` with `dmail-schema-version` — top-level `produces`/`consumes` is rejected
 
 ## Build & Test

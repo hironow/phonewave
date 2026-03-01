@@ -1,10 +1,12 @@
-package phonewave
+package session
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hironow/phonewave"
 )
 
 // setupTestRepo creates a temporary repository with the given tool endpoints.
@@ -190,8 +192,8 @@ func TestRemove_ExistingRepository(t *testing.T) {
 
 func TestDiffEndpoints_DetectsAdded(t *testing.T) {
 	// given
-	old := map[string]EndpointConfig{}
-	new_ := map[string]EndpointConfig{
+	old := map[string]phonewave.EndpointConfig{}
+	new_ := map[string]phonewave.EndpointConfig{
 		"repo-a/.siren": {Dir: ".siren", Produces: []string{"specification"}},
 	}
 
@@ -209,10 +211,10 @@ func TestDiffEndpoints_DetectsAdded(t *testing.T) {
 
 func TestDiffEndpoints_DetectsRemoved(t *testing.T) {
 	// given
-	old := map[string]EndpointConfig{
+	old := map[string]phonewave.EndpointConfig{
 		"repo-a/.siren": {Dir: ".siren", Produces: []string{"specification"}},
 	}
-	new_ := map[string]EndpointConfig{}
+	new_ := map[string]phonewave.EndpointConfig{}
 
 	// when
 	diffs := diffEndpoints(old, new_)
@@ -228,10 +230,10 @@ func TestDiffEndpoints_DetectsRemoved(t *testing.T) {
 
 func TestDiffEndpoints_DetectsChanged(t *testing.T) {
 	// given
-	old := map[string]EndpointConfig{
+	old := map[string]phonewave.EndpointConfig{
 		"repo-a/.expedition": {Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 	}
-	new_ := map[string]EndpointConfig{
+	new_ := map[string]phonewave.EndpointConfig{
 		"repo-a/.expedition": {Dir: ".expedition", Produces: []string{"report", "analysis"}, Consumes: []string{"specification"}},
 	}
 
@@ -249,10 +251,10 @@ func TestDiffEndpoints_DetectsChanged(t *testing.T) {
 
 func TestDiffRoutes_DetectsAddedAndRemoved(t *testing.T) {
 	// given
-	old := map[string]RouteConfig{
+	old := map[string]phonewave.RouteConfig{
 		"specification:.siren/outbox": {Kind: "specification", From: ".siren/outbox"},
 	}
-	new_ := map[string]RouteConfig{
+	new_ := map[string]phonewave.RouteConfig{
 		"report:.expedition/outbox": {Kind: "report", From: ".expedition/outbox"},
 	}
 
@@ -339,49 +341,6 @@ func TestSync_UpdatesEndpoints(t *testing.T) {
 	}
 	if len(report.RouteChanges) != 0 {
 		t.Errorf("route changes = %d, want 0", len(report.RouteChanges))
-	}
-}
-
-func TestEnsureStateDir_CreatesGitignore(t *testing.T) {
-	// given
-	base := t.TempDir()
-
-	// when
-	if err := EnsureStateDir(base); err != nil {
-		t.Fatalf("EnsureStateDir: %v", err)
-	}
-
-	// then: .gitignore exists in .phonewave/
-	gitignorePath := filepath.Join(base, StateDir, ".gitignore")
-	data, err := os.ReadFile(gitignorePath)
-	if err != nil {
-		t.Fatalf("read .gitignore: %v", err)
-	}
-	if !strings.Contains(string(data), "*") {
-		t.Errorf(".gitignore should contain wildcard '*', got: %q", string(data))
-	}
-}
-
-func TestEnsureStateDir_GitignoreIdempotent(t *testing.T) {
-	// given
-	base := t.TempDir()
-
-	// when: call twice
-	if err := EnsureStateDir(base); err != nil {
-		t.Fatalf("first EnsureStateDir: %v", err)
-	}
-	if err := EnsureStateDir(base); err != nil {
-		t.Fatalf("second EnsureStateDir: %v", err)
-	}
-
-	// then: .gitignore still exists and is valid
-	gitignorePath := filepath.Join(base, StateDir, ".gitignore")
-	data, err := os.ReadFile(gitignorePath)
-	if err != nil {
-		t.Fatalf("read .gitignore: %v", err)
-	}
-	if !strings.Contains(string(data), "*") {
-		t.Errorf(".gitignore should contain wildcard '*', got: %q", string(data))
 	}
 }
 

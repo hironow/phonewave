@@ -1,9 +1,11 @@
-package phonewave
+package session
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/hironow/phonewave"
 )
 
 func TestParseFrontmatter_Produces(t *testing.T) {
@@ -312,7 +314,7 @@ metadata:
 	}
 
 	// Find endpoints by dir name
-	endpointMap := make(map[string]Endpoint)
+	endpointMap := make(map[string]phonewave.Endpoint)
 	for _, ep := range endpoints {
 		endpointMap[ep.Dir] = ep
 	}

@@ -1,4 +1,4 @@
-package phonewave
+package session
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	pond "github.com/alitto/pond/v2"
+	"github.com/hironow/phonewave"
 )
 
 // skillsRefTimeout is the maximum time allowed for a single skills-ref invocation.
@@ -118,7 +119,7 @@ func walkUpForSkillsRef(startDir string) string {
 // validateEndpointSkills runs skills-ref validation on an endpoint's skill directories.
 // Validates any skill directory that exists on disk, regardless of whether
 // the endpoint config declares produces/consumes.
-func validateEndpointSkills(repoPath string, ep EndpointConfig) []string {
+func validateEndpointSkills(repoPath string, ep phonewave.EndpointConfig) []string {
 	var warnings []string
 	epLabel := filepath.Base(repoPath) + "/" + ep.Dir // nosemgrep: adr0005-string-concat-file-path — display label, not file path
 
@@ -145,13 +146,13 @@ func validateEndpointSkills(repoPath string, ep EndpointConfig) []string {
 // validationTarget pairs a repo path with an endpoint for concurrent validation.
 type validationTarget struct {
 	repoPath string
-	ep       EndpointConfig
+	ep       phonewave.EndpointConfig
 }
 
 // collectSkillWarnings runs skills-ref validation concurrently across
 // repositories in cfg. Each endpoint is validated in a separate worker.
 // If filterRepoPath is non-empty, only that repository's endpoints are checked.
-func collectSkillWarnings(cfg *Config, filterRepoPath string) []string {
+func collectSkillWarnings(cfg *phonewave.Config, filterRepoPath string) []string {
 	var targets []validationTarget
 	for _, repo := range cfg.Repositories {
 		if filterRepoPath != "" && repo.Path != filterRepoPath {
