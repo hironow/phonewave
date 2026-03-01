@@ -69,6 +69,16 @@ func NewEvent(eventType EventType, data any, timestamp time.Time) (Event, error)
 	}, nil
 }
 
+// ErrorEntry holds a single error queue record.
+type ErrorEntry struct {
+	Name         string
+	Data         []byte
+	SourceOutbox string
+	Kind         string
+	ErrorMessage string
+	RetryCount   int
+}
+
 // ValidateEvent checks structural validity of an Event before persistence.
 func ValidateEvent(e Event) error {
 	var errs []string
