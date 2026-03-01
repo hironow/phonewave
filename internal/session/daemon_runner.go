@@ -129,7 +129,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	scanGroup := d.pool.NewGroup()
 	for _, dir := range d.opts.OutboxDirs {
 		scanGroup.Submit(func() {
-			scanCtx, scanSpan := phonewave.Tracer.Start(ctx, "daemon.startup_scan",
+			scanCtx, scanSpan := phonewave.Tracer.Start(ctx, "daemon.startup_scan", // nosemgrep: adr0003-otel-span-without-defer-end — span.End() called explicitly after SetAttributes
 				trace.WithNewRoot(),
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
