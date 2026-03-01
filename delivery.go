@@ -11,6 +11,30 @@ import (
 // SupportedDMailSchemaVersion is the only accepted dmail-schema-version value.
 const SupportedDMailSchemaVersion = "1"
 
+// DeliveryStore manages staged delivery intents with transactional guarantees.
+// Stage records the intent; Flush writes files and marks them done.
+type DeliveryStore interface {
+	StageDelivery(dmailPath string, data []byte, targets []string) error
+	FlushDeliveries() ([]DeliveryFlushed, error)
+	RecoverUnflushed() ([]StagedDelivery, error)
+	AllFlushedFor(dmailPath string) (bool, error)
+	PruneFlushed() (int, error)
+	Close() error
+}
+
+// DeliveryFlushed represents a single target that was successfully flushed.
+type DeliveryFlushed struct {
+	DMailPath string
+	Target    string
+}
+
+// StagedDelivery represents an unflushed delivery intent.
+type StagedDelivery struct {
+	DMailPath string
+	Target    string
+	Data      []byte
+}
+
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
 type DMailFrontmatter struct {
 	SchemaVersion string `yaml:"dmail-schema-version"`
