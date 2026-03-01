@@ -41,12 +41,15 @@ func NewRootCommand() *cobra.Command {
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			shutdownTracerFn = initTracer("phonewave", Version)
+			spanCtx := startRootSpan(cmd.Context(), cmd.Name())
+			cmd.SetContext(spanCtx)
 			return nil
 		},
 	}
 
 	finalizerOnce.Do(func() {
 		cobra.OnFinalize(func() {
+			endRootSpan()
 			if shutdownTracerFn != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
