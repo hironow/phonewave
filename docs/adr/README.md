@@ -11,7 +11,7 @@
 - **Shared ADRs** live only in phonewave `docs/adr/`. Other tools reference them but do not copy them.
 - **Tool-specific ADRs** live in each tool's own `docs/adr/` with numbering starting at 0006.
 - **S-series ADRs** are shared decisions added after the initial 0000-0005 set. They also live only in phonewave.
-- Semgrep rules enforcing shared ADRs are copied to each tool's `.semgrep/adr.yaml`.
+- Semgrep rules enforcing shared ADRs are copied to each tool's `.semgrep/shared-adr.yaml`.
 
 ## Shared ADRs (canonical: phonewave)
 
@@ -41,6 +41,8 @@ do not copy them.
 | [S0017](S0017-aggregate-root-and-usecase-layer.md) | Aggregate root and use case layer | — |
 | [S0018](S0018-event-storming-alignment.md) | Event Storming alignment and per-tool applicability | — |
 | [S0019](S0019-data-persistence-boundaries.md) | Data persistence boundaries (Linear/GitHub/local) | — |
+| [S0020](S0020-accepted-cross-tool-divergence.md) | Accepted cross-tool divergence (default subcommand, storage model) | — |
+| [S0021](S0021-dmail-receive-side-postel-law.md) | D-Mail receive-side validation (Postel's Law) | — |
 
 ## phonewave-specific ADRs
 
