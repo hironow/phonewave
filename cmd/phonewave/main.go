@@ -19,7 +19,14 @@ func run() (exitCode int) {
 		shutdownSignals...)
 	defer stop()
 
-	if err := cmd.NewRootCommand().ExecuteContext(ctx); err != nil {
+	rootCmd := cmd.NewRootCommand()
+	args := os.Args[1:]
+	if cmd.NeedsDefaultRun(rootCmd, args) {
+		args = append([]string{"run"}, args...)
+	}
+	rootCmd.SetArgs(args)
+
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		if !errors.Is(err, cmd.ErrUpdateAvailable) {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
