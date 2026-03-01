@@ -24,7 +24,7 @@ func TestMigrateFileErrorQueue_MigratesExisting(t *testing.T) {
 	}
 
 	// Create legacy files using the root SaveToErrorQueue
-	if err := phonewave.SaveToErrorQueue(stateDir, meta, []byte("dmail data")); err != nil {
+	if err := session.SaveToErrorQueue(stateDir, meta, []byte("dmail data")); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 
@@ -76,7 +76,7 @@ func TestMigrateFileErrorQueue_IdempotentRerun(t *testing.T) {
 		Error:        "timeout",
 		Timestamp:    time.Now().UTC(),
 	}
-	phonewave.SaveToErrorQueue(stateDir, meta, []byte("report data"))
+	session.SaveToErrorQueue(stateDir, meta, []byte("report data"))
 
 	store := testErrorQueueStore(t)
 	logger := phonewave.NewLogger(io.Discard, false)

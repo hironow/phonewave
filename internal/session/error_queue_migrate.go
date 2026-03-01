@@ -30,7 +30,7 @@ func MigrateFileErrorQueue(stateDir string, store phonewave.ErrorQueueStore, log
 		}
 
 		sidecarPath := filepath.Join(errorsDir, entry.Name())
-		meta, err := phonewave.LoadErrorMetadata(sidecarPath)
+		meta, err := LoadErrorMetadata(sidecarPath)
 		if err != nil {
 			logger.Warn("migrate: load metadata %s: %v", sidecarPath, err)
 			continue

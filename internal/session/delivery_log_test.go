@@ -1,12 +1,15 @@
-package phonewave
+package session
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	phonewave "github.com/hironow/phonewave"
 )
 
 func TestDeliveryLog_Append(t *testing.T) {
@@ -75,7 +78,7 @@ func TestDeliveryLog_Failed(t *testing.T) {
 func TestSaveToErrorQueue_WritesFileWithKindInName(t *testing.T) {
 	// given
 	stateDir := t.TempDir()
-	meta := ErrorMetadata{
+	meta := phonewave.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-fail.md",
@@ -132,7 +135,7 @@ func TestSaveToErrorQueue_WritesFileWithKindInName(t *testing.T) {
 func TestSaveToErrorQueue_WritesSidecarFile(t *testing.T) {
 	// given
 	stateDir := t.TempDir()
-	meta := ErrorMetadata{
+	meta := phonewave.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-fail.md",
@@ -191,7 +194,7 @@ func TestSaveToErrorQueue_WritesSidecarFile(t *testing.T) {
 func TestLoadErrorMetadata_RoundTrip(t *testing.T) {
 	// given — save a D-Mail to error queue, then load its sidecar
 	stateDir := t.TempDir()
-	original := ErrorMetadata{
+	original := phonewave.ErrorMetadata{
 		SourceOutbox: "/repo/.gate/outbox",
 		Kind:         "feedback",
 		OriginalName: "feedback-001.md",
@@ -276,7 +279,7 @@ func TestDeliveryLog_Retried(t *testing.T) {
 func TestUpdateErrorMetadata_IncrementsAttempts(t *testing.T) {
 	// given — an error queue entry with attempts=1
 	stateDir := t.TempDir()
-	meta := ErrorMetadata{
+	meta := phonewave.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-fail.md",
@@ -327,7 +330,7 @@ func TestUpdateErrorMetadata_IncrementsAttempts(t *testing.T) {
 func TestRemoveErrorEntry_RemovesBothFiles(t *testing.T) {
 	// given — an error queue entry with .md and .err files
 	stateDir := t.TempDir()
-	meta := ErrorMetadata{
+	meta := phonewave.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-fail.md",
@@ -374,7 +377,7 @@ func TestRemoveErrorEntry_RemovesBothFiles(t *testing.T) {
 func TestSaveToErrorQueue_SanitizesPathTraversal(t *testing.T) {
 	// given — Kind and OriginalName contain path traversal sequences
 	stateDir := t.TempDir()
-	meta := ErrorMetadata{
+	meta := phonewave.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "../../etc",
 		OriginalName: "../../../passwd",
@@ -455,7 +458,7 @@ func TestDeliveryLog_CloseIsConcurrencySafe(t *testing.T) {
 func TestSaveToErrorQueue_CreatesErrorsDir(t *testing.T) {
 	// given — stateDir exists but errors/ does not
 	stateDir := t.TempDir()
-	meta := ErrorMetadata{
+	meta := phonewave.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-001.md",
@@ -475,4 +478,68 @@ func TestSaveToErrorQueue_CreatesErrorsDir(t *testing.T) {
 	if _, err := os.Stat(errorsDir); os.IsNotExist(err) {
 		t.Error("errors/ directory should have been created")
 	}
+}
+
+// TestDeliveryLog_AppendAcrossRestarts verifies log is append-only across reopens.
+func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
+	stateDir := t.TempDir()
+
+	// First session
+	log1, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log1.Delivered("specification", "/outbox/spec-001.md", "/inbox/spec-001.md")
+	log1.Close()
+
+	// Second session (simulates daemon restart)
+	log2, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	log2.Delivered("feedback", "/outbox/fb-001.md", "/inbox/fb-001.md")
+	log2.Close()
+
+	// then — log should contain entries from both sessions
+	data, err := os.ReadFile(filepath.Join(stateDir, "delivery.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	content := string(data)
+	lines := 0
+	for _, c := range content {
+		if c == '\n' {
+			lines++
+		}
+	}
+	if lines != 2 {
+		t.Errorf("log lines = %d, want 2 (across restarts)", lines)
+	}
+}
+
+// TestRace_DeliveryLog_ConcurrentWrite verifies the DeliveryLog mutex
+// protects concurrent writes.
+func TestRace_DeliveryLog_ConcurrentWrite(t *testing.T) {
+	dir := t.TempDir()
+	log, err := NewDeliveryLog(dir)
+	if err != nil {
+		t.Fatalf("NewDeliveryLog: %v", err)
+	}
+	t.Cleanup(func() { log.Close() })
+
+	var wg sync.WaitGroup
+	for i := range 20 {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			name := fmt.Sprintf("item-%03d.md", id)
+			if id%2 == 0 {
+				log.Delivered("report", name, "/tmp/dst")
+			} else {
+				log.Failed("report", name, "error")
+			}
+		}(i)
+	}
+	wg.Wait()
 }

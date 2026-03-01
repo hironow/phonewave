@@ -14,7 +14,7 @@ import (
 type DaemonSession struct {
 	ErrorQueue  phonewave.ErrorQueueStore
 	EventStore  phonewave.EventStore
-	DeliveryLog *phonewave.DeliveryLog
+	DeliveryLog *DeliveryLog
 	Routes      []phonewave.ResolvedRoute
 	StateDir    string
 	Logger      *phonewave.Logger
@@ -26,7 +26,7 @@ type DaemonSession struct {
 func NewDaemonSession(
 	errorQueue phonewave.ErrorQueueStore,
 	eventStore phonewave.EventStore,
-	deliveryLog *phonewave.DeliveryLog,
+	deliveryLog *DeliveryLog,
 	routes []phonewave.ResolvedRoute,
 	stateDir string,
 	logger *phonewave.Logger,

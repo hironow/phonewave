@@ -55,7 +55,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd phonewave.RunDaemonCommand, cfgP
 		logger.OK("Migrated %d legacy error queue entries to SQLite", migrated)
 	}
 
-	d, err := phonewave.NewDaemon(phonewave.DaemonOptions{
+	d, err := session.NewDaemon(phonewave.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
 		StateDir:      stateDir,
@@ -74,7 +74,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd phonewave.RunDaemonCommand, cfgP
 	d.Dispatcher = engine
 
 	// Create DaemonSession for session-layer event recording
-	dlog, err := phonewave.NewDeliveryLog(stateDir)
+	dlog, err := session.NewDeliveryLog(stateDir)
 	if err != nil {
 		return fmt.Errorf("open delivery log: %w", err)
 	}

@@ -183,7 +183,7 @@ description: "Pre-existing specification"
 	// =====================================================================
 	// Phase 3: Start daemon — startup scan should deliver pre-existing file
 	// =====================================================================
-	d, err := phonewave.NewDaemon(phonewave.DaemonOptions{
+	d, err := session.NewDaemon(phonewave.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,
@@ -345,7 +345,7 @@ description: "Unknown"
 	}
 	linesBefore := strings.Count(string(logBeforeRestart), "\n")
 
-	d2, err := phonewave.NewDaemon(phonewave.DaemonOptions{
+	d2, err := session.NewDaemon(phonewave.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,

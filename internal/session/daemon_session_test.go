@@ -14,7 +14,7 @@ func newTestDaemonSession(t *testing.T) (*session.DaemonSession, string) {
 	dir := t.TempDir()
 	errorQueue := testErrorQueueStore(t)
 	eventStore := session.NewEventStore(dir)
-	dlog, err := phonewave.NewDeliveryLog(dir)
+	dlog, err := session.NewDeliveryLog(dir)
 	if err != nil {
 		t.Fatalf("create delivery log: %v", err)
 	}

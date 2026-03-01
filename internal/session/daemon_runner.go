@@ -1,0 +1,505 @@
+package session
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math/rand/v2"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
+
+	pond "github.com/alitto/pond/v2"
+	"github.com/fsnotify/fsnotify"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+
+	phonewave "github.com/hironow/phonewave"
+)
+
+// RetryBackoff implements exponential backoff with jitter for retry burst control.
+// When consecutive retries fail, the interval increases exponentially up to a max.
+// A successful retry resets the interval to the base value.
+type RetryBackoff struct {
+	base    time.Duration
+	max     time.Duration
+	current time.Duration
+}
+
+// NewRetryBackoff creates a new RetryBackoff with the given base and max intervals.
+func NewRetryBackoff(base, max time.Duration) *RetryBackoff {
+	return &RetryBackoff{base: base, max: max, current: base}
+}
+
+// Next returns the current interval with ±25% jitter applied.
+func (b *RetryBackoff) Next() time.Duration {
+	// jitter: ±25% of current
+	quarter := b.current / 4
+	jitter := time.Duration(rand.Int64N(int64(quarter)*2+1)) - quarter
+	return b.current + jitter
+}
+
+// RecordSuccess resets the backoff interval to the base value.
+func (b *RetryBackoff) RecordSuccess() {
+	b.current = b.base
+}
+
+// RecordFailure doubles the backoff interval, capped at the max value.
+func (b *RetryBackoff) RecordFailure() {
+	b.current *= 2
+	if b.current > b.max {
+		b.current = b.max
+	}
+}
+
+// Daemon watches outbox directories and delivers D-Mails.
+type Daemon struct {
+	opts       phonewave.DaemonOptions
+	logger     *phonewave.Logger
+	watcher    *fsnotify.Watcher
+	dlog       *DeliveryLog
+	pool       pond.Pool
+	eventCh    chan fsnotify.Event // buffered channel for async event processing
+	Dispatcher phonewave.EventDispatcher
+}
+
+// NewDaemon creates a new Daemon with the given options and logger.
+// If logger is nil, a silent logger (io.Discard) is used.
+func NewDaemon(opts phonewave.DaemonOptions, logger *phonewave.Logger) (*Daemon, error) {
+	if logger == nil {
+		logger = phonewave.NewLogger(nil, false)
+	}
+	watcher, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close — stored in Daemon struct, closed in Run()
+	if err != nil {
+		return nil, fmt.Errorf("create watcher: %w", err)
+	}
+
+	return &Daemon{
+		opts:    opts,
+		logger:  logger,
+		watcher: watcher,
+		pool:    pond.NewPool(runtime.NumCPU()),
+		eventCh: make(chan fsnotify.Event, runtime.NumCPU()*16),
+	}, nil
+}
+
+// Run starts the daemon event loop. It blocks until ctx is cancelled.
+func (d *Daemon) Run(ctx context.Context) error {
+	defer d.pool.StopAndWait()
+	defer d.watcher.Close()
+
+	// Open delivery log
+	dlog, err := NewDeliveryLog(d.opts.StateDir)
+	if err != nil {
+		return fmt.Errorf("open delivery log: %w", err)
+	}
+	d.dlog = dlog
+	defer d.dlog.Close()
+
+	// Register watchers on all outbox directories
+	for _, dir := range d.opts.OutboxDirs {
+		if err := d.watcher.Add(dir); err != nil {
+			return fmt.Errorf("watch %s: %w", dir, err)
+		}
+		if d.opts.Verbose {
+			d.logger.Info("Watching %s", dir)
+		}
+	}
+
+	// Write PID file
+	pidPath := filepath.Join(d.opts.StateDir, "watch.pid")
+	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
+		return fmt.Errorf("write PID file: %w", err)
+	}
+	defer os.Remove(pidPath)
+
+	// Write start timestamp for uptime tracking
+	startedPath := filepath.Join(d.opts.StateDir, "watch.started")
+	if err := os.WriteFile(startedPath, []byte(time.Now().UTC().Format(time.RFC3339)), 0644); err != nil {
+		return fmt.Errorf("write started file: %w", err)
+	}
+	defer os.Remove(startedPath)
+
+	// Startup scan: deliver any files that accumulated while daemon was down.
+	// Each outbox directory is scanned concurrently via the daemon's worker pool.
+	scanGroup := d.pool.NewGroup()
+	for _, dir := range d.opts.OutboxDirs {
+		scanGroup.Submit(func() {
+			scanCtx, scanSpan := phonewave.Tracer.Start(ctx, "daemon.startup_scan",
+				trace.WithNewRoot(),
+				trace.WithAttributes(attribute.String("outbox.dir", dir)),
+			)
+			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger)
+			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
+			scanSpan.End()
+			for _, r := range results {
+				if d.dlog != nil {
+					for _, target := range r.DeliveredTo {
+						d.dlog.Delivered(r.Kind, r.SourcePath, target)
+					}
+					d.dlog.Removed(r.SourcePath)
+				}
+				if d.opts.Verbose {
+					d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
+				}
+			}
+			for _, err := range errs {
+				d.logger.Warn("Startup scan: %v", err)
+			}
+		})
+	}
+	scanGroup.Wait()
+
+	if d.opts.Verbose {
+		d.logger.OK("Daemon started (PID %d), watching %d outbox directories", os.Getpid(), len(d.opts.OutboxDirs))
+	}
+
+	// Start worker goroutine that drains eventCh and processes events
+	// asynchronously via the pool. This decouples fsnotify event reception
+	// from the (potentially slow) handleEvent I/O, preventing event loop
+	// stalls during delivery bursts.
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		for event := range d.eventCh {
+			d.handleEvent(event)
+		}
+	}()
+
+	// Optional retry timer with exponential backoff (nil channel disables the case)
+	var retryCh <-chan time.Time
+	var retryTimer *time.Timer
+	var backoff *RetryBackoff
+	if d.opts.RetryInterval > 0 {
+		backoff = NewRetryBackoff(d.opts.RetryInterval, d.opts.RetryInterval*32)
+		retryTimer = time.NewTimer(backoff.Next())
+		retryCh = retryTimer.C
+		defer retryTimer.Stop()
+	}
+
+	// Event loop: receives fsnotify events and enqueues them for the worker.
+	for {
+		select {
+		case <-ctx.Done():
+			if d.opts.Verbose {
+				d.logger.Info("Shutting down daemon")
+			}
+			close(d.eventCh)
+			<-workerDone // wait for in-flight event processing to finish
+			return nil
+
+		case event, ok := <-d.watcher.Events:
+			if !ok {
+				close(d.eventCh)
+				<-workerDone
+				return nil
+			}
+			d.eventCh <- event
+
+		case err, ok := <-d.watcher.Errors:
+			if !ok {
+				close(d.eventCh)
+				<-workerDone
+				return nil
+			}
+			d.logger.Warn("Watcher error: %v", err)
+
+		case <-retryCh:
+			successes := d.retryPending()
+			if successes > 0 {
+				backoff.RecordSuccess()
+			} else {
+				backoff.RecordFailure()
+			}
+			retryTimer.Reset(backoff.Next())
+		}
+	}
+}
+
+// handleEvent processes a single fsnotify event.
+func (d *Daemon) handleEvent(event fsnotify.Event) {
+	// React to Create and Rename events for .md files.
+	// Rename is needed because producers using atomic temp+rename
+	// may only emit Rename (not Create) on some platforms (e.g. Linux inotify).
+	if !event.Has(fsnotify.Create) && !event.Has(fsnotify.Rename) {
+		return
+	}
+
+	name := filepath.Base(event.Name)
+	if filepath.Ext(name) != ".md" {
+		return
+	}
+	// Skip temp files
+	if strings.HasPrefix(name, ".phonewave-tmp-") {
+		return
+	}
+
+	ctx, span := phonewave.Tracer.Start(context.Background(), "daemon.handle_event",
+		trace.WithAttributes(
+			attribute.String("event.name", event.Name),
+			attribute.String("event.op", event.Op.String()),
+		),
+	)
+	defer span.End()
+
+	// Small delay to let the file be fully written
+	time.Sleep(50 * time.Millisecond)
+
+	if d.opts.DryRun {
+		d.logger.Info("[dry-run] Detected %s", event.Name)
+		return
+	}
+
+	// Read file content upfront (needed for error queue on failure).
+	// Silently ignore ErrNotExist: Rename events fire for both the
+	// source (gone) and target (arrived) paths.
+	data, readErr := os.ReadFile(event.Name)
+	if readErr != nil {
+		if errors.Is(readErr, os.ErrNotExist) {
+			return
+		}
+		d.logger.Error("Read %s: %v", event.Name, readErr)
+		span.RecordError(readErr)
+		span.SetStatus(codes.Error, readErr.Error())
+		return
+	}
+
+	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes)
+	if err != nil {
+		kind := extractKindOrUnknown(data)
+		d.logger.Error("Deliver %s: %v", event.Name, err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		if d.dlog != nil {
+			d.dlog.Failed(kind, event.Name, err.Error())
+		}
+
+		meta := phonewave.ErrorMetadata{
+			SourceOutbox: filepath.Dir(event.Name),
+			Kind:         kind,
+			OriginalName: filepath.Base(event.Name),
+			Attempts:     1,
+			Error:        err.Error(),
+			Timestamp:    time.Now().UTC(),
+		}
+		if saveErr := SaveToErrorQueue(d.opts.StateDir, meta, data); saveErr != nil {
+			d.logger.Error("Save to error queue: %v", saveErr)
+			// Do NOT remove from outbox — startup scan will retry on next restart
+			return
+		}
+
+		// Error queue write succeeded — safe to remove from outbox
+		os.Remove(event.Name)
+		return
+	}
+
+	if d.dlog != nil {
+		for _, target := range result.DeliveredTo {
+			d.dlog.Delivered(result.Kind, result.SourcePath, target)
+		}
+		d.dlog.Removed(result.SourcePath)
+	}
+
+	if d.opts.Verbose {
+		d.logger.OK("Delivered %s (kind=%s) to %v", result.SourcePath, result.Kind, result.DeliveredTo)
+	}
+}
+
+// retryEntry holds metadata for a single error queue retry.
+// D-Mail data is read lazily inside the worker goroutine to bound
+// memory usage to pool_size × file_size instead of total_backlog × file_size.
+type retryEntry struct {
+	sidecarPath  string
+	meta         *phonewave.ErrorMetadata
+	dmailPath    string
+	originalPath string
+}
+
+// retryPending scans the error queue and attempts to re-deliver entries
+// that have not exceeded MaxRetries. Eligible retries run concurrently
+// via the daemon's worker pool. Returns the number of successful retries.
+func (d *Daemon) retryPending() int {
+	ctx, retrySpan := phonewave.Tracer.Start(context.Background(), "daemon.retry_pending")
+	defer retrySpan.End()
+
+	errorsDir := filepath.Join(d.opts.StateDir, "errors")
+	entries, err := os.ReadDir(errorsDir)
+	if err != nil {
+		return 0 // no error queue directory yet
+	}
+
+	maxRetries := d.opts.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 10
+	}
+
+	// Collect eligible entries (sequential I/O: metadata + data reads)
+	var eligible []retryEntry
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".err") {
+			continue
+		}
+
+		sidecarPath := filepath.Join(errorsDir, entry.Name())
+		meta, err := LoadErrorMetadata(sidecarPath)
+		if err != nil {
+			d.logger.Warn("Retry: load metadata %s: %v", sidecarPath, err)
+			continue
+		}
+
+		if meta.Attempts >= maxRetries {
+			continue
+		}
+
+		dmailPath := strings.TrimSuffix(sidecarPath, ".err")
+
+		eligible = append(eligible, retryEntry{
+			sidecarPath:  sidecarPath,
+			meta:         meta,
+			dmailPath:    dmailPath,
+			originalPath: filepath.Join(meta.SourceOutbox, meta.OriginalName),
+		})
+	}
+
+	if len(eligible) == 0 {
+		return 0
+	}
+
+	// Track successes across goroutines. Using a channel avoids mutexes
+	// while keeping the counting simple for the pool-based concurrency model.
+	successCh := make(chan struct{}, len(eligible))
+
+	// Retry eligible entries concurrently. D-Mail data is read inside each
+	// worker so memory is bounded by pool concurrency, not backlog size.
+	retryGroup := d.pool.NewGroup()
+	for _, e := range eligible {
+		retryGroup.Submit(func() {
+			data, readErr := os.ReadFile(e.dmailPath)
+			if readErr != nil {
+				d.logger.Warn("Retry: read %s: %v", e.dmailPath, readErr)
+				return
+			}
+
+			result, deliverErr := DeliverData(ctx, e.originalPath, data, d.opts.Routes)
+			if deliverErr != nil {
+				if err := UpdateErrorMetadata(e.sidecarPath, deliverErr.Error()); err != nil {
+					d.logger.Warn("Retry: update metadata: %v", err)
+				}
+				if d.opts.Verbose {
+					d.logger.Warn("Retry failed for %s (attempt %d): %v", e.meta.OriginalName, e.meta.Attempts+1, deliverErr)
+				}
+				return
+			}
+
+			if err := RemoveErrorEntry(e.dmailPath); err != nil {
+				d.logger.Warn("Retry: remove error entry: %v", err)
+			}
+
+			if d.dlog != nil {
+				for _, target := range result.DeliveredTo {
+					d.dlog.Retried(result.Kind, e.originalPath, target)
+				}
+			}
+
+			if d.opts.Verbose {
+				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.meta.OriginalName, result.Kind, result.DeliveredTo)
+			}
+
+			successCh <- struct{}{}
+		})
+	}
+	retryGroup.Wait()
+	close(successCh)
+
+	successes := 0
+	for range successCh {
+		successes++
+	}
+	return successes
+}
+
+// extractKindOrUnknown attempts to extract the kind from D-Mail data,
+// returning "unknown" if parsing fails.
+func extractKindOrUnknown(data []byte) string {
+	kind, err := phonewave.ExtractDMailKind(data)
+	if err != nil {
+		return "unknown"
+	}
+	return kind
+}
+
+// ScanAndDeliver processes all existing .md files in the given outbox directory,
+// delivering each one according to the provided routes. Files are delivered
+// concurrently via a worker pool. Failed deliveries are saved to the error queue
+// in stateDir.
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, stateDir string, logger *phonewave.Logger) ([]*phonewave.DeliveryResult, []error) {
+	if logger == nil {
+		logger = phonewave.NewLogger(nil, false)
+	}
+	entries, err := os.ReadDir(outboxDir)
+	if err != nil {
+		return nil, []error{fmt.Errorf("scan outbox %s: %w", outboxDir, err)}
+	}
+
+	// Filter eligible entries
+	var filtered []os.DirEntry
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if filepath.Ext(entry.Name()) != ".md" {
+			continue
+		}
+		if strings.HasPrefix(entry.Name(), ".phonewave-tmp-") {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+
+	if len(filtered) == 0 {
+		return nil, nil
+	}
+
+	// Deliver files sequentially. The caller (daemon startup scan) already
+	// parallelises per-outbox via its worker pool, so a nested pool here
+	// would multiply concurrency to NumCPU² and spike FD/memory usage.
+	var results []*phonewave.DeliveryResult
+	var errs []error
+	for _, entry := range filtered {
+		dmailPath := filepath.Join(outboxDir, entry.Name())
+
+		data, readErr := os.ReadFile(dmailPath)
+		if readErr != nil {
+			errs = append(errs, fmt.Errorf("read %s: %w", dmailPath, readErr))
+			continue
+		}
+
+		result, deliverErr := DeliverData(ctx, dmailPath, data, routes)
+		if deliverErr != nil {
+			kind := extractKindOrUnknown(data)
+			meta := phonewave.ErrorMetadata{
+				SourceOutbox: outboxDir,
+				Kind:         kind,
+				OriginalName: entry.Name(),
+				Attempts:     1,
+				Error:        deliverErr.Error(),
+				Timestamp:    time.Now().UTC(),
+			}
+			if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
+				logger.Error("Save to error queue: %v", saveErr)
+			} else {
+				os.Remove(dmailPath)
+			}
+			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
+			continue
+		}
+
+		results = append(results, result)
+	}
+
+	return results, errs
+}
