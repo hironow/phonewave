@@ -23,10 +23,10 @@ func Deliver(ctx context.Context, dmailPath string, routes []phonewave.ResolvedR
 	return DeliverData(ctx, dmailPath, data, routes, ds)
 }
 
-// DeliverData processes pre-read D-Mail data: routes by kind,
-// copies to all target inboxes atomically, then removes the source.
+// DeliverData processes pre-read D-Mail data via Stage→Flush transactional delivery.
+// Returns error only for parse/route/stage failures (error queue eligible).
+// Flush partial failures are handled internally by DeliveryStore retry_count.
 func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []phonewave.ResolvedRoute, ds phonewave.DeliveryStore) (*phonewave.DeliveryResult, error) {
-	_ = ds // will be used in Stage→Flush behavioral change
 	kind, err := phonewave.ExtractDMailKind(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
@@ -62,33 +62,44 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ph
 		Kind:       kind,
 	}
 
-	// Copy to all target inboxes (atomic: write temp → rename).
-	// On failure, roll back already-written files to prevent duplicates on retry.
-	for _, inbox := range matchedRoute.ToInboxes {
-		targetPath := filepath.Join(inbox, fileName)
-		if err := atomicWrite(targetPath, data); err != nil {
-			// Roll back all previously written inbox files
-			for _, written := range result.DeliveredTo {
-				os.Remove(written)
-			}
-			result.DeliveredTo = nil
-			deliverErr := fmt.Errorf("deliver to %s: %w", inbox, err)
-			span.RecordError(deliverErr)
-			span.SetStatus(codes.Error, deliverErr.Error())
-			return result, deliverErr
-		}
-		result.DeliveredTo = append(result.DeliveredTo, targetPath)
+	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)
+	targetPaths := make([]string, len(matchedRoute.ToInboxes))
+	for i, inbox := range matchedRoute.ToInboxes {
+		targetPaths[i] = filepath.Join(inbox, fileName)
+	}
+	if err := ds.StageDelivery(dmailPath, data, targetPaths); err != nil {
+		stageErr := fmt.Errorf("stage delivery %s: %w", dmailPath, err)
+		span.RecordError(stageErr)
+		span.SetStatus(codes.Error, stageErr.Error())
+		return nil, stageErr
 	}
 
-	// Remove source only after all deliveries succeed (at-least-once).
-	// Ignore ErrNotExist: the source may already have been cleaned up
-	// (e.g. retry delivery from error queue).
-	if err := os.Remove(dmailPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		removeErr := fmt.Errorf("remove source %s: %w", dmailPath, err)
-		span.RecordError(removeErr)
-		span.SetStatus(codes.Error, removeErr.Error())
-		return result, removeErr
+	// Flush all staged items (2-phase: SELECT → atomicWrite → UPDATE)
+	flushed, flushErr := ds.FlushDeliveries()
+	if flushErr != nil {
+		span.RecordError(flushErr)
+		// Non-fatal: partial results may have been flushed
 	}
+
+	// Build DeliveredTo from flushed items for this dmailPath
+	for _, f := range flushed {
+		if f.DMailPath == dmailPath {
+			result.DeliveredTo = append(result.DeliveredTo, f.Target)
+		}
+	}
+
+	// Remove source only when ALL targets are flushed
+	allDone, _ := ds.AllFlushedFor(dmailPath)
+	if allDone {
+		if err := os.Remove(dmailPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			removeErr := fmt.Errorf("remove source %s: %w", dmailPath, err)
+			span.RecordError(removeErr)
+			span.SetStatus(codes.Error, removeErr.Error())
+			return result, removeErr
+		}
+	}
+	// Partial: source stays in outbox, no error returned.
+	// DeliveryStore retry_count handles re-flush on next delivery or startup scan.
 
 	span.SetAttributes(attribute.Int("inbox.count", len(result.DeliveredTo)))
 	return result, nil

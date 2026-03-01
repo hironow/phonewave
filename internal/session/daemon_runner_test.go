@@ -144,8 +144,10 @@ description: "Pre-existing spec"
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
+	ds := newTestDeliveryStore(t)
+
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
 
 	// then
 	if len(errs) != 0 {
@@ -653,7 +655,9 @@ description: "Valid"
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
+	ds := newTestDeliveryStore(t)
+
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
 
 	if len(errs) != 0 {
 		t.Errorf("unexpected errors: %v", errs)
@@ -709,7 +713,9 @@ description: "Also valid"
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
+	ds := newTestDeliveryStore(t)
+
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
 
 	if len(results) != 2 {
 		t.Errorf("results = %d, want 2 (valid D-Mails delivered)", len(results))
@@ -749,7 +755,9 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
+	ds := newTestDeliveryStore(t)
+
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
 
 	if len(results) != 0 {
 		t.Errorf("results = %d, want 0", len(results))
@@ -975,6 +983,7 @@ description: "Preserve test"
 	}
 	d.dlog = dlog
 	defer dlog.Close()
+	d.deliveryStore = newTestDeliveryStore(t)
 
 	d.handleEvent(fsnotify.Event{
 		Name: dmailPath,
@@ -1015,8 +1024,9 @@ description: "Preserve test"
 	}
 
 	routes := []phonewave.ResolvedRoute{}
+	ds := newTestDeliveryStore(t)
 
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
 
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
 		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
@@ -1067,6 +1077,7 @@ description: "Rename event test"
 	}
 	d.dlog = dlog
 	defer dlog.Close()
+	d.deliveryStore = newTestDeliveryStore(t)
 
 	d.handleEvent(fsnotify.Event{
 		Name: dmailPath,
@@ -1103,6 +1114,7 @@ func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
 	}
 	d.dlog = dlog
 	defer dlog.Close()
+	d.deliveryStore = newTestDeliveryStore(t)
 
 	d.handleEvent(fsnotify.Event{
 		Name: filepath.Join(outbox, "gone.md"),

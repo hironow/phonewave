@@ -130,13 +130,14 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Manually set dlog so handleEvent can log
+	// Manually set dlog and deliveryStore so handleEvent can log and deliver
 	dlog, err := NewDeliveryLog(stateDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	daemon.dlog = dlog
 	defer dlog.Close()
+	daemon.deliveryStore = newTestDeliveryStore(t)
 
 	// when — call handleEvent directly
 	daemon.handleEvent(fsnotify.Event{Name: dmailPath, Op: fsnotify.Create})
@@ -186,6 +187,7 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 	}
 	daemon.dlog = dlog
 	defer dlog.Close()
+	daemon.deliveryStore = newTestDeliveryStore(t)
 
 	// when — handle event with no matching route
 	daemon.handleEvent(fsnotify.Event{Name: dmailPath, Op: fsnotify.Create})
@@ -224,8 +226,10 @@ func TestDeliverData_CreatesSpan(t *testing.T) {
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
+	ds := newTestDeliveryStore(t)
+
 	// when
-	_, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, nil)
+	_, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds)
 	if err != nil {
 		t.Fatalf("DeliverData: %v", err)
 	}
@@ -253,8 +257,10 @@ func TestDeliverData_RecordsErrorSpan(t *testing.T) {
 		{Kind: "feedback", FromOutbox: "/tmp/other", ToInboxes: []string{"/tmp/nope"}},
 	}
 
+	ds := newTestDeliveryStore(t)
+
 	// when — deliver with no matching route
-	_, err := DeliverData(context.Background(), filepath.Join(outbox, "err-span.md"), []byte(dmailContent), routes, nil)
+	_, err := DeliverData(context.Background(), filepath.Join(outbox, "err-span.md"), []byte(dmailContent), routes, ds)
 
 	// then — should error
 	if err == nil {

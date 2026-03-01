@@ -41,8 +41,10 @@ description: "Test spec"
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
+	ds := newTestDeliveryStore(t)
+
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, nil)
+	result, err := Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then
 	if err != nil {
@@ -97,8 +99,10 @@ description: "Corrective feedback"
 		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 
+	ds := newTestDeliveryStore(t)
+
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, nil)
+	result, err := Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then
 	if err != nil {
@@ -144,7 +148,9 @@ kind: unknown_type
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
-	_, err := Deliver(context.Background(), dmailPath, routes, nil)
+	ds := newTestDeliveryStore(t)
+
+	_, err := Deliver(context.Background(), dmailPath, routes, ds)
 	if err == nil {
 		t.Fatal("expected error for unknown kind")
 	}
@@ -165,8 +171,10 @@ func TestDeliver_FileVanished(t *testing.T) {
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
+	ds := newTestDeliveryStore(t)
+
 	// when — try to deliver a file that doesn't exist
-	_, err := Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes, nil)
+	_, err := Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes, ds)
 
 	// then — should return error, not panic
 	if err == nil {
@@ -208,8 +216,10 @@ description: "New version"
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
+	ds := newTestDeliveryStore(t)
+
 	// when
-	result, err := Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes, nil)
+	result, err := Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes, ds)
 
 	// then — should succeed (atomic rename overwrites)
 	if err != nil {
@@ -255,25 +265,33 @@ description: "No inbox target"
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{nonExistentInbox}},
 	}
 
-	// when
-	_, err := Deliver(context.Background(), dmailPath, routes, nil)
+	ds := newTestDeliveryStore(t)
 
-	// then — should return error (can't create temp file in nonexistent dir)
-	if err == nil {
-		t.Fatal("expected error when inbox directory doesn't exist")
+	// when
+	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+
+	// then — Stage→Flush: flush failure is NOT returned as error.
+	// DeliveryStore retry_count handles re-flush on next delivery.
+	if err != nil {
+		t.Fatalf("Deliver: unexpected error: %v", err)
 	}
 
-	// Source should NOT be removed (delivery failed)
+	// DeliveredTo should be empty (flush failed for all targets)
+	if len(result.DeliveredTo) != 0 {
+		t.Errorf("DeliveredTo = %d, want 0", len(result.DeliveredTo))
+	}
+
+	// Source should still exist (not all targets flushed)
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
-		t.Error("source should still exist when delivery fails")
+		t.Error("source should still exist when not all targets flushed")
 	}
 }
 
-func TestDeliver_PartialFailure_RollsBackDeliveredInboxes(t *testing.T) {
+func TestDeliver_PartialFlush_SuccessfulTargetsKept(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".gate", "outbox")
 	inbox1 := filepath.Join(repoDir, ".siren", "inbox")
-	// inbox2 does NOT exist — will cause partial failure
+	// inbox2 does NOT exist — will cause partial flush failure
 	inbox2 := filepath.Join(repoDir, ".expedition", "inbox-nonexistent")
 
 	for _, dir := range []string{outbox, inbox1} {
@@ -298,21 +316,29 @@ description: "Partial failure test"
 		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 
+	ds := newTestDeliveryStore(t)
+
 	// when
-	_, err := Deliver(context.Background(), dmailPath, routes, nil)
+	result, err := Deliver(context.Background(), dmailPath, routes, ds)
 
-	// then — should return error (partial failure)
-	if err == nil {
-		t.Fatal("expected error for partial failure")
+	// then — Stage→Flush: partial flush failure is NOT returned as error.
+	// Successfully flushed targets are kept; failed targets will be retried.
+	if err != nil {
+		t.Fatalf("Deliver: unexpected error: %v", err)
 	}
 
-	// inbox1 should be cleaned up (rolled back) to prevent duplicates on retry
-	if _, err := os.Stat(filepath.Join(inbox1, "fb-partial.md")); !os.IsNotExist(err) {
-		t.Error("inbox1 should be rolled back on partial delivery failure to prevent duplicates on retry")
+	// inbox1 should have the file (partial success, no rollback in Stage→Flush)
+	if _, err := os.Stat(filepath.Join(inbox1, "fb-partial.md")); os.IsNotExist(err) {
+		t.Error("inbox1 should have file (partial flush success)")
 	}
 
-	// Source should still exist (delivery failed)
+	// DeliveredTo should have 1 entry (inbox1 only)
+	if len(result.DeliveredTo) != 1 {
+		t.Errorf("DeliveredTo = %d, want 1", len(result.DeliveredTo))
+	}
+
+	// Source should still exist (not all targets flushed)
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
-		t.Error("source should still exist after delivery failure")
+		t.Error("source should still exist (not all targets flushed)")
 	}
 }

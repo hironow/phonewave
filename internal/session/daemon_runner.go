@@ -109,6 +109,21 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.deliveryStore = ds
 	defer d.deliveryStore.Close()
 
+	// Recover unflushed deliveries from crash-interrupted sessions
+	unflushed, recoverErr := ds.RecoverUnflushed()
+	if recoverErr != nil {
+		d.logger.Warn("Recover unflushed: %v", recoverErr)
+	} else if len(unflushed) > 0 {
+		d.logger.Info("Recovering %d unflushed deliveries from previous session", len(unflushed))
+		flushed, flushErr := ds.FlushDeliveries()
+		if flushErr != nil {
+			d.logger.Warn("Flush recovered deliveries: %v", flushErr)
+		}
+		if d.opts.Verbose && len(flushed) > 0 {
+			d.logger.OK("Recovered %d deliveries", len(flushed))
+		}
+	}
+
 	// Register watchers on all outbox directories
 	for _, dir := range d.opts.OutboxDirs {
 		if err := d.watcher.Add(dir); err != nil {
@@ -150,7 +165,10 @@ func (d *Daemon) Run(ctx context.Context) error {
 					for _, target := range r.DeliveredTo {
 						d.dlog.Delivered(r.Kind, r.SourcePath, target)
 					}
-					d.dlog.Removed(r.SourcePath)
+					// Only log REMOVED if source was actually removed (all targets flushed)
+					if _, statErr := os.Stat(r.SourcePath); errors.Is(statErr, os.ErrNotExist) {
+						d.dlog.Removed(r.SourcePath)
+					}
 				}
 				if d.opts.Verbose {
 					d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
@@ -310,7 +328,10 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		for _, target := range result.DeliveredTo {
 			d.dlog.Delivered(result.Kind, result.SourcePath, target)
 		}
-		d.dlog.Removed(result.SourcePath)
+		// Only log REMOVED if source was actually removed (all targets flushed)
+		if _, statErr := os.Stat(result.SourcePath); errors.Is(statErr, os.ErrNotExist) {
+			d.dlog.Removed(result.SourcePath)
+		}
 	}
 
 	if d.opts.Verbose {
