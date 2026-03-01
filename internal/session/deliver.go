@@ -15,17 +15,18 @@ import (
 )
 
 // Deliver reads a D-Mail file and delivers it to all matching inboxes.
-func Deliver(ctx context.Context, dmailPath string, routes []phonewave.ResolvedRoute) (*phonewave.DeliveryResult, error) {
+func Deliver(ctx context.Context, dmailPath string, routes []phonewave.ResolvedRoute, ds phonewave.DeliveryStore) (*phonewave.DeliveryResult, error) {
 	data, err := os.ReadFile(dmailPath)
 	if err != nil {
 		return nil, fmt.Errorf("read D-Mail: %w", err)
 	}
-	return DeliverData(ctx, dmailPath, data, routes)
+	return DeliverData(ctx, dmailPath, data, routes, ds)
 }
 
 // DeliverData processes pre-read D-Mail data: routes by kind,
 // copies to all target inboxes atomically, then removes the source.
-func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []phonewave.ResolvedRoute) (*phonewave.DeliveryResult, error) {
+func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []phonewave.ResolvedRoute, ds phonewave.DeliveryStore) (*phonewave.DeliveryResult, error) {
+	_ = ds // will be used in Stage→Flush behavioral change
 	kind, err := phonewave.ExtractDMailKind(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)

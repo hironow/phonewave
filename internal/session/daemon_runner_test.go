@@ -145,7 +145,7 @@ description: "Pre-existing spec"
 	}
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
 
 	// then
 	if len(errs) != 0 {
@@ -653,7 +653,7 @@ description: "Valid"
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
 
 	if len(errs) != 0 {
 		t.Errorf("unexpected errors: %v", errs)
@@ -709,7 +709,7 @@ description: "Also valid"
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
 
 	if len(results) != 2 {
 		t.Errorf("results = %d, want 2 (valid D-Mails delivered)", len(results))
@@ -749,7 +749,7 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
 
 	if len(results) != 0 {
 		t.Errorf("results = %d, want 0", len(results))
@@ -1016,7 +1016,7 @@ description: "Preserve test"
 
 	routes := []phonewave.ResolvedRoute{}
 
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false))
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), nil)
 
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
 		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")

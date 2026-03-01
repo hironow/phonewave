@@ -58,13 +58,14 @@ func (b *RetryBackoff) RecordFailure() {
 
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
-	opts       phonewave.DaemonOptions
-	logger     *phonewave.Logger
-	watcher    *fsnotify.Watcher
-	dlog       *DeliveryLog
-	pool       pond.Pool
-	eventCh    chan fsnotify.Event // buffered channel for async event processing
-	Dispatcher phonewave.EventDispatcher
+	opts          phonewave.DaemonOptions
+	logger        *phonewave.Logger
+	watcher       *fsnotify.Watcher
+	dlog          *DeliveryLog
+	deliveryStore phonewave.DeliveryStore
+	pool          pond.Pool
+	eventCh       chan fsnotify.Event // buffered channel for async event processing
+	Dispatcher    phonewave.EventDispatcher
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -100,6 +101,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.dlog = dlog
 	defer d.dlog.Close()
 
+	// Open delivery store (Stage→Flush transactional delivery)
+	ds, err := NewDeliveryStore(d.opts.StateDir)
+	if err != nil {
+		return fmt.Errorf("open delivery store: %w", err)
+	}
+	d.deliveryStore = ds
+	defer d.deliveryStore.Close()
+
 	// Register watchers on all outbox directories
 	for _, dir := range d.opts.OutboxDirs {
 		if err := d.watcher.Add(dir); err != nil {
@@ -133,7 +142,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 				trace.WithNewRoot(),
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
-			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger)
+			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore)
 			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
 			scanSpan.End()
 			for _, r := range results {
@@ -268,7 +277,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes)
+	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore)
 	if err != nil {
 		kind := extractKindOrUnknown(data)
 		d.logger.Error("Deliver %s: %v", event.Name, err)
@@ -384,7 +393,7 @@ func (d *Daemon) retryPending() int {
 				return
 			}
 
-			result, deliverErr := DeliverData(ctx, e.originalPath, data, d.opts.Routes)
+			result, deliverErr := DeliverData(ctx, e.originalPath, data, d.opts.Routes, d.deliveryStore)
 			if deliverErr != nil {
 				if err := UpdateErrorMetadata(e.sidecarPath, deliverErr.Error()); err != nil {
 					d.logger.Warn("Retry: update metadata: %v", err)
@@ -436,7 +445,7 @@ func extractKindOrUnknown(data []byte) string {
 // delivering each one according to the provided routes. Files are delivered
 // concurrently via a worker pool. Failed deliveries are saved to the error queue
 // in stateDir.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, stateDir string, logger *phonewave.Logger) ([]*phonewave.DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, stateDir string, logger *phonewave.Logger, ds phonewave.DeliveryStore) ([]*phonewave.DeliveryResult, []error) {
 	if logger == nil {
 		logger = phonewave.NewLogger(nil, false)
 	}
@@ -478,7 +487,7 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.Re
 			continue
 		}
 
-		result, deliverErr := DeliverData(ctx, dmailPath, data, routes)
+		result, deliverErr := DeliverData(ctx, dmailPath, data, routes, ds)
 		if deliverErr != nil {
 			kind := extractKindOrUnknown(data)
 			meta := phonewave.ErrorMetadata{

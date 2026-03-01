@@ -42,7 +42,7 @@ description: "Test spec"
 	}
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes)
+	result, err := Deliver(context.Background(), dmailPath, routes, nil)
 
 	// then
 	if err != nil {
@@ -98,7 +98,7 @@ description: "Corrective feedback"
 	}
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes)
+	result, err := Deliver(context.Background(), dmailPath, routes, nil)
 
 	// then
 	if err != nil {
@@ -144,7 +144,7 @@ kind: unknown_type
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
-	_, err := Deliver(context.Background(), dmailPath, routes)
+	_, err := Deliver(context.Background(), dmailPath, routes, nil)
 	if err == nil {
 		t.Fatal("expected error for unknown kind")
 	}
@@ -166,7 +166,7 @@ func TestDeliver_FileVanished(t *testing.T) {
 	}
 
 	// when — try to deliver a file that doesn't exist
-	_, err := Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes)
+	_, err := Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes, nil)
 
 	// then — should return error, not panic
 	if err == nil {
@@ -209,7 +209,7 @@ description: "New version"
 	}
 
 	// when
-	result, err := Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes)
+	result, err := Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes, nil)
 
 	// then — should succeed (atomic rename overwrites)
 	if err != nil {
@@ -256,7 +256,7 @@ description: "No inbox target"
 	}
 
 	// when
-	_, err := Deliver(context.Background(), dmailPath, routes)
+	_, err := Deliver(context.Background(), dmailPath, routes, nil)
 
 	// then — should return error (can't create temp file in nonexistent dir)
 	if err == nil {
@@ -299,7 +299,7 @@ description: "Partial failure test"
 	}
 
 	// when
-	_, err := Deliver(context.Background(), dmailPath, routes)
+	_, err := Deliver(context.Background(), dmailPath, routes, nil)
 
 	// then — should return error (partial failure)
 	if err == nil {

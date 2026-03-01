@@ -225,7 +225,7 @@ func TestDeliverData_CreatesSpan(t *testing.T) {
 	}
 
 	// when
-	_, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes)
+	_, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, nil)
 	if err != nil {
 		t.Fatalf("DeliverData: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestDeliverData_RecordsErrorSpan(t *testing.T) {
 	}
 
 	// when — deliver with no matching route
-	_, err := DeliverData(context.Background(), filepath.Join(outbox, "err-span.md"), []byte(dmailContent), routes)
+	_, err := DeliverData(context.Background(), filepath.Join(outbox, "err-span.md"), []byte(dmailContent), routes, nil)
 
 	// then — should error
 	if err == nil {
