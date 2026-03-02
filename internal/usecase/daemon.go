@@ -38,6 +38,16 @@ func SetupAndRunDaemon(ctx context.Context, cmd phonewave.RunDaemonCommand, cfgP
 		return fmt.Errorf("create state dir: %w", err)
 	}
 
+	// Acquire daemon singleton lock before any resource allocation.
+	// Prevents two daemon processes from running against the same state directory.
+	// The OS releases the lock automatically if the process crashes.
+	runDir := filepath.Join(stateDir, ".run")
+	unlock, err := phonewave.TryLockDaemon(runDir)
+	if err != nil {
+		return fmt.Errorf("daemon lock: %w", err)
+	}
+	defer unlock()
+
 	// Initialize session-layer stores via factory (ADR S0008: no direct eventsource import)
 	eventStore := session.NewEventStore(stateDir)
 
