@@ -74,13 +74,14 @@ All scenario tests use `//go:build scenario`. They are excluded from regular
 GOROOT or GOTOOLDIR points to a different Go installation than the `go` binary in PATH.
 
 ```bash
-# Diagnose
-go version          # should say go1.26.0
-go env GOVERSION    # must match
-go env GOROOT       # must point to the same installation
-go env GOTOOLDIR    # must be under GOROOT
+# Diagnose — go tool compile -V reveals the actual compiler version
+go version            # reports the go binary's own version
+go tool compile -V    # reports the compiler from GOTOOLDIR (may differ!)
+go env GOROOT         # must point to the same installation as go binary
+go env GOTOOLDIR      # must be under GOROOT
 
 # Fix (mise users)
+unset GOROOT GOTOOLDIR
 mise install go     # reinstall go 1.26
 mise reshim         # regenerate shims
 
@@ -90,3 +91,7 @@ export PATH="$(go env GOROOT)/bin:$PATH"
 ```
 
 All 4 repos pin `go = "1.26"` in `mise.toml` and `go 1.26` in `go.mod`.
+
+The `check-go` guard in each repo's `justfile` compares `go version` with
+`go tool compile -V` to detect GOROOT/GOTOOLDIR mismatches before running
+scenario tests.
