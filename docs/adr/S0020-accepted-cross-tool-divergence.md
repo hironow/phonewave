@@ -79,21 +79,12 @@ side would block automated post-merge checks without adding safety.
 
 ### GAP-05-01: Maintenance Subcommand Contracts
 
-`archive-prune` execution flags and path argument contracts differ across tools:
+`archive-prune` path argument contracts differ across tools. Execution flags
+are now unified: all four tools accept `--execute` (`-x`), `--dry-run` (`-n`),
+and `--yes` (`-y`), with dry-run as the default behavior.
 
-**Execution flag:**
-
-| Tool | Flag | Default Behavior |
-|------|------|-----------------|
-| phonewave | `--execute` (`-x`) | Dry-run (no deletion) |
-| sightjack | `--execute` (`-x`) | Dry-run (no deletion) |
-| paintress | `--execute` (`-x`) | Dry-run (no deletion) |
-| amadeus | `--yes` (`-y`) + `--dry-run` (`-n`) | Interactive confirmation prompt |
-
-Amadeus uses `--yes`/`--dry-run` because its `archive-prune` also prunes event
-log files (not just D-Mail archives), making the operation more destructive.
-The confirmation prompt adds a safety layer that `--execute` (binary on/off)
-does not provide.
+Amadeus retains its interactive confirmation prompt when `--execute` is used
+without `--yes`, because its `archive-prune` also prunes event log files.
 
 **Path argument:**
 
@@ -120,10 +111,10 @@ sightjack and amadeus default to cwd.
 - Automated post-merge checks (amadeus) are not blocked by interactive prompts
 - Amadeus's confirmation prompt protects against accidental event log deletion
 - Maintenance subcommand path args mirror primary subcommand design (S0028)
+- `archive-prune` execution flags are now unified (`--execute`/`--dry-run`/`--yes`)
 
 ### Negative
 
 - New contributors must learn that verb names differ intentionally
 - Storage model difference means eventsource code is not 100% identical
 - Default approver difference requires per-tool documentation of gate behavior
-- `archive-prune` flag name differs (`--execute` vs `--yes`/`--dry-run`) — cross-tool scripts need per-tool handling

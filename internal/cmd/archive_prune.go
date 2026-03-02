@@ -37,6 +37,9 @@ Pass --execute to actually remove the files.`,
   phonewave archive-prune --days 7 --execute`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if execute && cmd.Flags().Changed("dry-run") {
+				return fmt.Errorf("--execute and --dry-run are mutually exclusive")
+			}
 			base := configBase(cmd)
 			stateDir := filepath.Join(base, phonewave.StateDir)
 			outputFmt, _ := cmd.Flags().GetString("output")
@@ -99,6 +102,8 @@ Pass --execute to actually remove the files.`,
 
 	cmd.Flags().BoolVarP(&execute, "execute", "x", false, "Execute pruning (default: dry-run)")
 	cmd.Flags().IntVarP(&days, "days", "d", 30, "Retention days")
+	cmd.Flags().BoolP("dry-run", "n", false, "Dry-run mode (default behavior, explicit for scripting)")
+	cmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	return cmd
 }
