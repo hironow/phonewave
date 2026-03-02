@@ -554,7 +554,11 @@ func (w *Workspace) DumpPhonewaveLog(t *testing.T, tp *ToolProcess) {
 }
 
 // FormatDMail creates a D-Mail file content with the given frontmatter fields and body.
+// Integer-like fields (priority) are written unquoted; strings are quoted for YAML safety.
 func FormatDMail(fields map[string]string, body string) []byte {
+	// Fields that should be written as unquoted integers
+	intFields := map[string]bool{"priority": true}
+
 	var buf bytes.Buffer
 	buf.WriteString("---\n")
 	// Always write dmail-schema-version first for consistency
@@ -565,7 +569,11 @@ func FormatDMail(fields map[string]string, body string) []byte {
 		if k == "dmail-schema-version" {
 			continue
 		}
-		fmt.Fprintf(&buf, "%s: %s\n", k, v)
+		if intFields[k] {
+			fmt.Fprintf(&buf, "%s: %s\n", k, v)
+		} else {
+			fmt.Fprintf(&buf, "%s: %q\n", k, v)
+		}
 	}
 	buf.WriteString("---\n\n")
 	buf.WriteString(body)

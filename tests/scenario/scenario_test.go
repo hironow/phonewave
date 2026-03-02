@@ -51,7 +51,7 @@ func buildAllBinaries() (string, error) {
 		dst := filepath.Join(dir, tool.name)
 		cmd := exec.Command("go", "build", "-o", dst, "./"+tool.cmdPath)
 		cmd.Dir = repo
-		cmd.Stderr = os.Stderr
+
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return dir, fmt.Errorf("build %s: %w\n%s", tool.name, err, out)
 		}
@@ -63,7 +63,6 @@ func buildAllBinaries() (string, error) {
 	fakeClaude := filepath.Join(here, "testdata", "fake-claude")
 	cmd := exec.Command("go", "build", "-o", filepath.Join(dir, "claude"), ".")
 	cmd.Dir = fakeClaude
-	cmd.Stderr = os.Stderr
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return dir, fmt.Errorf("build fake-claude: %w\n%s", err, out)
 	}
@@ -72,7 +71,6 @@ func buildAllBinaries() (string, error) {
 	fakeGH := filepath.Join(here, "testdata", "fake-gh")
 	cmd = exec.Command("go", "build", "-o", filepath.Join(dir, "gh"), ".")
 	cmd.Dir = fakeGH
-	cmd.Stderr = os.Stderr
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return dir, fmt.Errorf("build fake-gh: %w\n%s", err, out)
 	}
