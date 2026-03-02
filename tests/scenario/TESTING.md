@@ -66,3 +66,27 @@ done
 
 All scenario tests use `//go:build scenario`. They are excluded from regular
 `go test ./...` runs and require `-tags scenario`.
+
+## Troubleshooting
+
+### `compile: version "go1.26.0" does not match go tool version "go1.19.3"`
+
+GOROOT or GOTOOLDIR points to a different Go installation than the `go` binary in PATH.
+
+```bash
+# Diagnose
+go version          # should say go1.26.0
+go env GOVERSION    # must match
+go env GOROOT       # must point to the same installation
+go env GOTOOLDIR    # must be under GOROOT
+
+# Fix (mise users)
+mise install go     # reinstall go 1.26
+mise reshim         # regenerate shims
+
+# Fix (manual)
+unset GOROOT GOTOOLDIR
+export PATH="$(go env GOROOT)/bin:$PATH"
+```
+
+All 4 repos pin `go = "1.26"` in `mise.toml` and `go 1.26` in `go.mod`.
