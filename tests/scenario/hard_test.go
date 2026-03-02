@@ -79,6 +79,15 @@ func TestScenario_L4_Hard(t *testing.T) {
 	ws.WaitForDMailCount(t, ".expedition", "inbox", 2, 45*time.Second)
 	ws.WaitForAbsent(t, ".siren", "outbox", 15*time.Second)
 
+	// Run paintress to process the delivered spec (downstream tool verification after restart)
+	err := ws.RunPaintressExpedition(t, ctx)
+	if err != nil {
+		t.Logf("paintress expedition after restart: %v", err)
+	}
+	reportPath := ws.WaitForDMail(t, ".gate", "inbox", 30*time.Second)
+	obs.AssertDMailKind(reportPath, "report")
+	t.Log("downstream paintress processed spec after daemon restart — OK")
+
 	// === Phase 3: Malformed D-Mail handling ===
 
 	// Inject a malformed D-Mail (invalid YAML frontmatter)
