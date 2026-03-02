@@ -4,12 +4,12 @@
 
 | Range | Scope | Description |
 |-------|-------|-------------|
-| 0000-0009 | Shared (canonical: phonewave) | Cross-tool decisions. All 4 tools follow these. |
+| 0000-0005 | Shared (canonical: phonewave) | Cross-tool decisions. All 4 tools follow these. |
 | 0006+ (per tool) | Tool-specific | Each tool numbers its own ADRs starting from 0006. |
 | S00XX | Shared additions (canonical: phonewave) | Post-initial shared decisions added during alignment. |
 
-- **Shared ADRs** live only in phonewave `docs/adr/`. Other tools reference them but do not copy them.
-- **Tool-specific ADRs** live in each tool's own `docs/adr/` with numbering starting at 0006.
+- **Shared ADRs (0000-0005)** live only in phonewave `docs/adr/`. Other tools reference them but do not copy them.
+- **Tool-specific ADRs (0006+)** live in each tool's own `docs/adr/` with numbering starting at 0006.
 - **S-series ADRs** are shared decisions added after the initial 0000-0005 set. They also live only in phonewave.
 - Semgrep rules enforcing shared ADRs are copied to each tool's `.semgrep/shared-adr.yaml`.
 
