@@ -338,6 +338,41 @@ func (w *Workspace) WaitForDMail(t *testing.T, toolDir, sub string, timeout time
 	}
 }
 
+// WaitForDMailCount polls until at least minCount .md files exist in a mailbox.
+// Use this when a mailbox already has files and you're waiting for additional deliveries.
+func (w *Workspace) WaitForDMailCount(t *testing.T, toolDir, sub string, minCount int, timeout time.Duration) {
+	t.Helper()
+	dir := filepath.Join(w.RepoPath, toolDir, sub)
+	deadline := time.After(timeout)
+	for {
+		select {
+		case <-deadline:
+			actual := countMDFiles(dir)
+			t.Fatalf("timeout waiting for %d D-Mails in %s/%s (got %d)", minCount, toolDir, sub, actual)
+		default:
+			if countMDFiles(dir) >= minCount {
+				return
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+}
+
+// countMDFiles counts .md files in a directory (returns 0 if dir doesn't exist).
+func countMDFiles(dir string) int {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
+			count++
+		}
+	}
+	return count
+}
+
 // WaitForAbsent polls until a directory contains no .md files.
 func (w *Workspace) WaitForAbsent(t *testing.T, toolDir, sub string, timeout time.Duration) {
 	t.Helper()
