@@ -96,6 +96,9 @@ func TestScenario_L1_Minimal(t *testing.T) {
 	// 13. Verify delivered feedback kind
 	obs.AssertDMailKind(feedbackSiren, "feedback")
 
-	// 14. Final state: all outboxes empty
+	// 14. Wait for closed loop completion (spec→report→feedback all delivered)
+	obs.WaitForClosedLoop(60 * time.Second)
+
+	// 15. Final state: all outboxes empty
 	obs.AssertAllOutboxEmpty()
 }
