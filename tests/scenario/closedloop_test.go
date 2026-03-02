@@ -58,9 +58,16 @@ func TestScenario_ClosedLoop_4Tool(t *testing.T) {
 		}
 	}
 	feedbackSiren := ws.WaitForDMail(t, ".siren", "inbox", 30*time.Second)
-	ws.WaitForAbsent(t, ".gate", "outbox", 10*time.Second)
 	obs.AssertDMailKind(feedbackSiren, "feedback")
-	t.Log("step 3: amadeus → feedback delivered to .siren/inbox + .expedition/inbox")
+
+	// Verify feedback fan-out to .expedition/inbox.
+	// Paintress consumed earlier D-Mails (spec etc.) in step 2, so only the
+	// amadeus feedback remains. Verify it arrived and has kind=feedback.
+	feedbackExpedition := ws.WaitForDMail(t, ".expedition", "inbox", 30*time.Second)
+	obs.AssertDMailKind(feedbackExpedition, "feedback")
+
+	ws.WaitForAbsent(t, ".gate", "outbox", 10*time.Second)
+	t.Log("step 3: amadeus → feedback delivered to .siren/inbox + .expedition/inbox (fan-out verified)")
 
 	// Final: all outboxes empty, loop complete
 	obs.AssertAllOutboxEmpty()
