@@ -97,6 +97,10 @@ test-e2e-shell:
 test-e2e-down:
     docker compose -f tests/e2e/compose-e2e.yaml down -v
 
+# Run cross-tool E2E tests (requires Docker daemon on host, builds all 4 tools)
+test-cross-e2e:
+    go test -tags e2e ./tests/e2e/ -run TestCrossTool -count=1 -v -timeout=600s
+
 # Run all tests including E2E tests
 test-all: test test-e2e
 
