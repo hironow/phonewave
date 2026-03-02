@@ -94,4 +94,5 @@ All 4 repos pin `go = "1.26"` in `mise.toml` and `go 1.26` in `go.mod`.
 
 The `check-go` guard in each repo's `justfile` compares `go version` with
 `go tool compile -V` to detect GOROOT/GOTOOLDIR mismatches before running
-scenario tests.
+scenario tests. All scenario recipes use `mise exec -- go test ...` to
+ensure the mise-managed Go version is used regardless of PATH order.
