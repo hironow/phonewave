@@ -525,6 +525,11 @@ func runCmd(t *testing.T, dir string, name string, args ...string) {
 	}
 }
 
+// PhonewaveStateDir returns the path to the phonewave state directory (.phonewave/).
+func (w *Workspace) PhonewaveStateDir() string {
+	return filepath.Join(w.Root, ".phonewave")
+}
+
 // ToolDir returns the absolute path to a tool's state directory within the repo.
 // Examples: w.ToolDir(".siren"), w.ToolDir(".expedition"), w.ToolDir(".gate")
 func (w *Workspace) ToolDir(toolDir string) string {
