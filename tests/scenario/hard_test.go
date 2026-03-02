@@ -5,6 +5,7 @@ package scenario_test
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -87,6 +88,20 @@ func TestScenario_L4_Hard(t *testing.T) {
 	reportPath := ws.WaitForDMail(t, ".gate", "inbox", 30*time.Second)
 	obs.AssertDMailKind(reportPath, "report")
 	t.Log("downstream paintress processed spec after daemon restart — OK")
+
+	// Continue downstream: amadeus check → feedback
+	err = ws.RunAmadeusCheck(t, ctx)
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 2 {
+			t.Logf("amadeus check returned exit code 2 (drift detected) — expected")
+		} else {
+			t.Logf("amadeus check after restart: %v", err)
+		}
+	}
+	feedbackPath := ws.WaitForDMail(t, ".siren", "inbox", 30*time.Second)
+	obs.AssertDMailKind(feedbackPath, "feedback")
+	ws.WaitForAbsent(t, ".gate", "outbox", 10*time.Second)
+	t.Log("downstream amadeus processed report after daemon restart — full chain OK")
 
 	// === Phase 3: Malformed D-Mail handling ===
 
