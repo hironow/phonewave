@@ -101,6 +101,30 @@ test-e2e-down:
 test-cross-e2e:
     go test -tags e2e ./tests/e2e/ -run TestCrossTool -count=1 -v -timeout=600s
 
+# Run L1 scenario test (minimal closed loop)
+test-scenario-min:
+    go test -tags scenario ./tests/scenario/ -run TestScenario_L1 -count=1 -v -timeout=120s
+
+# Run L2 scenario test (multi-issue + retry)
+test-scenario-small:
+    go test -tags scenario ./tests/scenario/ -run TestScenario_L2 -count=1 -v -timeout=180s
+
+# Run L3 scenario test (parallel + convergence)
+test-scenario-middle:
+    go test -tags scenario ./tests/scenario/ -run TestScenario_L3 -count=1 -v -timeout=300s
+
+# Run L4 scenario test (fault injection + recovery)
+test-scenario-hard:
+    go test -tags scenario ./tests/scenario/ -run TestScenario_L4 -count=1 -v -timeout=600s
+
+# Run L1+L2 scenario tests (CI default)
+test-scenario:
+    go test -tags scenario ./tests/scenario/ -run "TestScenario_L[12]" -count=1 -v -timeout=300s
+
+# Run all scenario tests (nightly)
+test-scenario-all:
+    go test -tags scenario ./tests/scenario/ -count=1 -v -timeout=900s
+
 # Run all tests including E2E tests
 test-all: test test-e2e
 
