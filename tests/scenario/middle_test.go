@@ -95,9 +95,15 @@ func TestScenario_L3_Middle(t *testing.T) {
 	}
 
 	// Wait for all 3 reports in .gate/inbox
-	// Note: convergence-auth-001 may or may not be in .gate/inbox depending on routing
+	// Convergence is NOT routed here — only to .siren/inbox (contract: .gate/outbox → .siren/inbox)
 	ws.WaitForDMailCount(t, ".gate", "inbox", 3, 30*time.Second)
 	ws.WaitForAbsent(t, ".expedition", "outbox", 10*time.Second)
+
+	// Verify convergence did NOT leak to .expedition/inbox (paintress does not consume convergence)
+	expeditionCount := countMDFiles(ws.ToolDir(".expedition") + "/inbox")
+	if expeditionCount != 3 {
+		t.Errorf("convergence leak check: .expedition/inbox has %d files (expected 3 specs only)", expeditionCount)
+	}
 
 	// === Phase 4: 3 feedbacks (all resolve) ===
 
