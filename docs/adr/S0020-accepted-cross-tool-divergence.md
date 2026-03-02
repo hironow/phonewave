@@ -5,13 +5,14 @@
 
 ## Context
 
-Cross-tool gap inventory (2026-03-01, 2026-03-02) identified two structural
-differences across the four CLI tools (phonewave, sightjack, paintress,
-amadeus). Both were reviewed via codex and determined to be intentional design
+Cross-tool gap inventory (2026-03-01, 2026-03-02, 2026-03-03) identified three
+structural differences across the four CLI tools (phonewave, sightjack,
+paintress, amadeus). All were reviewed and determined to be intentional design
 choices rooted in each tool's domain semantics, not accidental drift.
 
-Unifying these differences would either distort tool semantics (GAP-01-01)
-or introduce data loss risk (GAP-03-01).
+Unifying these differences would either distort tool semantics (GAP-01-01),
+introduce data loss risk (GAP-03-01), or block automated verification
+workflows (GAP-04-01).
 
 ## Decision
 
@@ -56,6 +57,26 @@ All four tools share the `eventsource.EventsDir(stateDir)` helper for path
 construction. Sightjack's `ListExpiredEventFiles` includes a safety filter
 (dirs + `.jsonl` only) to prevent accidental deletion of unexpected entries.
 
+### GAP-04-01: Approval Gate Default Behavior
+
+Each tool's default `Approver` differs based on its role in the pipeline:
+
+| Tool | Default Approver | When Gate Fires | Rationale |
+|------|-----------------|-----------------|-----------|
+| phonewave | (none) | N/A | Daemon/courier — routes D-Mails, never executes actions |
+| sightjack | `StdinApprover` | Every convergence scan | Pre-merge tool — human must approve architectural changes |
+| paintress | `StdinApprover` | `high` severity inbox D-Mail | Execution tool — human approves high-severity expeditions |
+| amadeus | `AutoApprover` | Never (auto-approve) | Post-merge verifier — generates feedback, receivers handle gates |
+
+All four tools share the same `Approver` interface and `BuildApprover` / approver-wiring
+pattern (priority: `--auto-approve` → `--approve-cmd` → default). Only the default
+differs.
+
+Amadeus auto-approves because it is a read-only verifier: it measures divergence and
+routes corrective D-Mails to `outbox/`. The receiving tools (sightjack, paintress)
+decide whether to gate those D-Mails on their side. Requiring approval on the sender
+side would block automated post-merge checks without adding safety.
+
 ## Consequences
 
 ### Positive
@@ -64,8 +85,11 @@ construction. Sightjack's `ListExpiredEventFiles` includes a safety filter
 - Storage model matches each tool's concurrency and isolation requirements
 - Safety filter in sightjack prevents accidental data loss from unexpected files
 - Unified function signature and EventsDir helper reduce cognitive load
+- Approval gates fire where actions are executed (sightjack, paintress), not where feedback is generated (amadeus)
+- Automated post-merge checks (amadeus) are not blocked by interactive prompts
 
 ### Negative
 
 - New contributors must learn that verb names differ intentionally
 - Storage model difference means eventsource code is not 100% identical
+- Default approver difference requires per-tool documentation of gate behavior
