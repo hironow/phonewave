@@ -289,6 +289,23 @@ func (w *Workspace) RunSightjack(t *testing.T, ctx context.Context, args ...stri
 	return err
 }
 
+// RunSightjackScan runs sightjack run with --auto-approve.
+// With the extended --auto-approve semantics, sightjack auto-selects the
+// first available wave and auto-approves all actions without stdin input.
+func (w *Workspace) RunSightjackScan(t *testing.T, ctx context.Context, extraArgs ...string) error {
+	t.Helper()
+	args := []string{"run", "--auto-approve"}
+	args = append(args, extraArgs...)
+	args = append(args, w.RepoPath)
+
+	cmd := w.runToolCmd(ctx, "sightjack", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("sightjack %v failed: %v\n%s", args, err, out)
+	}
+	return err
+}
+
 // RunPaintress runs paintress with the given args and waits for completion.
 func (w *Workspace) RunPaintress(t *testing.T, ctx context.Context, args ...string) error {
 	t.Helper()
@@ -300,6 +317,16 @@ func (w *Workspace) RunPaintress(t *testing.T, ctx context.Context, args ...stri
 	return err
 }
 
+// RunPaintressExpedition runs paintress run with auto-approve, no-dev, workers 0,
+// and max-expeditions 1 (sufficient for scenario tests that inject D-Mails one at a time).
+func (w *Workspace) RunPaintressExpedition(t *testing.T, ctx context.Context, extraArgs ...string) error {
+	t.Helper()
+	args := []string{"run", "--auto-approve", "--no-dev", "--workers", "0", "--max-expeditions", "1"}
+	args = append(args, extraArgs...)
+	args = append(args, w.RepoPath)
+	return w.RunPaintress(t, ctx, args...)
+}
+
 // RunAmadeus runs amadeus with the given args and waits for completion.
 func (w *Workspace) RunAmadeus(t *testing.T, ctx context.Context, args ...string) error {
 	t.Helper()
@@ -309,6 +336,15 @@ func (w *Workspace) RunAmadeus(t *testing.T, ctx context.Context, args ...string
 		t.Logf("amadeus %v failed: %v\n%s", args, err, out)
 	}
 	return err
+}
+
+// RunAmadeusCheck runs amadeus check with --auto-approve and waits for completion.
+func (w *Workspace) RunAmadeusCheck(t *testing.T, ctx context.Context, extraArgs ...string) error {
+	t.Helper()
+	args := []string{"check", "--auto-approve"}
+	args = append(args, extraArgs...)
+	args = append(args, w.RepoPath)
+	return w.RunAmadeus(t, ctx, args...)
 }
 
 // --- Observation Helpers ---
