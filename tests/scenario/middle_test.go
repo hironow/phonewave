@@ -11,7 +11,7 @@ import (
 // TestScenario_L3_Middle verifies phonewave routing under concurrent load:
 //
 //   - Burst of 3 specifications injected simultaneously
-//   - Convergence D-Mail routing (kind: convergence → .expedition/inbox)
+//   - Convergence D-Mail routing (kind: convergence → .siren/inbox)
 //   - Interleaved inject: new D-Mails added while previous routing in flight
 //   - Multiple cycles with growing inbox counts
 //   - Fan-out consistency across all delivery points
@@ -65,13 +65,13 @@ func TestScenario_L3_Middle(t *testing.T) {
 		"severity":             "medium",
 	}, "# Convergence: Auth Module\n\nRecurring issues detected in authentication module across 3 cycles.")
 
-	// Convergence kind should also route if there's a route for it.
-	// If no route exists for convergence, phonewave will send it to error queue.
-	// Either outcome is acceptable for L3 — we just verify the system doesn't deadlock.
+	// Convergence route CONTRACTED: .gate/outbox → .siren/inbox
+	// (amadeus produces convergence → sightjack consumes convergence)
 	ws.InjectDMail(t, ".gate", "outbox", "convergence-auth-001.md", convergenceDMail)
 
-	// Give phonewave time to process (convergence may or may not have a route)
-	time.Sleep(3 * time.Second)
+	// Wait for convergence delivery to .siren/inbox
+	convPath := ws.WaitForDMail(t, ".siren", "inbox", 30*time.Second)
+	obs.AssertDMailKind(convPath, "convergence")
 
 	// === Phase 3: Reports (interleaved with phase 2 processing) ===
 
@@ -122,8 +122,8 @@ func TestScenario_L3_Middle(t *testing.T) {
 		ws.InjectDMail(t, ".gate", "outbox", fb.name+".md", dmail)
 	}
 
-	// Wait for fan-out: 3 feedbacks to .siren/inbox
-	ws.WaitForDMailCount(t, ".siren", "inbox", 3, 30*time.Second)
+	// Wait for fan-out: 3 feedbacks to .siren/inbox (+ 1 convergence already there = 4 total)
+	ws.WaitForDMailCount(t, ".siren", "inbox", 4, 30*time.Second)
 	// .expedition/inbox: 3 specs + 3 feedbacks = 6
 	ws.WaitForDMailCount(t, ".expedition", "inbox", 6, 30*time.Second)
 	ws.WaitForAbsent(t, ".gate", "outbox", 10*time.Second)
