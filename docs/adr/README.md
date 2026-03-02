@@ -45,10 +45,11 @@ do not copy them.
 | [S0021](S0021-dmail-receive-side-postel-law.md) | D-Mail receive-side validation (Postel's Law) | — |
 | [S0022](S0022-otel-metrics-design.md) | OTel Metrics Design | — |
 | [S0023](S0023-cross-tool-contract-testing.md) | Cross-Tool Contract Testing | — |
-| [S0024](S0024-cli-argument-design-decisions.md) | CLI Argument Design Decisions | — |
+| [S0024](S0024-cli-argument-design-decisions.md) | ~~CLI Argument Design Decisions~~ | Superseded by S0028 |
 | [S0025](S0025-event-delivery-guarantee-levels.md) | Event Delivery Guarantee Levels | — |
 | [S0026](S0026-domain-model-maturity-assessment.md) | Domain Model Maturity Assessment | — |
 | [S0027](S0027-rdra-gap-resolution.md) | RDRA Gap Resolution — D-Mail Protocol Extension | — |
+| [S0028](S0028-cli-argument-design-actual.md) | CLI Argument Design (Actual Implementation) — supersedes S0024 | — |
 
 ## phonewave-specific ADRs
 

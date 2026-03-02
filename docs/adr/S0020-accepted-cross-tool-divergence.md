@@ -5,14 +5,14 @@
 
 ## Context
 
-Cross-tool gap inventory (2026-03-01, 2026-03-02, 2026-03-03) identified three
+Cross-tool gap inventory (2026-03-01, 2026-03-02, 2026-03-03) identified five
 structural differences across the four CLI tools (phonewave, sightjack,
 paintress, amadeus). All were reviewed and determined to be intentional design
 choices rooted in each tool's domain semantics, not accidental drift.
 
 Unifying these differences would either distort tool semantics (GAP-01-01),
-introduce data loss risk (GAP-03-01), or block automated verification
-workflows (GAP-04-01).
+introduce data loss risk (GAP-03-01), block automated verification
+workflows (GAP-04-01), or reduce safety in destructive operations (GAP-05-01).
 
 ## Decision
 
@@ -77,6 +77,37 @@ routes corrective D-Mails to `outbox/`. The receiving tools (sightjack, paintres
 decide whether to gate those D-Mails on their side. Requiring approval on the sender
 side would block automated post-merge checks without adding safety.
 
+### GAP-05-01: Maintenance Subcommand Contracts
+
+`archive-prune` execution flags and path argument contracts differ across tools:
+
+**Execution flag:**
+
+| Tool | Flag | Default Behavior |
+|------|------|-----------------|
+| phonewave | `--execute` (`-x`) | Dry-run (no deletion) |
+| sightjack | `--execute` (`-x`) | Dry-run (no deletion) |
+| paintress | `--execute` (`-x`) | Dry-run (no deletion) |
+| amadeus | `--yes` (`-y`) + `--dry-run` (`-n`) | Interactive confirmation prompt |
+
+Amadeus uses `--yes`/`--dry-run` because its `archive-prune` also prunes event
+log files (not just D-Mail archives), making the operation more destructive.
+The confirmation prompt adds a safety layer that `--execute` (binary on/off)
+does not provide.
+
+**Path argument:**
+
+| Tool | Args Constraint | Rationale |
+|------|----------------|-----------|
+| phonewave | `NoArgs` | Daemon reads config for state directory |
+| sightjack | `MaximumNArgs(1)` | Optional path, defaults to cwd |
+| paintress | `ExactArgs(1)` | Required path prevents accidental deletion |
+| amadeus | `MaximumNArgs(1)` | Optional path, defaults to cwd |
+
+This mirrors the primary subcommand argument pattern (S0028): phonewave uses
+config-based paths, paintress requires explicit paths for destructive operations,
+sightjack and amadeus default to cwd.
+
 ## Consequences
 
 ### Positive
@@ -87,9 +118,12 @@ side would block automated post-merge checks without adding safety.
 - Unified function signature and EventsDir helper reduce cognitive load
 - Approval gates fire where actions are executed (sightjack, paintress), not where feedback is generated (amadeus)
 - Automated post-merge checks (amadeus) are not blocked by interactive prompts
+- Amadeus's confirmation prompt protects against accidental event log deletion
+- Maintenance subcommand path args mirror primary subcommand design (S0028)
 
 ### Negative
 
 - New contributors must learn that verb names differ intentionally
 - Storage model difference means eventsource code is not 100% identical
 - Default approver difference requires per-tool documentation of gate behavior
+- `archive-prune` flag name differs (`--execute` vs `--yes`/`--dry-run`) — cross-tool scripts need per-tool handling

@@ -1,7 +1,7 @@
 # S0024. CLI Argument Design Decisions
 
 **Date:** 2026-03-02
-**Status:** Accepted
+**Status:** Superseded by [S0028](S0028-cli-argument-design-actual.md)
 
 ## Context
 
