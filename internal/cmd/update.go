@@ -36,7 +36,7 @@ func newUpdateCmd() *cobra.Command {
 				return fmt.Errorf("detect latest version: %w", err)
 			}
 			if !found {
-				fmt.Fprintln(cmd.OutOrStdout(), "No release found for this platform.")
+				fmt.Fprintln(cmd.ErrOrStderr(), "No release found for this platform.")
 				return nil
 			}
 
@@ -44,17 +44,17 @@ func newUpdateCmd() *cobra.Command {
 			currentSemver, parseErr := semver.NewVersion(currentVer)
 			if parseErr != nil {
 				// Non-semver build (dev, commit hash, dirty tag, etc.)
-				fmt.Fprintf(cmd.OutOrStdout(), "Running non-release build (%s). Latest release: %s\n", currentVer, latest.Version())
+				fmt.Fprintf(cmd.ErrOrStderr(), "Running non-release build (%s). Latest release: %s\n", currentVer, latest.Version())
 				if checkOnly {
 					return ErrUpdateAvailable
 				}
 			} else if !latest.GreaterThan(currentSemver.String()) {
-				fmt.Fprintf(cmd.OutOrStdout(), "Already up to date (%s).\n", currentVer)
+				fmt.Fprintf(cmd.ErrOrStderr(), "Already up to date (%s).\n", currentVer)
 				return nil
 			}
 
 			if checkOnly {
-				fmt.Fprintf(cmd.OutOrStdout(), "Update available: %s → %s\n", currentVer, latest.Version())
+				fmt.Fprintf(cmd.ErrOrStderr(), "Update available: %s → %s\n", currentVer, latest.Version())
 				return ErrUpdateAvailable
 			}
 
@@ -63,11 +63,11 @@ func newUpdateCmd() *cobra.Command {
 				return fmt.Errorf("locate executable: %w", err)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Updating to %s ...\n", latest.Version())
+			fmt.Fprintf(cmd.ErrOrStderr(), "Updating to %s ...\n", latest.Version())
 			if err := selfupdate.UpdateTo(cmd.Context(), latest.AssetURL, latest.AssetName, exe); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Updated to %s\n", latest.Version())
+			fmt.Fprintf(cmd.ErrOrStderr(), "Updated to %s\n", latest.Version())
 			return nil
 		},
 	}

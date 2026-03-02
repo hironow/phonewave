@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave"
 )
 
 // StatusReport holds daemon and ecosystem status information.

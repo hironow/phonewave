@@ -2,11 +2,12 @@ package session
 
 import (
 	"fmt"
-	phonewave "github.com/hironow/phonewave"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/hironow/phonewave"
 )
 
 func TestStatus_DaemonStopped(t *testing.T) {

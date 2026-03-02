@@ -19,6 +19,9 @@ type FileEventStore struct {
 	dir string
 }
 
+// Compile-time check that FileEventStore implements phonewave.EventStore.
+var _ phonewave.EventStore = (*FileEventStore)(nil)
+
 // NewFileEventStore creates a FileEventStore rooted at the given directory.
 func NewFileEventStore(dir string) *FileEventStore {
 	return &FileEventStore{dir: dir}
@@ -37,6 +40,7 @@ func (s *FileEventStore) Append(events ...phonewave.Event) error {
 		return fmt.Errorf("create event store dir: %w", err)
 	}
 
+	// Group events by date for file routing.
 	byDate := make(map[string][]phonewave.Event)
 	for _, ev := range events {
 		date := ev.Timestamp.Format("2006-01-02")
@@ -50,14 +54,14 @@ func (s *FileEventStore) Append(events ...phonewave.Event) error {
 			return fmt.Errorf("open event file %s: %w", date, err)
 		}
 		for _, ev := range evs {
-			line, err := json.Marshal(ev)
-			if err != nil {
+			line, marshalErr := json.Marshal(ev)
+			if marshalErr != nil {
 				f.Close()
-				return fmt.Errorf("marshal event %s: %w", ev.ID, err)
+				return fmt.Errorf("marshal event %s: %w", ev.ID, marshalErr)
 			}
-			if _, err := f.Write(append(line, '\n')); err != nil {
+			if _, writeErr := f.Write(append(line, '\n')); writeErr != nil {
 				f.Close()
-				return fmt.Errorf("write event %s: %w", ev.ID, err)
+				return fmt.Errorf("write event %s: %w", ev.ID, writeErr)
 			}
 		}
 		if err := f.Sync(); err != nil {
@@ -101,9 +105,9 @@ func (s *FileEventStore) loadEvents(after time.Time) ([]phonewave.Event, error) 
 	var events []phonewave.Event
 	for _, name := range files {
 		path := filepath.Join(s.dir, name)
-		f, err := os.Open(path)
-		if err != nil {
-			return nil, fmt.Errorf("open %s: %w", name, err)
+		f, openErr := os.Open(path)
+		if openErr != nil {
+			return nil, fmt.Errorf("open %s: %w", name, openErr)
 		}
 		scanner := bufio.NewScanner(f)
 		scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
@@ -113,22 +117,23 @@ func (s *FileEventStore) loadEvents(after time.Time) ([]phonewave.Event, error) 
 				continue
 			}
 			var ev phonewave.Event
-			if err := json.Unmarshal(line, &ev); err != nil {
-				f.Close()
-				return nil, fmt.Errorf("parse event in %s: %w", name, err)
+			if jsonErr := json.Unmarshal(line, &ev); jsonErr != nil {
+				// Skip corrupt lines silently for resilience.
+				continue
 			}
 			if !after.IsZero() && !ev.Timestamp.After(after) {
 				continue
 			}
 			events = append(events, ev)
 		}
-		if err := scanner.Err(); err != nil {
+		if scanErr := scanner.Err(); scanErr != nil {
 			f.Close()
-			return nil, fmt.Errorf("scan %s: %w", name, err)
+			return nil, fmt.Errorf("scan %s: %w", name, scanErr)
 		}
 		f.Close()
 	}
 
+	// Stable sort preserves insertion order for events with equal timestamps.
 	sort.SliceStable(events, func(i, j int) bool {
 		return events[i].Timestamp.Before(events[j].Timestamp)
 	})

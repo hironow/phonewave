@@ -3,6 +3,7 @@ package phonewave
 import (
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"time"
 )
@@ -10,10 +11,10 @@ import (
 // Logger provides structured, timestamped log output.
 // All methods are safe for concurrent use.
 type Logger struct {
-	out         io.Writer
-	mu          sync.Mutex
-	extraWriter io.Writer
-	verbose     bool
+	out     io.Writer
+	mu      sync.Mutex
+	logFile *os.File
+	verbose bool
 }
 
 // NewLogger creates a Logger that writes human-readable progress to out.
@@ -34,8 +35,8 @@ func (l *Logger) logLine(prefix, format string, args ...any) {
 	defer l.mu.Unlock()
 
 	fmt.Fprint(l.out, line)
-	if l.extraWriter != nil {
-		fmt.Fprint(l.extraWriter, line)
+	if l.logFile != nil {
+		fmt.Fprint(l.logFile, line)
 	}
 }
 
@@ -61,10 +62,29 @@ func (l *Logger) Debug(format string, args ...any) {
 // Writer returns the underlying io.Writer.
 func (l *Logger) Writer() io.Writer { return l.out }
 
-// SetExtraWriter sets an additional writer for dual-write logging.
-// The caller is responsible for closing the writer when done.
-func (l *Logger) SetExtraWriter(w io.Writer) {
+// SetLogFile opens a file for dual-write logging.
+// Any previously opened log file is closed first.
+func (l *Logger) SetLogFile(path string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.extraWriter = w
+	if l.logFile != nil {
+		l.logFile.Close()
+		l.logFile = nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	l.logFile = f
+	return nil
+}
+
+// CloseLogFile closes the log file if one is open.
+func (l *Logger) CloseLogFile() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.logFile != nil {
+		l.logFile.Close()
+		l.logFile = nil
+	}
 }

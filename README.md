@@ -242,12 +242,14 @@ just lint           # fmt check + vet + markdown lint
 just lint-md        # Lint markdown files only
 just check          # fmt + vet + test (pre-commit check)
 just clean          # Clean build artifacts
-just test-docker    # Docker lifecycle tests
-just test-docker-cli    # Docker CLI subcommand tests only
-just test-docker-daemon # Docker daemon behaviour tests only
-just test-docker-otel   # Docker OTel tracing test only
-just test-e2e-manual    # Manual E2E script (docker compose)
-just test-all       # All tests including Docker
+just test-e2e       # Docker E2E tests (build + run)
+just test-e2e-shell # Interactive shell in E2E container
+just test-e2e-down  # Clean up E2E containers
+just test-cross-e2e # Cross-tool E2E tests (requires Docker)
+just test-all       # All tests (unit + E2E)
+just test-scenario-min  # L1 scenario test (minimal closed loop)
+just test-scenario      # L1+L2 scenario tests (CI default)
+just test-scenario-all  # All scenario tests (L1-L4)
 just jaeger         # Start Jaeger trace viewer
 just jaeger-down    # Stop Jaeger
 just validate-skills <path> # Validate SKILL.md against Agent Skills spec
@@ -274,40 +276,38 @@ just prek-run       # Run all prek hooks
 |   +-- version.go             version subcommand (text/JSON output)
 |   +-- update.go              update subcommand (self-update via GitHub)
 |   +-- helpers.go             Shared CLI helpers (config path resolution)
-+-- phonewave.go               Constants + state directory setup
-+-- init.go                    Init/Add/Remove/Sync orchestration
-+-- scanner.go                 SKILL.md parser + endpoint discovery (metadata-nested)
-+-- router.go                  Route derivation engine (produces/consumes matching)
-+-- config.go                  phonewave.yaml read/write/merge
-+-- daemon.go                  fsnotify daemon + event loop + retry
-+-- delivery.go                D-Mail delivery pipeline (atomic write, kind validation)
-+-- deliverylog.go             Append-only delivery log + error queue
-+-- status.go                  Daemon status + 24h statistics
-+-- doctor.go                  Ecosystem health checker (SKILL.md + skills-ref)
-+-- validate.go                skills-ref validation + submodule discovery
-+-- telemetry.go               OpenTelemetry tracer setup (noop default)
-+-- logger.go                  Struct-based logger (timestamped prefixes)
-+-- *_test.go                  Tests
-+-- justfile                   Task runner
-+-- .goreleaser.yaml           GoReleaser config (cross-platform builds)
-+-- .semgrep/
-|   +-- cobra.yaml             Semgrep rules for cobra/pflag conventions
-+-- .github/workflows/
-|   +-- ci.yaml                CI (test, vet, lint)
-|   +-- release.yaml           Release via GoReleaser
-+-- docker/
-|   +-- compose.yaml           Jaeger v2 for trace viewing
-|   +-- compose-e2e.yaml       Manual E2E test (Jaeger + phonewave + writer)
-|   +-- jaeger-v2-config.yaml
-+-- skills-ref/
-|   +-- skills-ref/            Agent Skills reference validator (git submodule)
++-- Root package (phonewave)    Types, interfaces, pure functions
+|   +-- phonewave.go           Constants + state directory setup
+|   +-- config.go              phonewave.yaml read/write/merge
+|   +-- daemon.go              fsnotify daemon + event loop + retry
+|   +-- delivery.go            D-Mail delivery pipeline (atomic write, kind validation)
+|   +-- deliverylog.go         Append-only delivery log + error queue
+|   +-- event.go               Event envelope, EventType constants
+|   +-- command.go             COMMAND types with Validate()
+|   +-- policy.go              Policy type definitions
+|   +-- logger.go              Structured logger (noop default)
+|   +-- telemetry.go           OTel tracer (noop default)
++-- internal/usecase/           Use case layer (PolicyEngine + handlers)
++-- internal/session/           I/O orchestration layer
+|   +-- init.go                Init/Add/Remove/Sync orchestration
+|   +-- scanner.go             SKILL.md parser + endpoint discovery
+|   +-- router.go              Route derivation engine
+|   +-- status.go              Daemon status + 24h statistics
+|   +-- doctor.go              Ecosystem health checker
+|   +-- validate.go            skills-ref validation
++-- internal/eventsource/       Event store infrastructure (JSONL)
++-- internal/domain/            Pure domain functions
++-- internal/tools/docgen/      CLI doc generator
++-- tests/scenario/             Scenario tests (L1-L4, //go:build scenario)
++-- tests/e2e/                  Docker E2E tests (//go:build e2e)
++-- .semgrep/                   Semgrep rules (layer enforcement)
++-- .goreleaser.yaml            GoReleaser config (cross-platform)
++-- .github/workflows/          CI (test, vet, lint) + Release
++-- docker/                     Jaeger v2 for trace viewing
++-- skills-ref/                 Agent Skills reference validator (submodule)
 +-- docs/
 |   +-- adr/                   Architecture Decision Records
-|   +-- cli/                   Auto-generated CLI reference (markdown)
-|   +-- phonewave-directory.md
-+-- testdata/
-    +-- Dockerfile.test        Docker lifecycle test image
-    +-- manual-e2e.sh          Manual 20-phase E2E script
+|   +-- cli/                   Auto-generated CLI reference
 ```
 
 ## Prerequisites

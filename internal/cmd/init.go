@@ -5,30 +5,37 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
 func newInitCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "init <repo-path> [repo-path...]",
 		Short: "Scan repositories, discover tools, generate routing table",
 		Long:  "Scan one or more repositories for tool endpoints, parse SKILL.md manifests, derive a routing table, and generate phonewave.yaml.",
 		Args:  cobra.MinimumNArgs(1),
 		Example: `  phonewave init ./sightjack-repo ./paintress-repo ./amadeus-repo
-  phonewave init /absolute/path/to/repo`,
+  phonewave init /absolute/path/to/repo
+  phonewave init --force ./repo  # overwrite existing config`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := loggerFrom(cmd)
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			force, _ := cmd.Flags().GetBool("force")
+			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
-			if _, err := os.Stat(cfgPath); err == nil {
-				return fmt.Errorf("%s already exists", cfgPath)
+			if !force {
+				if _, err := os.Stat(cfgPath); err == nil {
+					return fmt.Errorf("already initialized: %s exists (use --force to overwrite)", cfgPath)
+				}
 			}
 
 			result, err := session.Init(args)
 			if err != nil {
 				return err
 			}
+
 			if err := session.WriteConfig(cfgPath, result.Config); err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
@@ -54,4 +61,8 @@ func newInitCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().Bool("force", false, "overwrite existing configuration")
+
+	return cmd
 }

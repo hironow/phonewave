@@ -1,11 +1,15 @@
 package session
 
 import (
-	phonewave "github.com/hironow/phonewave"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/hironow/phonewave"
 )
 
 func TestDoctor_HealthyEcosystem(t *testing.T) {
@@ -261,6 +265,123 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 	}
 	if !hasSpecWarn {
 		t.Errorf("expected skills-ref validation warning for non-compliant SKILL.md, got issues: %v", report.Issues)
+	}
+}
+
+func TestFormatDoctorJSON_Parseable(t *testing.T) {
+	// given — a DoctorReport with mixed issues
+	report := DoctorReport{
+		Healthy: true,
+		Issues: []DoctorIssue{
+			{Endpoint: "repo/.siren", Message: "OK", Severity: "ok"},
+			{Endpoint: "repo/.expedition", Message: "Created outbox", Severity: "fixed"},
+		},
+		Endpoints: []EndpointHealth{
+			{Repo: "/tmp/repo", Dir: ".siren", Produces: []string{"specification"}, OK: true},
+		},
+		DaemonStatus: DaemonHealthStatus{Checked: true, Running: false},
+	}
+
+	// when
+	data, err := FormatDoctorJSON(report)
+
+	// then — must be valid JSON
+	if err != nil {
+		t.Fatalf("FormatDoctorJSON: %v", err)
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, string(data))
+	}
+	// Should have top-level keys
+	if _, ok := parsed["healthy"]; !ok {
+		t.Error("missing 'healthy' key in JSON output")
+	}
+	if _, ok := parsed["issues"]; !ok {
+		t.Error("missing 'issues' key in JSON output")
+	}
+}
+
+func TestDoctor_IncludesSuccessRate(t *testing.T) {
+	// given — a state dir with delivery.log containing recent entries
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().UTC()
+	logContent := fmt.Sprintf("%s DELIVERED file1.md\n%s DELIVERED file2.md\n%s FAILED file3.md\n",
+		now.Format(time.RFC3339), now.Format(time.RFC3339), now.Format(time.RFC3339))
+	if err := os.WriteFile(filepath.Join(stateDir, "delivery.log"), []byte(logContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &phonewave.Config{}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — should include a success-rate issue with correct stats
+	var found bool
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "success-rate" && issue.Severity == "ok" {
+			found = true
+			if !strings.Contains(issue.Message, "66.7%") || !strings.Contains(issue.Message, "(2/3)") {
+				t.Errorf("unexpected success-rate message: %s", issue.Message)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected success-rate issue in doctor report, got: %v", report.Issues)
+	}
+}
+
+func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
+	// given — a state dir with no delivery.log
+	stateDir := t.TempDir()
+	cfg := &phonewave.Config{}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — should still include success-rate with "no deliveries"
+	var found bool
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "success-rate" {
+			found = true
+			if issue.Message != "no deliveries" {
+				t.Errorf("expected 'no deliveries', got %q", issue.Message)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected success-rate issue even with no deliveries")
+	}
+}
+
+func TestDoctor_StalePIDFile(t *testing.T) {
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, phonewave.StateDir)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a PID file with a PID that definitely doesn't exist
+	// Use PID 999999999 which almost certainly isn't running
+	pidPath := filepath.Join(stateDir, "watch.pid")
+	if err := os.WriteFile(pidPath, []byte("999999999"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &phonewave.Config{}
+
+	// when
+	report := Doctor(cfg, stateDir)
+
+	// then — daemon should NOT be reported as running (stale PID)
+	if report.DaemonStatus.Running {
+		t.Error("daemon should not be reported as running with stale PID")
 	}
 }
 

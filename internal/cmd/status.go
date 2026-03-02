@@ -18,7 +18,8 @@ func newStatusCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		Example: `  phonewave status`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := loggerFrom(cmd)
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
 			cfg, err := session.LoadConfig(cfgPath)

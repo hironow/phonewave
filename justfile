@@ -82,28 +82,67 @@ lint: vet lint-md
 # Format, vet, test — full check before commit
 check: fmt vet test
 
-# Run Docker lifecycle tests (requires Docker)
-test-docker:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run TestLifecycleDocker
+# Run E2E tests in Docker
+test-e2e:
+    docker compose -f tests/e2e/compose-e2e.yaml build
+    docker compose -f tests/e2e/compose-e2e.yaml run --rm e2e \
+        go test -tags e2e ./tests/e2e/ -count=1 -v -timeout=600s
 
-# Run Docker CLI tests only
-test-docker-cli:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(MultiRepo|AddRepo|RemoveRepo|Sync$|Doctor_|Status|ConfigFlag|Version$)'
+# Open interactive shell in E2E Docker container
+test-e2e-shell:
+    docker compose -f tests/e2e/compose-e2e.yaml build
+    docker compose -f tests/e2e/compose-e2e.yaml run --rm -it e2e /bin/sh
 
-# Run Docker daemon behaviour tests only
-test-docker-daemon:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run 'TestLifecycleDocker_(DryRun|ErrorQueue|MaxRetries|PartialDelivery|GracefulShutdown|BurstDelivery|MalformedDMail|NonMdFiles|DeliveryLog|Uptime|StartupScan)'
+# Clean up E2E Docker containers
+test-e2e-down:
+    docker compose -f tests/e2e/compose-e2e.yaml down -v
 
-# Run Docker OTel tracing test only
-test-docker-otel:
-    go test ./... -tags=docker -count=1 -timeout=600s -v -run TestLifecycleDocker_OTelTracing
+# Run cross-tool E2E tests (requires Docker daemon on host, builds all 4 tools)
+test-cross-e2e:
+    go test -tags e2e ./tests/e2e/ -run TestCrossTool -count=1 -v -timeout=600s
 
-# Run manual E2E test script (docker compose)
-test-e2e-manual:
-    bash testdata/manual-e2e.sh
+# Verify Go toolchain consistency (GOROOT vs go binary)
+[private]
+check-go:
+    @GO_VER=$(mise exec -- go version | awk '{print $3}'); \
+    COMPILE_VER=$(mise exec -- go tool compile -V 2>&1 | awk '{print $3}') || true; \
+    if [ "$GO_VER" != "$COMPILE_VER" ]; then \
+        echo "ERROR: go binary ($GO_VER) != go tool compile ($COMPILE_VER)"; \
+        echo "  go version:       $(mise exec -- go version)"; \
+        echo "  go tool compile:  $(mise exec -- go tool compile -V 2>&1)"; \
+        echo "  GOROOT:           $(mise exec -- go env GOROOT)"; \
+        echo "  GOTOOLDIR:        $(mise exec -- go env GOTOOLDIR)"; \
+        echo ""; \
+        echo "Fix: mise install go && mise reshim"; \
+        exit 1; \
+    fi
 
-# Run all tests including Docker tests
-test-all: test test-docker
+# Run L1 scenario test (minimal closed loop)
+test-scenario-min: check-go
+    mise exec -- go test -tags scenario ./tests/scenario/ -run TestScenario_L1 -count=1 -v -timeout=120s
+
+# Run L2 scenario test (multi-issue + retry)
+test-scenario-small: check-go
+    mise exec -- go test -tags scenario ./tests/scenario/ -run TestScenario_L2 -count=1 -v -timeout=180s
+
+# Run L3 scenario test (parallel + convergence)
+test-scenario-middle: check-go
+    mise exec -- go test -tags scenario ./tests/scenario/ -run TestScenario_L3 -count=1 -v -timeout=300s
+
+# Run L4 scenario test (fault injection + recovery)
+test-scenario-hard: check-go
+    mise exec -- go test -tags scenario ./tests/scenario/ -run TestScenario_L4 -count=1 -v -timeout=600s
+
+# Run L1+L2 scenario tests (CI default)
+test-scenario: check-go
+    mise exec -- go test -tags scenario ./tests/scenario/ -run "TestScenario_L[12]" -count=1 -v -timeout=300s
+
+# Run all scenario tests (nightly)
+test-scenario-all: check-go
+    mise exec -- go test -tags scenario ./tests/scenario/ -count=1 -v -timeout=900s
+
+# Run all tests including E2E tests
+test-all: test test-e2e
 
 # Start Jaeger v2 (OTel trace viewer + MCP) on http://localhost:16686
 jaeger:

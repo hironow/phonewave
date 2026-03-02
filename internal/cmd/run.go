@@ -1,13 +1,10 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/hironow/phonewave"
-	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
 )
 
@@ -43,69 +40,12 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	retryInterval, _ := cmd.Flags().GetDuration("retry-interval")
 	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	logger := loggerFrom(cmd)
+	logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
 
-	cfgPath := configPath(cmd)
-	cfg, err := session.LoadConfig(cfgPath)
-	if err != nil {
-		return fmt.Errorf("not initialized — run 'phonewave init' first: %w", err)
-	}
-
-	routes, err := session.ResolveRoutes(cfg)
-	if err != nil {
-		return fmt.Errorf("resolve routes: %w", err)
-	}
-
-	outboxDirs := session.CollectOutboxDirs(cfg)
-	if len(outboxDirs) == 0 {
-		logger.Warn("No outbox directories to watch")
-		return nil
-	}
-
-	base := configBase(cmd)
-	stateDir := filepath.Join(base, phonewave.StateDir)
-	if err := session.EnsureStateDir(base); err != nil {
-		return fmt.Errorf("create state dir: %w", err)
-	}
-
-	errStore, err := session.NewSQLiteErrorStore(stateDir)
-	if err != nil {
-		return fmt.Errorf("open error store: %w", err)
-	}
-	defer errStore.Close()
-
-	// Build delivery function for the outbox store — wraps DeliverData with resolved routes.
-	deliverFn := func(ctx context.Context, dmailPath string, data []byte) (*phonewave.DeliveryResult, error) {
-		return session.DeliverData(ctx, dmailPath, data, routes)
-	}
-	outboxStore, err := session.NewOutboxStore(stateDir, deliverFn)
-	if err != nil {
-		return fmt.Errorf("open outbox store: %w", err)
-	}
-	defer outboxStore.Close()
-
-	d, err := session.NewDaemon(session.DaemonOptions{
-		Routes:        routes,
-		OutboxDirs:    outboxDirs,
-		StateDir:      stateDir,
-		ErrorStore:    errStore,
-		OutboxStore:   outboxStore,
+	return usecase.SetupAndRunDaemon(cmd.Context(), phonewave.RunDaemonCommand{
 		Verbose:       verbose,
 		DryRun:        dryRun,
 		RetryInterval: retryInterval,
 		MaxRetries:    maxRetries,
-	}, logger)
-	if err != nil {
-		return fmt.Errorf("create daemon: %w", err)
-	}
-
-	logger.OK("phonewave daemon starting (%d routes, %d outboxes)", len(routes), len(outboxDirs))
-
-	// Use the context from cobra's ExecuteContext — carries signal cancellation from main()
-	if err := d.Run(cmd.Context()); err != nil {
-		return fmt.Errorf("daemon: %w", err)
-	}
-
-	logger.OK("Daemon stopped")
-	return nil
+	}, configPath(cmd), configBase(cmd), logger)
 }

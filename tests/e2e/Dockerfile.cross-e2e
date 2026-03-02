@@ -1,0 +1,37 @@
+# Stage 1: Build phonewave
+FROM golang:1.25-alpine AS build-phonewave
+WORKDIR /src
+COPY phonewave/ ./
+RUN go mod download
+RUN CGO_ENABLED=0 go build -o /bin/phonewave ./cmd/phonewave/
+
+# Stage 2: Build sightjack
+FROM golang:1.25-alpine AS build-sightjack
+WORKDIR /src
+COPY sightjack/ ./
+RUN go mod download
+RUN CGO_ENABLED=0 go build -o /bin/sightjack ./cmd/sightjack/
+
+# Stage 3: Build paintress
+FROM golang:1.25-alpine AS build-paintress
+WORKDIR /src
+COPY paintress/ ./
+RUN go mod download
+RUN CGO_ENABLED=0 go build -o /bin/paintress ./cmd/paintress/
+
+# Stage 4: Build amadeus
+FROM golang:1.25-alpine AS build-amadeus
+WORKDIR /src
+COPY amadeus/ ./
+RUN go mod download
+RUN CGO_ENABLED=0 go build -o /bin/amadeus ./cmd/amadeus/
+
+# Stage 5: Runtime with all 4 tools
+FROM golang:1.25-alpine AS runtime
+RUN apk add --no-cache git
+COPY --from=build-phonewave /bin/phonewave /usr/local/bin/
+COPY --from=build-sightjack /bin/sightjack /usr/local/bin/
+COPY --from=build-paintress /bin/paintress /usr/local/bin/
+COPY --from=build-amadeus /bin/amadeus /usr/local/bin/
+COPY --from=build-phonewave /src /src
+WORKDIR /src

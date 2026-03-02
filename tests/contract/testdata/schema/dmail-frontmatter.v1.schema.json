@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hironow/phonewave/schema/dmail-frontmatter.v1.schema.json",
+  "title": "D-Mail Frontmatter v1",
+  "description": "Schema for D-Mail file YAML frontmatter. Defines the wire format contract between D-Mail producing and consuming tools in the phonewave ecosystem.",
+  "type": "object",
+  "required": ["dmail-schema-version", "name", "kind", "description"],
+  "properties": {
+    "dmail-schema-version": {
+      "type": "string",
+      "const": "1",
+      "description": "Schema version identifier. Required for all D-Mails."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for this D-Mail. Used as the filename stem (e.g. 'spec-auth-w1' -> 'spec-auth-w1.md')."
+    },
+    "kind": {
+      "$ref": "#/$defs/kind",
+      "description": "D-Mail type. Determines routing via phonewave SKILL.md produces/consumes declarations."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable summary of the D-Mail content."
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Related issue identifiers (e.g. 'MY-123'). Used by consuming tools to correlate D-Mails with tracked work."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Message severity. 'high' triggers receive-gate approval flows (Notifier/Approver) at consuming tools."
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Target identifiers for convergence detection. Used by convergence kind D-Mails to indicate which targets are converging."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Arbitrary string key-value pairs for tool-specific extensions (e.g. 'created_at', 'convergence_for')."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "kind": {
+      "type": "string",
+      "enum": ["specification", "report", "feedback", "convergence"]
+    }
+  }
+}

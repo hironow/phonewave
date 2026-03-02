@@ -11,7 +11,7 @@ import (
 	"time"
 
 	pond "github.com/alitto/pond/v2"
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave"
 )
 
 // skillsRefTimeout is the maximum time allowed for a single skills-ref invocation.
@@ -123,7 +123,7 @@ func validateEndpointSkills(repoPath string, ep phonewave.EndpointConfig) []stri
 	var warnings []string
 	epLabel := filepath.Base(repoPath) + "/" + ep.Dir // nosemgrep: adr0005-string-concat-file-path — display label, not file path
 
-	for _, skillName := range []string{phonewave.SkillSendable, phonewave.SkillReadable} {
+	for _, skillName := range []string{SkillSendable, SkillReadable} {
 		skillDir := filepath.Join(repoPath, ep.Dir, "skills", skillName)
 		if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err != nil {
 			if os.IsNotExist(err) {

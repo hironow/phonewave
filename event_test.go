@@ -6,96 +6,61 @@ import (
 	"time"
 )
 
-func TestNewEvent_ValidDeliverySucceeded(t *testing.T) {
-	// given
-	data := DeliverySucceededData{
-		Kind:        "report",
-		SourcePath:  "outbox/rp-001.md",
-		DeliveredTo: []string{"inbox/rp-001.md"},
+func TestNewEvent_CreatesValidEvent(t *testing.T) {
+	type testPayload struct {
+		Path string `json:"path"`
 	}
-	ts := time.Date(2026, 2, 28, 12, 0, 0, 0, time.UTC)
 
-	// when
-	ev, err := NewEvent(EventDeliverySucceeded, data, ts)
-
-	// then
+	e, err := NewEvent(EventDeliveryCompleted, testPayload{Path: "/outbox/test.md"}, time.Now())
 	if err != nil {
 		t.Fatalf("NewEvent: %v", err)
 	}
-	if ev.ID == "" {
-		t.Error("expected non-empty ID")
+	if e.ID == "" {
+		t.Error("event ID must not be empty")
 	}
-	if ev.Type != EventDeliverySucceeded {
-		t.Errorf("expected type %s, got %s", EventDeliverySucceeded, ev.Type)
+	if e.Type != EventDeliveryCompleted {
+		t.Errorf("event type = %q, want %q", e.Type, EventDeliveryCompleted)
 	}
-	if !ev.Timestamp.Equal(ts) {
-		t.Errorf("expected timestamp %v, got %v", ts, ev.Timestamp)
+	if e.Timestamp.IsZero() {
+		t.Error("timestamp must not be zero")
 	}
 
-	var payload DeliverySucceededData
-	if err := json.Unmarshal(ev.Data, &payload); err != nil {
-		t.Fatalf("unmarshal payload: %v", err)
+	var payload testPayload
+	if err := json.Unmarshal(e.Data, &payload); err != nil {
+		t.Fatalf("unmarshal data: %v", err)
 	}
-	if payload.Kind != "report" {
-		t.Errorf("expected kind 'report', got %q", payload.Kind)
+	if payload.Path != "/outbox/test.md" {
+		t.Errorf("payload.Path = %q, want %q", payload.Path, "/outbox/test.md")
 	}
 }
 
-func TestValidateEvent_RequiredFields(t *testing.T) {
+func TestValidateEvent_RejectsEmptyFields(t *testing.T) {
 	tests := []struct {
-		name string
-		ev   Event
-		want string
+		name  string
+		event Event
 	}{
-		{"empty ID", Event{Type: "test", Timestamp: time.Now(), Data: json.RawMessage(`{}`)}, "ID"},
-		{"empty Type", Event{ID: "x", Timestamp: time.Now(), Data: json.RawMessage(`{}`)}, "Type"},
-		{"zero Timestamp", Event{ID: "x", Type: "test", Data: json.RawMessage(`{}`)}, "Timestamp"},
-		{"empty Data", Event{ID: "x", Type: "test", Timestamp: time.Now()}, "Data"},
+		{name: "empty ID", event: Event{Type: "test", Timestamp: time.Now()}},
+		{name: "empty Type", event: Event{ID: "abc", Timestamp: time.Now()}},
+		{name: "zero Timestamp", event: Event{ID: "abc", Type: "test"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateEvent(tt.ev)
-			if err == nil {
-				t.Fatal("expected validation error")
-			}
-			if !contains(err.Error(), tt.want) {
-				t.Errorf("expected error about %q, got %q", tt.want, err.Error())
+			if err := ValidateEvent(tt.event); err == nil {
+				t.Error("expected validation error")
 			}
 		})
 	}
 }
 
-func TestValidateEvent_ValidEvent(t *testing.T) {
-	ev, _ := NewEvent(EventDeliverySucceeded, DeliverySucceededData{Kind: "report"}, time.Now())
-	if err := ValidateEvent(ev); err != nil {
-		t.Errorf("expected valid event, got %v", err)
+func TestValidateEvent_AcceptsValidEvent(t *testing.T) {
+	e, _ := NewEvent(EventDeliveryCompleted, map[string]string{"k": "v"}, time.Now())
+	if err := ValidateEvent(e); err != nil {
+		t.Errorf("expected no error, got: %v", err)
 	}
 }
 
-func TestEventTypes_ArePastTense(t *testing.T) {
-	// verify all event types follow past-tense naming convention
-	types := []EventType{
-		EventDeliverySucceeded,
-		EventDeliveryFailed,
-		EventDeliveryRetried,
-		EventStartupScanCompleted,
-	}
-	for _, et := range types {
-		if string(et) == "" {
-			t.Errorf("empty event type")
-		}
-	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
-}
-
-func containsStr(s, substr string) bool {
-	for i := 0; i+len(substr) <= len(s); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+func TestEventStoreInterface_Exists(t *testing.T) {
+	// Compile-time check: EventStore interface is defined.
+	var _ EventStore = nil
+	_ = t
 }

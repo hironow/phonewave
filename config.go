@@ -33,6 +33,7 @@ type RouteConfig struct {
 	RepoPath string   `yaml:"repo_path"`
 }
 
+
 // AddRepository appends a new repository with its endpoints to the config.
 func (c *Config) AddRepository(path string, endpoints []Endpoint) {
 	repo := RepoConfig{Path: path}

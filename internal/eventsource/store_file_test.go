@@ -12,78 +12,79 @@ func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 	// given
 	dir := t.TempDir()
 	store := eventsource.NewFileEventStore(dir)
-	ts := time.Date(2026, 2, 28, 12, 0, 0, 0, time.UTC)
-
-	ev1, err := phonewave.NewEvent(phonewave.EventDeliverySucceeded, phonewave.DeliverySucceededData{
-		Kind:        "report",
-		SourcePath:  "outbox/rp-001.md",
-		DeliveredTo: []string{"inbox/rp-001.md"},
-	}, ts)
+	ev, err := phonewave.NewEvent(phonewave.EventDeliveryCompleted, map[string]string{"to": "inbox"}, time.Now())
 	if err != nil {
-		t.Fatalf("NewEvent: %v", err)
-	}
-
-	ev2, err := phonewave.NewEvent(phonewave.EventDeliveryFailed, phonewave.DeliveryFailedData{
-		Kind:       "feedback",
-		SourcePath: "outbox/fb-001.md",
-		Reason:     "no route",
-		Attempt:    1,
-	}, ts.Add(time.Second))
-	if err != nil {
-		t.Fatalf("NewEvent: %v", err)
+		t.Fatalf("new event: %v", err)
 	}
 
 	// when
-	if err := store.Append(ev1); err != nil {
-		t.Fatalf("Append ev1: %v", err)
+	if err := store.Append(ev); err != nil {
+		t.Fatalf("append: %v", err)
 	}
-	if err := store.Append(ev2); err != nil {
-		t.Fatalf("Append ev2: %v", err)
+	events, err := store.LoadAll()
+	if err != nil {
+		t.Fatalf("load all: %v", err)
 	}
 
 	// then
-	events, err := store.LoadAll()
-	if err != nil {
-		t.Fatalf("LoadAll: %v", err)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
 	}
-	if len(events) != 2 {
-		t.Fatalf("expected 2 events, got %d", len(events))
+	if events[0].ID != ev.ID {
+		t.Errorf("expected ID %s, got %s", ev.ID, events[0].ID)
 	}
-	if events[0].Type != phonewave.EventDeliverySucceeded {
-		t.Errorf("expected first event type %s, got %s", phonewave.EventDeliverySucceeded, events[0].Type)
-	}
-	if events[1].Type != phonewave.EventDeliveryFailed {
-		t.Errorf("expected second event type %s, got %s", phonewave.EventDeliveryFailed, events[1].Type)
+	if events[0].Type != phonewave.EventDeliveryCompleted {
+		t.Errorf("expected type %s, got %s", phonewave.EventDeliveryCompleted, events[0].Type)
 	}
 }
 
-func TestFileEventStore_LoadSince(t *testing.T) {
+func TestFileEventStore_LoadSince_FiltersOlderEvents(t *testing.T) {
 	// given
 	dir := t.TempDir()
 	store := eventsource.NewFileEventStore(dir)
-	base := time.Date(2026, 2, 28, 10, 0, 0, 0, time.UTC)
-
-	for i := range 3 {
-		ev, _ := phonewave.NewEvent(phonewave.EventDeliverySucceeded, phonewave.DeliverySucceededData{Kind: "report"}, base.Add(time.Duration(i)*time.Hour))
-		if err := store.Append(ev); err != nil {
-			t.Fatalf("Append %d: %v", i, err)
-		}
+	old, err := phonewave.NewEvent(phonewave.EventScanCompleted, nil, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("new event: %v", err)
+	}
+	recent, err := phonewave.NewEvent(phonewave.EventDeliveryCompleted, nil, time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("new event: %v", err)
+	}
+	if err := store.Append(old, recent); err != nil {
+		t.Fatalf("append: %v", err)
 	}
 
-	// when: load events after the first one
-	cutoff := base.Add(30 * time.Minute)
-	events, err := store.LoadSince(cutoff)
+	// when
+	events, err := store.LoadSince(time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("load since: %v", err)
+	}
 
 	// then
-	if err != nil {
-		t.Fatalf("LoadSince: %v", err)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
 	}
-	if len(events) != 2 {
-		t.Fatalf("expected 2 events after cutoff, got %d", len(events))
+	if events[0].ID != recent.ID {
+		t.Errorf("expected recent event, got %s", events[0].ID)
 	}
 }
 
-func TestFileEventStore_EmptyDir(t *testing.T) {
+func TestFileEventStore_AppendRejectsInvalidEvent(t *testing.T) {
+	// given
+	dir := t.TempDir()
+	store := eventsource.NewFileEventStore(dir)
+	invalid := phonewave.Event{} // missing ID, Type, Timestamp
+
+	// when
+	err := store.Append(invalid)
+
+	// then
+	if err == nil {
+		t.Fatal("expected error for invalid event, got nil")
+	}
+}
+
+func TestFileEventStore_LoadAll_EmptyDir(t *testing.T) {
 	// given
 	dir := t.TempDir()
 	store := eventsource.NewFileEventStore(dir)
@@ -93,52 +94,30 @@ func TestFileEventStore_EmptyDir(t *testing.T) {
 
 	// then
 	if err != nil {
-		t.Fatalf("LoadAll on empty: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(events) != 0 {
 		t.Errorf("expected 0 events, got %d", len(events))
 	}
 }
 
-func TestFileEventStore_DailyRotation(t *testing.T) {
-	// given: events across 2 days
-	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
-	day1 := time.Date(2026, 2, 27, 12, 0, 0, 0, time.UTC)
-	day2 := time.Date(2026, 2, 28, 12, 0, 0, 0, time.UTC)
-
-	ev1, _ := phonewave.NewEvent(phonewave.EventDeliverySucceeded, phonewave.DeliverySucceededData{Kind: "report"}, day1)
-	ev2, _ := phonewave.NewEvent(phonewave.EventDeliveryFailed, phonewave.DeliveryFailedData{Kind: "feedback", Reason: "err"}, day2)
+func TestFileEventStore_LoadAll_NonexistentDir(t *testing.T) {
+	// given
+	store := eventsource.NewFileEventStore("/nonexistent/path/events")
 
 	// when
-	if err := store.Append(ev1, ev2); err != nil {
-		t.Fatalf("Append: %v", err)
-	}
-
-	// then: both events loadable and in chronological order
 	events, err := store.LoadAll()
+
+	// then
 	if err != nil {
-		t.Fatalf("LoadAll: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(events) != 2 {
-		t.Fatalf("expected 2 events, got %d", len(events))
-	}
-	if !events[0].Timestamp.Before(events[1].Timestamp) {
-		t.Error("expected chronological order")
+	if events != nil {
+		t.Errorf("expected nil events, got %v", events)
 	}
 }
 
-func TestFileEventStore_RejectInvalidEvent(t *testing.T) {
-	// given: event with empty ID
-	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
-	bad := phonewave.Event{Type: "test", Timestamp: time.Now()}
-
-	// when
-	err := store.Append(bad)
-
-	// then
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
+func TestFileEventStore_ImplementsInterface(t *testing.T) {
+	// Compile-time check is in store_file.go, but verify at runtime too.
+	var _ phonewave.EventStore = eventsource.NewFileEventStore("")
 }

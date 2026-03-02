@@ -1,6 +1,7 @@
 package phonewave
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,58 +11,51 @@ import (
 	"github.com/google/uuid"
 )
 
-// EventStore is the append-only event persistence interface.
+// EventDispatcher processes events after persistence (e.g. POLICY dispatch).
+type EventDispatcher interface {
+	Dispatch(ctx context.Context, event Event) error
+}
+
+// EventStore is the interface for an append-only event log.
 type EventStore interface {
-	// Append persists one or more events. Validation is performed before any writes.
 	Append(events ...Event) error
-
-	// LoadAll returns all events in chronological order.
 	LoadAll() ([]Event, error)
-
-	// LoadSince returns events with timestamps after the given time.
 	LoadSince(after time.Time) ([]Event, error)
+}
+
+// ErrorQueueStore manages failed D-Mail delivery records with atomic claim
+// semantics to prevent duplicate processing across concurrent daemon instances.
+type ErrorQueueStore interface {
+	Enqueue(name string, data []byte, meta ErrorMetadata) error
+	ClaimPendingRetries(claimerID string, maxRetries int) ([]ErrorEntry, error)
+	PendingCount(maxRetries int) (int, error)
+	IncrementRetry(name string, newError string) error
+	MarkResolved(name string) error
+	Close() error
 }
 
 // EventType identifies the kind of domain event.
 type EventType string
 
 const (
-	EventDeliverySucceeded    EventType = "delivery.succeeded"
-	EventDeliveryFailed       EventType = "delivery.failed"
-	EventDeliveryRetried      EventType = "delivery.retried"
-	EventStartupScanCompleted EventType = "startup_scan.completed"
+	EventDeliveryCompleted EventType = "delivery.completed"
+	EventDeliveryFailed    EventType = "delivery.failed"
+	EventErrorRecorded     EventType = "error.recorded"
+	EventErrorRetried      EventType = "error.retried"
+	EventScanCompleted     EventType = "scan.completed"
 )
 
-// Event is the envelope for all domain events in the event store.
+// Event is the immutable event envelope persisted to the event store.
 type Event struct {
-	ID        string          `json:"id"`
-	Type      EventType       `json:"type"`
-	Timestamp time.Time       `json:"timestamp"`
-	Data      json.RawMessage `json:"data"`
+	ID            string          `json:"id"`
+	Type          EventType       `json:"type"`
+	Timestamp     time.Time       `json:"timestamp"`
+	Data          json.RawMessage `json:"data"`
+	CorrelationID string          `json:"correlation_id,omitempty"`
+	CausationID   string          `json:"causation_id,omitempty"`
 }
 
-// ValidateEvent checks that an Event has all required fields populated.
-func ValidateEvent(e Event) error {
-	var errs []string
-	if e.ID == "" {
-		errs = append(errs, "ID is required")
-	}
-	if e.Type == "" {
-		errs = append(errs, "Type is required")
-	}
-	if e.Timestamp.IsZero() {
-		errs = append(errs, "Timestamp must not be zero")
-	}
-	if len(e.Data) == 0 {
-		errs = append(errs, "Data must not be empty")
-	}
-	if len(errs) > 0 {
-		return errors.New("invalid event: " + strings.Join(errs, "; "))
-	}
-	return nil
-}
-
-// NewEvent creates a new Event with a UUID, the given timestamp, and marshaled data payload.
+// NewEvent creates an Event with a UUID, the given timestamp, and marshaled data payload.
 func NewEvent(eventType EventType, data any, timestamp time.Time) (Event, error) {
 	raw, err := json.Marshal(data)
 	if err != nil {
@@ -75,31 +69,30 @@ func NewEvent(eventType EventType, data any, timestamp time.Time) (Event, error)
 	}, nil
 }
 
-// DeliverySucceededData is the payload for EventDeliverySucceeded.
-type DeliverySucceededData struct {
-	Kind        string   `json:"kind"`
-	SourcePath  string   `json:"source_path"`
-	DeliveredTo []string `json:"delivered_to"`
+// ErrorEntry holds a single error queue record.
+type ErrorEntry struct {
+	Name         string
+	Data         []byte
+	SourceOutbox string
+	Kind         string
+	ErrorMessage string
+	RetryCount   int
 }
 
-// DeliveryFailedData is the payload for EventDeliveryFailed.
-type DeliveryFailedData struct {
-	Kind       string `json:"kind"`
-	SourcePath string `json:"source_path"`
-	Reason     string `json:"reason"`
-	Attempt    int    `json:"attempt"`
-}
-
-// DeliveryRetriedData is the payload for EventDeliveryRetried.
-type DeliveryRetriedData struct {
-	Kind        string   `json:"kind"`
-	SourcePath  string   `json:"source_path"`
-	DeliveredTo []string `json:"delivered_to"`
-	Attempt     int      `json:"attempt"`
-}
-
-// StartupScanCompletedData is the payload for EventStartupScanCompleted.
-type StartupScanCompletedData struct {
-	Delivered int `json:"delivered"`
-	Failed    int `json:"failed"`
+// ValidateEvent checks structural validity of an Event before persistence.
+func ValidateEvent(e Event) error {
+	var errs []string
+	if e.ID == "" {
+		errs = append(errs, "ID is required")
+	}
+	if e.Type == "" {
+		errs = append(errs, "Type is required")
+	}
+	if e.Timestamp.IsZero() {
+		errs = append(errs, "Timestamp must not be zero")
+	}
+	if len(errs) > 0 {
+		return errors.New("invalid event: " + strings.Join(errs, "; "))
+	}
+	return nil
 }

@@ -5,28 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave"
 	"gopkg.in/yaml.v3"
 )
 
-// Compile-time check that FileConfigLoader implements phonewave.ConfigLoader.
-var _ phonewave.ConfigLoader = (*FileConfigLoader)(nil)
-
-// FileConfigLoader implements phonewave.ConfigLoader using the local filesystem.
-type FileConfigLoader struct{}
-
-// Load reads and parses a phonewave.yaml file.
-func (FileConfigLoader) Load(path string) (*phonewave.Config, error) {
-	return LoadConfig(path)
-}
-
-// Save writes a Config to the given path as YAML.
-func (FileConfigLoader) Save(path string, cfg *phonewave.Config) error {
-	return WriteConfig(path, cfg)
-}
-
-// LoadConfig reads and parses a phonewave.yaml file. Relative paths in the
-// config are resolved to absolute paths using the config file's directory.
+// LoadConfig reads and parses a phonewave.yaml file.
+// Relative paths in repositories[].path and routes[].repo_path are resolved
+// to absolute paths based on the config file's directory.
 func LoadConfig(path string) (*phonewave.Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -36,21 +21,20 @@ func LoadConfig(path string) (*phonewave.Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-
 	configDir := filepath.Dir(path)
-	resolveConfigPaths(&cfg, configDir)
+	resolveRelPaths(&cfg, configDir)
 	return &cfg, nil
 }
 
-// WriteConfig writes a Config to the given path as YAML. Absolute paths in
-// the config are converted to relative paths based on the config file's directory.
+// WriteConfig writes a Config to the given path as YAML.
+// Absolute paths in repositories[].path and routes[].repo_path are converted
+// to relative paths based on the config file's directory, so the config file
+// is portable across machines when checked into git.
 func WriteConfig(path string, cfg *phonewave.Config) error {
 	configDir := filepath.Dir(path)
+	out := convertToRelPaths(cfg, configDir)
 
-	// Deep copy and relativize paths so the caller's cfg is not mutated.
-	relative := relativizeConfigPaths(cfg, configDir)
-
-	data, err := yaml.Marshal(relative)
+	data, err := yaml.Marshal(out)
 	if err != nil {
 		return err
 	}
@@ -59,50 +43,53 @@ func WriteConfig(path string, cfg *phonewave.Config) error {
 	return os.WriteFile(path, []byte(header+string(data)), 0644)
 }
 
-// relativizeConfigPaths returns a shallow copy of cfg with absolute paths
-// converted to relative paths based on configDir. Fields other than paths
-// are shared (not deep-copied) since they are not mutated.
-func relativizeConfigPaths(cfg *phonewave.Config, configDir string) *phonewave.Config {
+// convertToRelPaths returns a shallow copy of cfg with absolute paths
+// converted to relative paths. Paths that cannot be relativised (e.g.
+// different Windows drive letters) are kept absolute.
+func convertToRelPaths(cfg *phonewave.Config, configDir string) *phonewave.Config {
 	out := *cfg
 
 	repos := make([]phonewave.RepoConfig, len(cfg.Repositories))
-	for i, repo := range cfg.Repositories {
-		repos[i] = repo
-		if filepath.IsAbs(repo.Path) {
-			if rel, err := filepath.Rel(configDir, repo.Path); err == nil {
-				repos[i].Path = rel
-			}
-		}
+	for i, r := range cfg.Repositories {
+		repos[i] = r
+		repos[i].Path = toRel(configDir, r.Path)
 	}
 	out.Repositories = repos
 
 	routes := make([]phonewave.RouteConfig, len(cfg.Routes))
-	for i, route := range cfg.Routes {
-		routes[i] = route
-		if filepath.IsAbs(route.RepoPath) {
-			if rel, err := filepath.Rel(configDir, route.RepoPath); err == nil {
-				routes[i].RepoPath = rel
-			}
-		}
+	for i, r := range cfg.Routes {
+		routes[i] = r
+		routes[i].RepoPath = toRel(configDir, r.RepoPath)
 	}
 	out.Routes = routes
 
 	return &out
 }
 
-// resolveConfigPaths converts relative paths in cfg to absolute paths
-// based on configDir. Paths that are already absolute are left unchanged.
-func resolveConfigPaths(cfg *phonewave.Config, configDir string) {
+// resolveRelPaths converts relative paths in cfg to absolute, in place.
+func resolveRelPaths(cfg *phonewave.Config, configDir string) {
 	for i := range cfg.Repositories {
-		p := cfg.Repositories[i].Path
-		if !filepath.IsAbs(p) {
-			cfg.Repositories[i].Path = filepath.Join(configDir, p)
-		}
+		cfg.Repositories[i].Path = toAbs(configDir, cfg.Repositories[i].Path)
 	}
 	for i := range cfg.Routes {
-		p := cfg.Routes[i].RepoPath
-		if !filepath.IsAbs(p) {
-			cfg.Routes[i].RepoPath = filepath.Join(configDir, p)
-		}
+		cfg.Routes[i].RepoPath = toAbs(configDir, cfg.Routes[i].RepoPath)
 	}
+}
+
+func toRel(base, target string) string {
+	if target == "" {
+		return ""
+	}
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return target
+	}
+	return rel
+}
+
+func toAbs(base, target string) string {
+	if target == "" || filepath.IsAbs(target) {
+		return target
+	}
+	return filepath.Join(base, target)
 }

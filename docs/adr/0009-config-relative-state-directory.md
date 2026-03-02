@@ -1,7 +1,7 @@
 # 0009. Config-Relative State Directory
 
 **Date:** 2026-02-23
-**Status:** Superseded by S0007
+**Status:** Accepted
 
 ## Context
 

@@ -1,5 +1,18 @@
 # Architecture Decision Records
 
+## Numbering Scheme
+
+| Range | Scope | Description |
+|-------|-------|-------------|
+| 0000-0009 | Shared (canonical: phonewave) | Cross-tool decisions. All 4 tools follow these. |
+| 0006+ (per tool) | Tool-specific | Each tool numbers its own ADRs starting from 0006. |
+| S00XX | Shared additions (canonical: phonewave) | Post-initial shared decisions added during alignment. |
+
+- **Shared ADRs** live only in phonewave `docs/adr/`. Other tools reference them but do not copy them.
+- **Tool-specific ADRs** live in each tool's own `docs/adr/` with numbering starting at 0006.
+- **S-series ADRs** are shared decisions added after the initial 0000-0005 set. They also live only in phonewave.
+- Semgrep rules enforcing shared ADRs are copied to each tool's `.semgrep/shared-adr.yaml`.
+
 ## Shared ADRs (canonical: phonewave)
 
 phonewave holds the canonical version of these ADRs for the 4-tool ecosystem
@@ -15,18 +28,21 @@ do not copy them.
 | [0004](0004-dmail-schema-v1.md) | D-Mail Schema v1 specification | MY-352, MY-353 |
 | [0005](0005-fsnotify-daemon-design.md) | fsnotify-based file watch daemon | MY-363 |
 
-## Extended Shared ADRs (S-series, canonical: phonewave)
+## S-series Shared ADRs (canonical: phonewave)
 
-Cross-tool patterns independently discovered in multiple tools,
-subsequently recognized as shared conventions.
-
-| # | Decision |
-|---|----------|
-| [S0001](S0001-logger-root-package-exception.md) | ~~Logger as root package exception~~ (superseded by S0005) |
-| [S0002](S0002-event-sourcing-jsonl-pattern.md) | JSONL append-only event sourcing pattern |
-| [S0003](S0003-three-way-approval-contract.md) | Three-way approval contract |
-| [S0004](S0004-layer-architecture-conventions.md) | ~~Layer architecture conventions~~ (superseded by S0005) |
-| [S0005](S0005-root-infrastructure-and-layer-conventions.md) | Root infrastructure pattern and layer conventions |
+| # | Decision | Linear |
+|---|----------|--------|
+| [S0011](S0011-sqlite-wal-cooperative-model.md) | SQLite WAL cooperative model for concurrent CLI | — |
+| [S0012](S0012-reference-data-management.md) | Reference data management pattern | — |
+| [S0013](S0013-command-naming-convention.md) | COMMAND naming convention (imperative present tense) | — |
+| [S0014](S0014-policy-pattern-reference.md) | POLICY pattern reference implementation | — |
+| [S0015](S0015-state-directory-naming.md) | State directory naming convention | — |
+| [S0016](S0016-root-package-organization.md) | Root package file organization | — |
+| [S0017](S0017-aggregate-root-and-usecase-layer.md) | Aggregate root and use case layer | — |
+| [S0018](S0018-event-storming-alignment.md) | Event Storming alignment and per-tool applicability | — |
+| [S0019](S0019-data-persistence-boundaries.md) | Data persistence boundaries (Linear/GitHub/local) | — |
+| [S0020](S0020-accepted-cross-tool-divergence.md) | Accepted cross-tool divergence (default subcommand, storage model) | — |
+| [S0021](S0021-dmail-receive-side-postel-law.md) | D-Mail receive-side validation (Postel's Law) | — |
 
 ## phonewave-specific ADRs
 
@@ -36,4 +52,3 @@ subsequently recognized as shared conventions.
 | [0007](0007-testcontainers-docker-e2e.md) | testcontainers-go Docker E2E testing strategy | MY-363 |
 | [0008](0008-signal-context-propagation.md) | Signal context propagation and daemon lifecycle | MY-363 |
 | [0009](0009-config-relative-state-directory.md) | Config-relative state directory | MY-363 |
-| [0010](0010-root-package-layer-separation.md) | Root package layer separation | — |

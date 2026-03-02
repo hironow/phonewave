@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave"
 )
 
 func TestConfigRoundTrip(t *testing.T) {
@@ -100,30 +100,17 @@ func TestWriteConfig_CreatesYAMLFile(t *testing.T) {
 	}
 }
 
-// === P1-12: Relative Path Tests ===
-
 func TestWriteConfig_StoresRelativePaths(t *testing.T) {
-	// given — config with absolute paths, written to a known directory
+	// given — config with absolute repo paths
 	dir := t.TempDir()
-	configDir := filepath.Join(dir, ".phonewave")
-	os.MkdirAll(configDir, 0755)
-	configPath := filepath.Join(configDir, phonewave.ConfigFile)
-
-	repoPath := filepath.Join(dir, "myrepo")
-	os.MkdirAll(repoPath, 0755)
-
+	repoPath := filepath.Join(dir, "my-repo")
+	configPath := filepath.Join(dir, phonewave.ConfigFile)
 	cfg := &phonewave.Config{
-		LastSynced: time.Now().UTC(),
 		Repositories: []phonewave.RepoConfig{
-			{
-				Path: repoPath, // absolute path
-				Endpoints: []phonewave.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}},
-				},
-			},
+			{Path: repoPath, Endpoints: []phonewave.EndpointConfig{{Dir: ".siren"}}},
 		},
 		Routes: []phonewave.RouteConfig{
-			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository", RepoPath: repoPath},
+			{Kind: "specification", From: ".siren/outbox", To: []string{".siren/inbox"}, RepoPath: repoPath},
 		},
 	}
 
@@ -132,72 +119,116 @@ func TestWriteConfig_StoresRelativePaths(t *testing.T) {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
-	// then — raw YAML must NOT contain the absolute path
+	// then — on-disk YAML should contain relative path, not absolute
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("read file: %v", err)
 	}
 	content := string(data)
-	if strings.Contains(content, repoPath) {
-		t.Errorf("config file contains absolute path %q:\n%s", repoPath, content)
+
+	if strings.Contains(content, dir) {
+		t.Errorf("YAML should not contain absolute directory %q, got:\n%s", dir, content)
+	}
+	if !strings.Contains(content, "my-repo") {
+		t.Errorf("YAML should contain relative path 'my-repo', got:\n%s", content)
+	}
+
+	// original cfg should not be mutated
+	if cfg.Repositories[0].Path != repoPath {
+		t.Errorf("WriteConfig mutated original config: path = %q, want %q", cfg.Repositories[0].Path, repoPath)
 	}
 }
 
 func TestLoadConfig_ResolvesRelativePaths(t *testing.T) {
-	// given — config file with relative paths
+	// given — YAML with relative paths
 	dir := t.TempDir()
-	configDir := filepath.Join(dir, ".phonewave")
-	os.MkdirAll(configDir, 0755)
-	configPath := filepath.Join(configDir, phonewave.ConfigFile)
-
-	repoPath := filepath.Join(dir, "myrepo")
-	os.MkdirAll(repoPath, 0755)
-
-	cfg := &phonewave.Config{
-		LastSynced: time.Now().UTC(),
-		Repositories: []phonewave.RepoConfig{
-			{
-				Path: repoPath,
-				Endpoints: []phonewave.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}},
-				},
-			},
-		},
-		Routes: []phonewave.RouteConfig{
-			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository", RepoPath: repoPath},
-		},
+	configPath := filepath.Join(dir, phonewave.ConfigFile)
+	yamlContent := `repositories:
+  - path: my-repo
+    endpoints:
+      - dir: .siren
+routes:
+  - kind: specification
+    from: .siren/outbox
+    to: [.siren/inbox]
+    repo_path: my-repo
+`
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0o644); err != nil {
+		t.Fatalf("write yaml: %v", err)
 	}
 
-	// Write config (should store relative paths)
-	if err := WriteConfig(configPath, cfg); err != nil {
-		t.Fatalf("WriteConfig: %v", err)
-	}
-
-	// when — load config
-	loaded, err := LoadConfig(configPath)
+	// when
+	cfg, err := LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 
-	// then — paths must be resolved back to absolute
-	if len(loaded.Repositories) != 1 {
-		t.Fatalf("want 1 repository, got %d", len(loaded.Repositories))
+	// then — paths should be resolved to absolute
+	expectedPath := filepath.Join(dir, "my-repo")
+	if cfg.Repositories[0].Path != expectedPath {
+		t.Errorf("repo path = %q, want %q", cfg.Repositories[0].Path, expectedPath)
 	}
-	gotPath := loaded.Repositories[0].Path
-	if !filepath.IsAbs(gotPath) {
-		t.Errorf("loaded repo path should be absolute, got %q", gotPath)
+	if cfg.Routes[0].RepoPath != expectedPath {
+		t.Errorf("route repo_path = %q, want %q", cfg.Routes[0].RepoPath, expectedPath)
 	}
-	if gotPath != repoPath {
-		t.Errorf("loaded repo path = %q, want %q", gotPath, repoPath)
+}
+
+func TestLoadConfig_BackwardCompat_AbsolutePaths(t *testing.T) {
+	// given — YAML with absolute paths (legacy format)
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, phonewave.ConfigFile)
+	yamlContent := `repositories:
+  - path: /absolute/path/to/repo
+    endpoints:
+      - dir: .siren
+routes:
+  - kind: specification
+    from: .siren/outbox
+    to: [.siren/inbox]
+    repo_path: /absolute/path/to/repo
+`
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0o644); err != nil {
+		t.Fatalf("write yaml: %v", err)
 	}
-	if len(loaded.Routes) != 1 {
-		t.Fatalf("want 1 route, got %d", len(loaded.Routes))
+
+	// when
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
 	}
-	gotRoutePath := loaded.Routes[0].RepoPath
-	if !filepath.IsAbs(gotRoutePath) {
-		t.Errorf("loaded route repo_path should be absolute, got %q", gotRoutePath)
+
+	// then — absolute paths should be kept as-is
+	if cfg.Repositories[0].Path != "/absolute/path/to/repo" {
+		t.Errorf("repo path = %q, want %q", cfg.Repositories[0].Path, "/absolute/path/to/repo")
 	}
-	if gotRoutePath != repoPath {
-		t.Errorf("loaded route repo_path = %q, want %q", gotRoutePath, repoPath)
+	if cfg.Routes[0].RepoPath != "/absolute/path/to/repo" {
+		t.Errorf("route repo_path = %q, want %q", cfg.Routes[0].RepoPath, "/absolute/path/to/repo")
+	}
+}
+
+func TestWriteConfig_RoutesAlsoRelative(t *testing.T) {
+	// given — config with routes containing absolute repo_path
+	dir := t.TempDir()
+	repoPath := filepath.Join(dir, "project")
+	configPath := filepath.Join(dir, phonewave.ConfigFile)
+	cfg := &phonewave.Config{
+		Routes: []phonewave.RouteConfig{
+			{Kind: "report", From: ".expedition/outbox", To: []string{".siren/inbox"}, RepoPath: repoPath},
+		},
+	}
+
+	// when
+	if err := WriteConfig(configPath, cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+
+	// then
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	content := string(data)
+	if strings.Contains(content, dir) {
+		t.Errorf("route repo_path should be relative, found absolute directory in:\n%s", content)
 	}
 }

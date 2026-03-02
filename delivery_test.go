@@ -156,6 +156,45 @@ description: "Unsupported schema version"
 	}
 }
 
+func TestValidateKind_CIResult(t *testing.T) {
+	// given
+	kind := "ci-result"
+
+	// when
+	err := ValidateKind(kind)
+
+	// then
+	if err != nil {
+		t.Errorf("ValidateKind(%q) = %v, want nil", kind, err)
+	}
+}
+
+func TestExtractDMailKind_WithActionField(t *testing.T) {
+	// given
+	content := `---
+dmail-schema-version: "1"
+name: feedback-action-001
+kind: feedback
+description: "Evaluation with retry action"
+action: retry
+priority: 2
+---
+
+Implementation needs revision.
+`
+
+	// when
+	got, err := ExtractDMailKind([]byte(content))
+
+	// then
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "feedback" {
+		t.Errorf("kind = %q, want %q", got, "feedback")
+	}
+}
+
 func TestValidateKind(t *testing.T) {
 	tests := []struct {
 		kind    string
@@ -165,6 +204,7 @@ func TestValidateKind(t *testing.T) {
 		{"report", false},
 		{"feedback", false},
 		{"convergence", false},
+		{"ci-result", false},
 		{"", true},
 		{"unknown", true},
 		{"SPECIFICATION", true},

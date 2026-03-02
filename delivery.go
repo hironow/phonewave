@@ -11,12 +11,38 @@ import (
 // SupportedDMailSchemaVersion is the only accepted dmail-schema-version value.
 const SupportedDMailSchemaVersion = "1"
 
+// DeliveryStore manages staged delivery intents with transactional guarantees.
+// Stage records the intent; Flush writes files and marks them done.
+type DeliveryStore interface {
+	StageDelivery(dmailPath string, data []byte, targets []string) error
+	FlushDeliveries() ([]DeliveryFlushed, error)
+	RecoverUnflushed() ([]StagedDelivery, error)
+	AllFlushedFor(dmailPath string) (bool, error)
+	PruneFlushed() (int, error)
+	Close() error
+}
+
+// DeliveryFlushed represents a single target that was successfully flushed.
+type DeliveryFlushed struct {
+	DMailPath string
+	Target    string
+}
+
+// StagedDelivery represents an unflushed delivery intent.
+type StagedDelivery struct {
+	DMailPath string
+	Target    string
+	Data      []byte
+}
+
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
 type DMailFrontmatter struct {
 	SchemaVersion string `yaml:"dmail-schema-version"`
 	Name          string `yaml:"name"`
 	Kind          string `yaml:"kind"`
 	Description   string `yaml:"description"`
+	Action        string `yaml:"action,omitempty"`
+	Priority      int    `yaml:"priority,omitempty"`
 }
 
 // ResolvedRoute is a concrete route with absolute paths for delivery.
@@ -34,7 +60,7 @@ type DeliveryResult struct {
 }
 
 // validDMailKinds lists the allowed D-Mail kind values per schema v1.
-var validDMailKinds = []string{"specification", "report", "feedback", "convergence"}
+var validDMailKinds = []string{"specification", "report", "feedback", "convergence", "ci-result"}
 
 // ValidKinds returns a copy of the allowed D-Mail kind values.
 func ValidKinds() []string {

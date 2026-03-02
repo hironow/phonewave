@@ -1,10 +1,11 @@
 package session
 
 import (
-	phonewave "github.com/hironow/phonewave"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/hironow/phonewave"
 )
 
 func TestValidateSkillDir_ValidSkill(t *testing.T) {
