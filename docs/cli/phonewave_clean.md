@@ -1,25 +1,30 @@
-## phonewave sync
+## phonewave clean
 
-Re-scan all repositories, reconcile routing table
+Remove runtime state from .phonewave/
 
 ### Synopsis
 
-Re-scan all repositories in the ecosystem, detect endpoint changes, and reconcile the routing table.
+Remove runtime state files from the .phonewave/ directory.
+
+Removes: delivery.log, errors/, errors.db, watch.pid, watch.started, events/
+Preserves: phonewave.yaml (config) and .phonewave/.gitignore
 
 ```
-phonewave sync [flags]
+phonewave clean [flags]
 ```
 
 ### Examples
 
 ```
-  phonewave sync
+  phonewave clean
+  phonewave clean --yes
 ```
 
 ### Options
 
 ```
-  -h, --help   help for sync
+  -h, --help   help for clean
+      --yes    skip confirmation prompt
 ```
 
 ### Options inherited from parent commands

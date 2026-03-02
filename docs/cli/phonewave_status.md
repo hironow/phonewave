@@ -26,9 +26,11 @@ phonewave status [flags]
 
 ```
   -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+  -o, --output string   Output format: text, json (default "text")
   -v, --verbose         Log all delivery events to stderr
 ```
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)  - D-Mail courier daemon
+* [phonewave](phonewave.md)	 - D-Mail courier daemon
+

@@ -159,6 +159,7 @@ phonewave sync
 |------|-------|---------|-------------|
 | `--verbose` | `-v` | `false` | Log all delivery events to stderr |
 | `--config` | `-c` | `./phonewave.yaml` | Path to phonewave config file |
+| `--output` | `-o` | `text` | Output format: `text` or `json` |
 
 ### `run` command
 
