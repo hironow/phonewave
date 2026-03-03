@@ -183,8 +183,8 @@ func (w *Workspace) verifyPhonewaveRoutes(t *testing.T) {
 	// Parse the routes section
 	var cfg struct {
 		Routes []struct {
-			Kind string `yaml:"kind"`
-			From string `yaml:"from"`
+			Kind string   `yaml:"kind"`
+			From string   `yaml:"from"`
 			To   []string `yaml:"to"`
 		} `yaml:"routes"`
 	}
