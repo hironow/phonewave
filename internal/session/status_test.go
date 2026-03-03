@@ -186,4 +186,25 @@ func TestStatus_DeliveryStats(t *testing.T) {
 	if status.FailedCount24h != 1 {
 		t.Errorf("failed 24h = %d, want 1", status.FailedCount24h)
 	}
+	// SuccessRate24h = 2 delivered / (2 delivered + 1 failed) ≈ 0.6667
+	wantRate := 2.0 / 3.0
+	if status.SuccessRate24h < wantRate-0.01 || status.SuccessRate24h > wantRate+0.01 {
+		t.Errorf("success rate 24h = %f, want ~%f", status.SuccessRate24h, wantRate)
+	}
+}
+
+func TestStatus_SuccessRate_NoDeliveries(t *testing.T) {
+	// given — no delivery log
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+	cfg := &domain.Config{}
+
+	// when
+	status := Status(cfg, stateDir)
+
+	// then — 0 deliveries → 0.0 success rate
+	if status.SuccessRate24h != 0.0 {
+		t.Errorf("success rate 24h = %f, want 0.0 (no deliveries)", status.SuccessRate24h)
+	}
 }

@@ -106,6 +106,10 @@ func Status(cfg *domain.Config, stateDir string) domain.StatusReport {
 	report.DeliveredCount24h = stats.Delivered
 	report.FailedCount24h = stats.Failed
 	report.RetriedCount24h = stats.Retried
+	report.SuccessRate24h = domain.DeliveryMetrics{
+		Delivered: stats.Delivered,
+		Failed:    stats.Failed,
+	}.SuccessRate()
 
 	// Count pending error files (exclude .err sidecars to avoid 2x count)
 	errorsDir := filepath.Join(stateDir, "errors")

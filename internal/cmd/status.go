@@ -44,6 +44,9 @@ func newStatusCmd() *cobra.Command {
 			fmt.Fprintf(w, "  Pending:   %d items in error queue\n", status.PendingErrors)
 			fmt.Fprintf(w, "  Last 24h:  %d delivered, %d failed, %d retried\n",
 				status.DeliveredCount24h, status.FailedCount24h, status.RetriedCount24h)
+			fmt.Fprintf(w, "  Success:   %s\n",
+				domain.FormatSuccessRate(status.SuccessRate24h, status.DeliveredCount24h,
+					status.DeliveredCount24h+status.FailedCount24h))
 
 			return nil
 		},
