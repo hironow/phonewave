@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 )
@@ -17,7 +16,7 @@ type DaemonSession struct {
 	ErrorQueue  domain.ErrorQueueStore
 	EventStore  domain.EventStore
 	DeliveryLog *DeliveryLog
-	Routes      []phonewave.ResolvedRoute
+	Routes      []domain.ResolvedRoute
 	StateDir    string
 	Logger      *domain.Logger
 	Dispatcher  domain.EventDispatcher
@@ -29,7 +28,7 @@ func NewDaemonSession(
 	errorQueue domain.ErrorQueueStore,
 	eventStore domain.EventStore,
 	deliveryLog *DeliveryLog,
-	routes []phonewave.ResolvedRoute,
+	routes []domain.ResolvedRoute,
 	stateDir string,
 	logger *domain.Logger,
 ) *DaemonSession {
@@ -45,7 +44,7 @@ func NewDaemonSession(
 
 // RecordDeliveryEvent records a delivery.completed event to the event store.
 // Best-effort: errors are logged but do not fail the delivery.
-func (s *DaemonSession) RecordDeliveryEvent(result *phonewave.DeliveryResult) {
+func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {
 	platform.RecordDelivery(context.Background(), "completed", result.Kind)
 	if s.EventStore == nil {
 		return

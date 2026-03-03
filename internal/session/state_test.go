@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestEnsureStateDir_CreatesGitignore(t *testing.T) {
@@ -19,7 +19,7 @@ func TestEnsureStateDir_CreatesGitignore(t *testing.T) {
 	}
 
 	// then: .gitignore exists in .phonewave/
-	gitignorePath := filepath.Join(base, phonewave.StateDir, ".gitignore")
+	gitignorePath := filepath.Join(base, domain.StateDir, ".gitignore")
 	data, err := os.ReadFile(gitignorePath)
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)
@@ -42,7 +42,7 @@ func TestEnsureStateDir_GitignoreIdempotent(t *testing.T) {
 	}
 
 	// then: .gitignore still exists and is valid
-	gitignorePath := filepath.Join(base, phonewave.StateDir, ".gitignore")
+	gitignorePath := filepath.Join(base, domain.StateDir, ".gitignore")
 	data, err := os.ReadFile(gitignorePath)
 	if err != nil {
 		t.Fatalf("read .gitignore: %v", err)

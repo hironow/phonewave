@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
@@ -34,7 +33,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath
 		return nil
 	}
 
-	stateDir := filepath.Join(baseDir, phonewave.StateDir)
+	stateDir := filepath.Join(baseDir, domain.StateDir)
 	if err := session.EnsureStateDir(baseDir); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
@@ -43,7 +42,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath
 	// Prevents two daemon processes from running against the same state directory.
 	// The OS releases the lock automatically if the process crashes.
 	runDir := filepath.Join(stateDir, ".run")
-	unlock, err := phonewave.TryLockDaemon(runDir)
+	unlock, err := session.TryLockDaemon(runDir)
 	if err != nil {
 		return fmt.Errorf("daemon lock: %w", err)
 	}
@@ -66,7 +65,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath
 		logger.OK("Migrated %d legacy error queue entries to SQLite", migrated)
 	}
 
-	d, err := session.NewDaemon(phonewave.DaemonOptions{
+	d, err := session.NewDaemon(domain.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
 		StateDir:      stateDir,

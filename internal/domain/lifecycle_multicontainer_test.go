@@ -1,6 +1,6 @@
 //go:build docker
 
-package phonewave
+package domain
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package phonewave_test
+package domain_test
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
@@ -184,7 +183,7 @@ description: "Pre-existing specification"
 	// =====================================================================
 	// Phase 3: Start daemon — startup scan should deliver pre-existing file
 	// =====================================================================
-	d, err := session.NewDaemon(phonewave.DaemonOptions{
+	d, err := session.NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,
@@ -346,7 +345,7 @@ description: "Unknown"
 	}
 	linesBefore := strings.Count(string(logBeforeRestart), "\n")
 
-	d2, err := session.NewDaemon(phonewave.DaemonOptions{
+	d2, err := session.NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,

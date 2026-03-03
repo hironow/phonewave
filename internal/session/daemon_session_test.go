@@ -5,7 +5,6 @@ import (
 	"io"
 	"testing"
 
-	phonewave "github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
@@ -21,7 +20,7 @@ func newTestDaemonSession(t *testing.T) (*session.DaemonSession, string) {
 	}
 	t.Cleanup(func() { dlog.Close() })
 	logger := domain.NewLogger(io.Discard, false)
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: "/tmp/outbox", ToInboxes: []string{"/tmp/inbox"}},
 	}
 	ds := session.NewDaemonSession(errorQueue, eventStore, dlog, routes, dir, logger)
@@ -53,7 +52,7 @@ func TestNewDaemonSession(t *testing.T) {
 func TestDaemonSession_RecordDeliveryEvent(t *testing.T) {
 	// given
 	ds, _ := newTestDaemonSession(t)
-	result := &phonewave.DeliveryResult{
+	result := &domain.DeliveryResult{
 		Kind:        "specification",
 		SourcePath:  "/tmp/outbox/spec.md",
 		DeliveredTo: []string{"/tmp/inbox/spec.md"},
@@ -141,7 +140,7 @@ func TestDaemonSession_RecordDeliveryEvent_NilEventStore(t *testing.T) {
 	ds.EventStore = nil
 
 	// when: should not panic
-	ds.RecordDeliveryEvent(&phonewave.DeliveryResult{
+	ds.RecordDeliveryEvent(&domain.DeliveryResult{
 		Kind:       "specification",
 		SourcePath: "/tmp/outbox/spec.md",
 	})

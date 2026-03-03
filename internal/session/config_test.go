@@ -7,29 +7,29 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestConfigRoundTrip(t *testing.T) {
 	// given
-	cfg := &phonewave.Config{
+	cfg := &domain.Config{
 		LastSynced: time.Date(2026, 2, 20, 14, 30, 0, 0, time.UTC),
-		Repositories: []phonewave.RepoConfig{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: "/home/user/repo-a",
-				Endpoints: []phonewave.EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
 				},
 			},
 		},
-		Routes: []phonewave.RouteConfig{
+		Routes: []domain.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository"},
 		},
 	}
 
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, phonewave.ConfigFile)
+	configPath := filepath.Join(dir, domain.ConfigFile)
 
 	// when — write
 	if err := WriteConfig(configPath, cfg); err != nil {
@@ -71,13 +71,13 @@ func TestLoadConfig_NotFound(t *testing.T) {
 
 func TestWriteConfig_CreatesYAMLFile(t *testing.T) {
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, phonewave.ConfigFile)
-	cfg := &phonewave.Config{
+	configPath := filepath.Join(dir, domain.ConfigFile)
+	cfg := &domain.Config{
 		LastSynced: time.Now().UTC(),
-		Repositories: []phonewave.RepoConfig{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: "/test",
-				Endpoints: []phonewave.EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 				},
 			},
@@ -104,12 +104,12 @@ func TestWriteConfig_StoresRelativePaths(t *testing.T) {
 	// given — config with absolute repo paths
 	dir := t.TempDir()
 	repoPath := filepath.Join(dir, "my-repo")
-	configPath := filepath.Join(dir, phonewave.ConfigFile)
-	cfg := &phonewave.Config{
-		Repositories: []phonewave.RepoConfig{
-			{Path: repoPath, Endpoints: []phonewave.EndpointConfig{{Dir: ".siren"}}},
+	configPath := filepath.Join(dir, domain.ConfigFile)
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
+			{Path: repoPath, Endpoints: []domain.EndpointConfig{{Dir: ".siren"}}},
 		},
-		Routes: []phonewave.RouteConfig{
+		Routes: []domain.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".siren/inbox"}, RepoPath: repoPath},
 		},
 	}
@@ -142,7 +142,7 @@ func TestWriteConfig_StoresRelativePaths(t *testing.T) {
 func TestLoadConfig_ResolvesRelativePaths(t *testing.T) {
 	// given — YAML with relative paths
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, phonewave.ConfigFile)
+	configPath := filepath.Join(dir, domain.ConfigFile)
 	yamlContent := `repositories:
   - path: my-repo
     endpoints:
@@ -176,7 +176,7 @@ routes:
 func TestLoadConfig_BackwardCompat_AbsolutePaths(t *testing.T) {
 	// given — YAML with absolute paths (legacy format)
 	dir := t.TempDir()
-	configPath := filepath.Join(dir, phonewave.ConfigFile)
+	configPath := filepath.Join(dir, domain.ConfigFile)
 	yamlContent := `repositories:
   - path: /absolute/path/to/repo
     endpoints:
@@ -210,9 +210,9 @@ func TestWriteConfig_RoutesAlsoRelative(t *testing.T) {
 	// given — config with routes containing absolute repo_path
 	dir := t.TempDir()
 	repoPath := filepath.Join(dir, "project")
-	configPath := filepath.Join(dir, phonewave.ConfigFile)
-	cfg := &phonewave.Config{
-		Routes: []phonewave.RouteConfig{
+	configPath := filepath.Join(dir, domain.ConfigFile)
+	cfg := &domain.Config{
+		Routes: []domain.RouteConfig{
 			{Kind: "report", From: ".expedition/outbox", To: []string{".siren/inbox"}, RepoPath: repoPath},
 		},
 	}

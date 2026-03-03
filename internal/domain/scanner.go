@@ -1,4 +1,4 @@
-package phonewave
+package domain
 
 // Endpoint represents a discovered tool endpoint within a repository.
 type Endpoint struct {

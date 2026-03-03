@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
@@ -30,7 +29,7 @@ func newDoctorCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			stateDir := filepath.Join(configBase(cmd), phonewave.StateDir)
+			stateDir := filepath.Join(configBase(cmd), domain.StateDir)
 			report := session.Doctor(cfg, stateDir)
 
 			if jsonOut {

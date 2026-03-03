@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +24,7 @@ Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			base := configBase(cmd)
-			stateDir := filepath.Join(base, phonewave.StateDir)
+			stateDir := filepath.Join(base, domain.StateDir)
 
 			info, err := os.Stat(stateDir)
 			if err != nil || !info.IsDir() {

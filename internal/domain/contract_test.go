@@ -1,6 +1,6 @@
 //go:build contract
 
-package phonewave
+package domain
 
 import (
 	"os"
@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-const contractGoldenDir = "testdata/contract"
+const contractGoldenDir = "../../testdata/contract"
 
 func contractGoldenFiles(t *testing.T) []string {
 	t.Helper()

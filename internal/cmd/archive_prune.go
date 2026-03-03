@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -41,7 +41,7 @@ Pass --execute to actually remove the files.`,
 				return fmt.Errorf("--execute and --dry-run are mutually exclusive")
 			}
 			base := configBase(cmd)
-			stateDir := filepath.Join(base, phonewave.StateDir)
+			stateDir := filepath.Join(base, domain.StateDir)
 			outputFmt, _ := cmd.Flags().GetString("output")
 			errW := cmd.ErrOrStderr()
 

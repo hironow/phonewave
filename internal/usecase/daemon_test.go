@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
@@ -55,11 +54,11 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 
 	// Build a minimal config with one producing endpoint so CollectOutboxDirs
 	// returns a non-empty slice (otherwise SetupAndRunDaemon returns nil early).
-	cfg := &phonewave.Config{
-		Repositories: []phonewave.RepoConfig{
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []phonewave.EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{
 						Dir:      ".siren",
 						Produces: []string{"specification"},
@@ -68,7 +67,7 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 				},
 			},
 		},
-		Routes: []phonewave.RouteConfig{
+		Routes: []domain.RouteConfig{
 			{
 				Kind:     "specification",
 				From:     ".siren/outbox",
@@ -79,18 +78,18 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 		},
 	}
 
-	stateDirPath := filepath.Join(baseDir, phonewave.StateDir)
+	stateDirPath := filepath.Join(baseDir, domain.StateDir)
 	if err := os.MkdirAll(stateDirPath, 0o755); err != nil {
 		t.Fatalf("MkdirAll stateDir: %v", err)
 	}
-	configPath := filepath.Join(stateDirPath, phonewave.ConfigFile)
+	configPath := filepath.Join(stateDirPath, domain.ConfigFile)
 	if err := session.WriteConfig(configPath, cfg); err != nil {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
 	// Pre-acquire the daemon lock (simulating an already-running daemon)
 	runDir := filepath.Join(stateDirPath, ".run")
-	unlock, err := phonewave.TryLockDaemon(runDir)
+	unlock, err := session.TryLockDaemon(runDir)
 	if err != nil {
 		t.Fatalf("pre-acquire lock: %v", err)
 	}

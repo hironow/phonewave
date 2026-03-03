@@ -18,7 +18,6 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	phonewave "github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 )
@@ -60,11 +59,11 @@ func (b *RetryBackoff) RecordFailure() {
 
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
-	opts          phonewave.DaemonOptions
+	opts          domain.DaemonOptions
 	logger        *domain.Logger
 	watcher       *fsnotify.Watcher
 	dlog          *DeliveryLog
-	deliveryStore phonewave.DeliveryStore
+	deliveryStore domain.DeliveryStore
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
 	Dispatcher    domain.EventDispatcher
@@ -72,7 +71,7 @@ type Daemon struct {
 
 // NewDaemon creates a new Daemon with the given options and logger.
 // If logger is nil, a silent logger (io.Discard) is used.
-func NewDaemon(opts phonewave.DaemonOptions, logger *domain.Logger) (*Daemon, error) {
+func NewDaemon(opts domain.DaemonOptions, logger *domain.Logger) (*Daemon, error) {
 	if logger == nil {
 		logger = domain.NewLogger(nil, false)
 	}
@@ -457,7 +456,7 @@ func (d *Daemon) retryPending() int {
 // extractKindOrUnknown attempts to extract the kind from D-Mail data,
 // returning "unknown" if parsing fails.
 func extractKindOrUnknown(data []byte) string {
-	kind, err := phonewave.ExtractDMailKind(data)
+	kind, err := domain.ExtractDMailKind(data)
 	if err != nil {
 		return "unknown"
 	}
@@ -468,7 +467,7 @@ func extractKindOrUnknown(data []byte) string {
 // delivering each one according to the provided routes. Files are delivered
 // concurrently via a worker pool. Failed deliveries are saved to the error queue
 // in stateDir.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, stateDir string, logger *domain.Logger, ds phonewave.DeliveryStore) ([]*phonewave.DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger *domain.Logger, ds domain.DeliveryStore) ([]*domain.DeliveryResult, []error) {
 	if logger == nil {
 		logger = domain.NewLogger(nil, false)
 	}
@@ -499,7 +498,7 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.Re
 	// Deliver files sequentially. The caller (daemon startup scan) already
 	// parallelises per-outbox via its worker pool, so a nested pool here
 	// would multiply concurrency to NumCPU² and spike FD/memory usage.
-	var results []*phonewave.DeliveryResult
+	var results []*domain.DeliveryResult
 	var errs []error
 	for _, entry := range filtered {
 		dmailPath := filepath.Join(outboxDir, entry.Name())

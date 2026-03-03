@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestDeliver_SingleTarget(t *testing.T) {
@@ -37,7 +37,7 @@ description: "Test spec"
 	}
 
 	// Route table
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -95,7 +95,7 @@ description: "Corrective feedback"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 
@@ -144,7 +144,7 @@ kind: unknown_type
 	}
 
 	// Empty routes — no route for "unknown_type"
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
@@ -167,7 +167,7 @@ func TestDeliver_FileVanished(t *testing.T) {
 	}
 
 	// Reference a non-existent file
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -212,7 +212,7 @@ description: "New version"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -261,7 +261,7 @@ description: "No inbox target"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{nonExistentInbox}},
 	}
 
@@ -312,7 +312,7 @@ description: "Partial failure test"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 

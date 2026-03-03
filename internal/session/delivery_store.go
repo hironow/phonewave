@@ -7,13 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
 const maxDeliveryRetryCount = 3
 
-// SQLiteDeliveryStore implements phonewave.DeliveryStore using SQLite
+// SQLiteDeliveryStore implements domain.DeliveryStore using SQLite
 // with a 2-phase Flush to minimise lock hold time during filesystem I/O.
 type SQLiteDeliveryStore struct {
 	db *sql.DB
@@ -125,7 +125,7 @@ type unflushedItem struct {
 //  1. Short read transaction to collect unflushed items
 //  2. Filesystem I/O (atomicWrite) outside any transaction
 //  3. Short write transaction per item to update status
-func (s *SQLiteDeliveryStore) FlushDeliveries() ([]phonewave.DeliveryFlushed, error) {
+func (s *SQLiteDeliveryStore) FlushDeliveries() ([]domain.DeliveryFlushed, error) {
 	// Phase 1: Read unflushed items (short transaction)
 	items, err := s.collectUnflushed()
 	if err != nil {
@@ -136,7 +136,7 @@ func (s *SQLiteDeliveryStore) FlushDeliveries() ([]phonewave.DeliveryFlushed, er
 	}
 
 	// Phase 2: Write files (no transaction held)
-	var flushed []phonewave.DeliveryFlushed
+	var flushed []domain.DeliveryFlushed
 	for _, item := range items {
 		writeErr := atomicWrite(item.target, item.data)
 
@@ -151,7 +151,7 @@ func (s *SQLiteDeliveryStore) FlushDeliveries() ([]phonewave.DeliveryFlushed, er
 		if err := s.markFlushed(item.dmailPath, item.target); err != nil {
 			return flushed, fmt.Errorf("delivery store: mark flushed: %w", err)
 		}
-		flushed = append(flushed, phonewave.DeliveryFlushed{
+		flushed = append(flushed, domain.DeliveryFlushed{
 			DMailPath: item.dmailPath,
 			Target:    item.target,
 		})
@@ -253,7 +253,7 @@ func (s *SQLiteDeliveryStore) incrementRetryCount(dmailPath, target string) erro
 
 // RecoverUnflushed returns all unflushed delivery intents.
 // Used at startup to detect crash-interrupted deliveries.
-func (s *SQLiteDeliveryStore) RecoverUnflushed() ([]phonewave.StagedDelivery, error) {
+func (s *SQLiteDeliveryStore) RecoverUnflushed() ([]domain.StagedDelivery, error) {
 	rows, err := s.db.Query(
 		`SELECT dmail_path, target, data FROM staged_delivery WHERE flushed = 0`,
 	)
@@ -262,9 +262,9 @@ func (s *SQLiteDeliveryStore) RecoverUnflushed() ([]phonewave.StagedDelivery, er
 	}
 	defer rows.Close()
 
-	var items []phonewave.StagedDelivery
+	var items []domain.StagedDelivery
 	for rows.Next() {
-		var item phonewave.StagedDelivery
+		var item domain.StagedDelivery
 		if err := rows.Scan(&item.DMailPath, &item.Target, &item.Data); err != nil {
 			return nil, fmt.Errorf("delivery store: scan unflushed: %w", err)
 		}

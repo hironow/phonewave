@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestParseFrontmatter_Produces(t *testing.T) {
@@ -314,7 +314,7 @@ metadata:
 	}
 
 	// Find endpoints by dir name
-	endpointMap := make(map[string]phonewave.Endpoint)
+	endpointMap := make(map[string]domain.Endpoint)
 	for _, ep := range endpoints {
 		endpointMap[ep.Dir] = ep
 	}

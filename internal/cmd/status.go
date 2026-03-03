@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
@@ -29,7 +28,7 @@ func newStatusCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			stateDir := filepath.Join(configBase(cmd), phonewave.StateDir)
+			stateDir := filepath.Join(configBase(cmd), domain.StateDir)
 			status := session.Status(cfg, stateDir)
 
 			w := cmd.OutOrStdout()

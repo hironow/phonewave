@@ -9,7 +9,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 )
 
@@ -50,7 +49,7 @@ func FormatDoctorJSON(report DoctorReport) ([]byte, error) {
 }
 
 // Doctor verifies ecosystem health and returns a report.
-func Doctor(cfg *phonewave.Config, stateDir string) DoctorReport {
+func Doctor(cfg *domain.Config, stateDir string) DoctorReport {
 	report := DoctorReport{
 		Healthy: true,
 		DaemonStatus: DaemonHealthStatus{
@@ -130,7 +129,7 @@ func Doctor(cfg *phonewave.Config, stateDir string) DoctorReport {
 	}
 
 	// Check orphaned routes (per-repo to match routing scope)
-	orphans := phonewave.DetectOrphansPerRepo(cfg)
+	orphans := domain.DetectOrphansPerRepo(cfg)
 	for _, kind := range orphans.UnconsumedKinds {
 		report.addWarn("", fmt.Sprintf("Orphaned: kind=%q is produced but not consumed", kind))
 	}

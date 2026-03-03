@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 // StatusReport holds daemon and ecosystem status information.
@@ -87,7 +87,7 @@ func ParseDeliveryStats(stateDir string) DeliveryStats24h {
 }
 
 // Status collects current daemon and ecosystem status.
-func Status(cfg *phonewave.Config, stateDir string) StatusReport {
+func Status(cfg *domain.Config, stateDir string) StatusReport {
 	report := StatusReport{
 		RouteCount: len(cfg.Routes),
 		RepoCount:  len(cfg.Repositories),

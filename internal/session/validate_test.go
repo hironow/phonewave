@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestValidateSkillDir_ValidSkill(t *testing.T) {
@@ -117,7 +117,7 @@ produces:
 		t.Fatal(err)
 	}
 
-	ep := phonewave.EndpointConfig{
+	ep := domain.EndpointConfig{
 		Dir:      ".siren",
 		Produces: nil, // empty — intentional empty
 		Consumes: nil,

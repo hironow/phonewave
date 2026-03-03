@@ -11,12 +11,12 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 )
 
 // Deliver reads a D-Mail file and delivers it to all matching inboxes.
-func Deliver(ctx context.Context, dmailPath string, routes []phonewave.ResolvedRoute, ds phonewave.DeliveryStore) (*phonewave.DeliveryResult, error) {
+func Deliver(ctx context.Context, dmailPath string, routes []domain.ResolvedRoute, ds domain.DeliveryStore) (*domain.DeliveryResult, error) {
 	data, err := os.ReadFile(dmailPath)
 	if err != nil {
 		return nil, fmt.Errorf("read D-Mail: %w", err)
@@ -27,8 +27,8 @@ func Deliver(ctx context.Context, dmailPath string, routes []phonewave.ResolvedR
 // DeliverData processes pre-read D-Mail data via Stage→Flush transactional delivery.
 // Returns error only for parse/route/stage failures (error queue eligible).
 // Flush partial failures are handled internally by DeliveryStore retry_count.
-func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []phonewave.ResolvedRoute, ds phonewave.DeliveryStore) (*phonewave.DeliveryResult, error) {
-	kind, err := phonewave.ExtractDMailKind(data)
+func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []domain.ResolvedRoute, ds domain.DeliveryStore) (*domain.DeliveryResult, error) {
+	kind, err := domain.ExtractDMailKind(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
 	}
@@ -43,7 +43,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ph
 
 	// Find matching route
 	sourceDir := filepath.Dir(dmailPath)
-	var matchedRoute *phonewave.ResolvedRoute
+	var matchedRoute *domain.ResolvedRoute
 	for i := range routes {
 		if routes[i].Kind == kind && routes[i].FromOutbox == sourceDir {
 			matchedRoute = &routes[i]
@@ -58,7 +58,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ph
 	}
 
 	fileName := filepath.Base(dmailPath)
-	result := &phonewave.DeliveryResult{
+	result := &domain.DeliveryResult{
 		SourcePath: dmailPath,
 		Kind:       kind,
 	}

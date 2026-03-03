@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/spf13/cobra"
 )
 
@@ -73,7 +73,7 @@ func NewRootCommand() *cobra.Command {
 	})
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Log all delivery events to stderr")
-	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", phonewave.ConfigFile), "Path to phonewave config file")
+	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", domain.ConfigFile), "Path to phonewave config file")
 	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format: text, json")
 
 	rootCmd.AddCommand(

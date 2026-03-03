@@ -13,7 +13,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	phonewave "github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 )
@@ -70,11 +69,11 @@ func TestDaemon_Run_CreatesStartupScanSpan(t *testing.T) {
 		}
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
@@ -120,11 +119,11 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	daemon, err := NewDaemon(phonewave.DaemonOptions{
+	daemon, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
@@ -171,11 +170,11 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 	}
 
 	// No routes for "specification" from this outbox
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "feedback", FromOutbox: "/tmp/other", ToInboxes: []string{"/tmp/nope"}},
 	}
 
-	daemon, err := NewDaemon(phonewave.DaemonOptions{
+	daemon, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
@@ -224,7 +223,7 @@ func TestDeliverData_CreatesSpan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
@@ -255,7 +254,7 @@ func TestDeliverData_RecordsErrorSpan(t *testing.T) {
 
 	dmailContent := "---\ndmail-schema-version: \"1\"\nname: err-span\nkind: specification\ndescription: \"Error span\"\n---\n"
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "feedback", FromOutbox: "/tmp/other", ToInboxes: []string{"/tmp/nope"}},
 	}
 

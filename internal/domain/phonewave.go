@@ -1,4 +1,4 @@
-package phonewave
+package domain
 
 // StateDir is the name of the phonewave state directory.
 const StateDir = ".phonewave"
