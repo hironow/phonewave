@@ -270,16 +270,16 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 
 func TestFormatDoctorJSON_Parseable(t *testing.T) {
 	// given — a DoctorReport with mixed issues
-	report := DoctorReport{
+	report := domain.DoctorReport{
 		Healthy: true,
-		Issues: []DoctorIssue{
+		Issues: []domain.DoctorIssue{
 			{Endpoint: "repo/.siren", Message: "OK", Severity: "ok"},
 			{Endpoint: "repo/.expedition", Message: "Created outbox", Severity: "fixed"},
 		},
-		Endpoints: []EndpointHealth{
+		Endpoints: []domain.EndpointHealth{
 			{Repo: "/tmp/repo", Dir: ".siren", Produces: []string{"specification"}, OK: true},
 		},
-		DaemonStatus: DaemonHealthStatus{Checked: true, Running: false},
+		DaemonStatus: domain.DaemonHealthStatus{Checked: true, Running: false},
 	}
 
 	// when

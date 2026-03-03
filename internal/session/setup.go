@@ -12,30 +12,6 @@ import (
 	"github.com/hironow/phonewave/internal/domain"
 )
 
-// EndpointDiff describes a change to an endpoint during sync.
-type EndpointDiff struct {
-	Repo   string
-	Dir    string
-	Change string // "added", "removed", "changed"
-}
-
-// RouteDiff describes a change to a route during sync.
-type RouteDiff struct {
-	Kind   string
-	From   string
-	Change string // "added", "removed"
-}
-
-// SyncReport holds the result of a sync operation including change diffs.
-type SyncReport struct {
-	Orphans         domain.OrphanReport
-	EndpointChanges []EndpointDiff
-	RouteChanges    []RouteDiff
-	RepoCount       int
-	TotalRoutes     int
-	Warnings        []string
-}
-
 // snapshotEndpoints returns a map of "repoPath/dir" → EndpointConfig for diffing.
 // Uses full repo path to avoid collisions between repos with the same basename.
 func snapshotEndpoints(cfg *domain.Config) map[string]domain.EndpointConfig {
@@ -61,22 +37,22 @@ func snapshotRoutes(cfg *domain.Config) map[string]domain.RouteConfig {
 }
 
 // diffEndpoints computes the difference between old and new endpoint snapshots.
-func diffEndpoints(old, new_ map[string]domain.EndpointConfig) []EndpointDiff {
-	var diffs []EndpointDiff
+func diffEndpoints(old, new_ map[string]domain.EndpointConfig) []domain.EndpointDiff {
+	var diffs []domain.EndpointDiff
 
 	for key, newEp := range new_ {
 		repo, dir := splitEndpointKey(key)
 		if oldEp, exists := old[key]; !exists {
-			diffs = append(diffs, EndpointDiff{Repo: repo, Dir: dir, Change: "added"})
+			diffs = append(diffs, domain.EndpointDiff{Repo: repo, Dir: dir, Change: "added"})
 		} else if !endpointEqual(oldEp, newEp) {
-			diffs = append(diffs, EndpointDiff{Repo: repo, Dir: dir, Change: "changed"})
+			diffs = append(diffs, domain.EndpointDiff{Repo: repo, Dir: dir, Change: "changed"})
 		}
 	}
 
 	for key := range old {
 		if _, exists := new_[key]; !exists {
 			repo, dir := splitEndpointKey(key)
-			diffs = append(diffs, EndpointDiff{Repo: repo, Dir: dir, Change: "removed"})
+			diffs = append(diffs, domain.EndpointDiff{Repo: repo, Dir: dir, Change: "removed"})
 		}
 	}
 
@@ -117,30 +93,22 @@ func slicesEqual(a, b []string) bool {
 }
 
 // diffRoutes computes the difference between old and new route snapshots.
-func diffRoutes(old, new_ map[string]domain.RouteConfig) []RouteDiff {
-	var diffs []RouteDiff
+func diffRoutes(old, new_ map[string]domain.RouteConfig) []domain.RouteDiff {
+	var diffs []domain.RouteDiff
 
 	for key, r := range new_ {
 		if _, exists := old[key]; !exists {
-			diffs = append(diffs, RouteDiff{Kind: r.Kind, From: r.From, Change: "added"})
+			diffs = append(diffs, domain.RouteDiff{Kind: r.Kind, From: r.From, Change: "added"})
 		}
 	}
 
 	for key, r := range old {
 		if _, exists := new_[key]; !exists {
-			diffs = append(diffs, RouteDiff{Kind: r.Kind, From: r.From, Change: "removed"})
+			diffs = append(diffs, domain.RouteDiff{Kind: r.Kind, From: r.From, Change: "removed"})
 		}
 	}
 
 	return diffs
-}
-
-// InitResult holds the result of an init operation.
-type InitResult struct {
-	Config    *domain.Config
-	Orphans   domain.OrphanReport
-	RepoCount int
-	Warnings  []string
 }
 
 // repoScanResult holds the outcome of scanning a single repository.
@@ -152,7 +120,7 @@ type repoScanResult struct {
 
 // Init scans multiple repositories concurrently, derives routes, and generates
 // a Config. Repository scanning is parallelized via a worker pool.
-func Init(repoPaths []string) (*InitResult, error) {
+func Init(repoPaths []string) (*domain.InitResult, error) {
 	cfg := &domain.Config{
 		LastSynced: time.Now().UTC(),
 	}
@@ -190,7 +158,7 @@ func Init(repoPaths []string) (*InitResult, error) {
 
 	orphans := domain.DetectOrphansPerRepo(cfg)
 
-	return &InitResult{
+	return &domain.InitResult{
 		Config:    cfg,
 		Orphans:   orphans,
 		RepoCount: len(repoPaths),
@@ -198,14 +166,8 @@ func Init(repoPaths []string) (*InitResult, error) {
 	}, nil
 }
 
-// AddResult holds the result of an add operation.
-type AddResult struct {
-	Orphans  domain.OrphanReport
-	Warnings []string
-}
-
 // Add scans a new repository and adds it to an existing config.
-func Add(cfg *domain.Config, repoPath string) (*AddResult, error) {
+func Add(cfg *domain.Config, repoPath string) (*domain.AddResult, error) {
 	absPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid path %q: %w", repoPath, err)
@@ -229,7 +191,7 @@ func Add(cfg *domain.Config, repoPath string) (*AddResult, error) {
 
 	orphans := domain.DetectOrphansPerRepo(cfg)
 
-	return &AddResult{
+	return &domain.AddResult{
 		Orphans:  orphans,
 		Warnings: collectSkillWarnings(cfg, absPath),
 	}, nil
@@ -261,7 +223,7 @@ type syncRepoResult struct {
 
 // Sync re-scans all repositories concurrently, computes diffs, and updates
 // endpoints/routes. Repository scanning is parallelized via a worker pool.
-func Sync(cfg *domain.Config) (*SyncReport, error) {
+func Sync(cfg *domain.Config) (*domain.SyncReport, error) {
 	// Snapshot before re-scan
 	oldEndpoints := snapshotEndpoints(cfg)
 	oldRoutes := snapshotRoutes(cfg)
@@ -311,7 +273,7 @@ func Sync(cfg *domain.Config) (*SyncReport, error) {
 
 	orphans := domain.DetectOrphansPerRepo(cfg)
 
-	return &SyncReport{
+	return &domain.SyncReport{
 		Orphans:         orphans,
 		EndpointChanges: diffEndpoints(oldEndpoints, newEndpoints),
 		RouteChanges:    diffRoutes(oldRoutes, newRoutes),
