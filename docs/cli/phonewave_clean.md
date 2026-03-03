@@ -6,7 +6,7 @@ Remove runtime state from .phonewave/
 
 Remove runtime state files from the .phonewave/ directory.
 
-Removes: delivery.log, errors/, errors.db, watch.pid, watch.started, events/
+Removes: delivery.log, errors/, .run/, watch.pid, watch.started, events/
 Preserves: phonewave.yaml (config) and .phonewave/.gitignore
 
 ```

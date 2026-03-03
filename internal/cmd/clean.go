@@ -17,7 +17,7 @@ func newCleanCmd() *cobra.Command {
 		Short: "Remove runtime state from .phonewave/",
 		Long: `Remove runtime state files from the .phonewave/ directory.
 
-Removes: delivery.log, errors/, errors.db, watch.pid, watch.started, events/
+Removes: delivery.log, errors/, .run/, watch.pid, watch.started, events/
 Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
 		Example: `  phonewave clean
   phonewave clean --yes`,
@@ -80,7 +80,7 @@ func collectCleanTargets(stateDir string) []string {
 	candidates := []string{
 		"delivery.log",
 		"errors",
-		"errors.db",
+		".run",
 		"watch.pid",
 		"watch.started",
 		"events",
