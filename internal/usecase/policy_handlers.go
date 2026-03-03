@@ -3,14 +3,17 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/port"
 )
 
 // registerDaemonPolicies registers POLICY handlers for daemon events.
 // Handlers are best-effort: errors are logged but never stop the daemon.
 // See ADR S0014 (POLICY pattern) and S0018 (Event Storming alignment).
-func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger) {
+func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier port.Notifier) {
 	engine.Register(domain.EventDeliveryCompleted, func(_ context.Context, event domain.Event) error {
 		var data map[string]string
 		if err := json.Unmarshal(event.Data, &data); err != nil {
@@ -39,8 +42,19 @@ func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger) {
 		return nil
 	})
 
-	engine.Register(domain.EventScanCompleted, func(_ context.Context, event domain.Event) error {
-		logger.Debug("policy: scan completed (type=%s)", event.Type)
+	engine.Register(domain.EventScanCompleted, func(ctx context.Context, event domain.Event) error {
+		var data map[string]string
+		if err := json.Unmarshal(event.Data, &data); err != nil {
+			logger.Debug("policy: scan completed parse error: %v", err)
+			return nil
+		}
+		logger.Info("policy: scan completed (delivered=%s, errors=%s)", data["delivered"], data["errors"])
+		notifyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		if err := notifier.Notify(notifyCtx, "Phonewave",
+			fmt.Sprintf("Scan completed: %s delivered, %s errors", data["delivered"], data["errors"])); err != nil {
+			logger.Debug("policy: notify error: %v", err)
+		}
 		return nil
 	})
 }

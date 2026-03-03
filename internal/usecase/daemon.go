@@ -80,7 +80,8 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath
 
 	// Inject PolicyEngine for best-effort event dispatch (ADR S0014, S0018)
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger)
+	notifier := session.BuildNotifier()
+	registerDaemonPolicies(engine, logger, notifier)
 	d.Dispatcher = engine
 
 	// Create DaemonSession for session-layer event recording
