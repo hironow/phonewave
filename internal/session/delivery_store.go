@@ -28,7 +28,7 @@ func NewSQLiteDeliveryStore(stateDir string) (*SQLiteDeliveryStore, error) {
 	}
 
 	dbPath := filepath.Join(runDir, "delivery.db")
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close()
 	if err != nil {
 		return nil, fmt.Errorf("delivery store: open db: %w", err)
 	}
