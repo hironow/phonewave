@@ -10,12 +10,13 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestSetupAndRunDaemon_InvalidCommand(t *testing.T) {
 	// given: RetryInterval <= 0
-	cmd := phonewave.RunDaemonCommand{
+	cmd := domain.RunDaemonCommand{
 		RetryInterval: 0,
 		MaxRetries:    10,
 	}
@@ -32,7 +33,7 @@ func TestSetupAndRunDaemon_InvalidCommand(t *testing.T) {
 
 func TestSetupAndRunDaemon_MissingConfig(t *testing.T) {
 	// given: valid command but nonexistent config
-	cmd := phonewave.RunDaemonCommand{
+	cmd := domain.RunDaemonCommand{
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    10,
 	}
@@ -95,7 +96,7 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 	}
 	defer unlock()
 
-	cmd := phonewave.RunDaemonCommand{
+	cmd := domain.RunDaemonCommand{
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    10,
 	}

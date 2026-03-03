@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
 
@@ -19,8 +19,8 @@ func testErrorQueueStore(t *testing.T) *session.SQLiteErrorQueueStore {
 	return store
 }
 
-func testMeta(name string) phonewave.ErrorMetadata {
-	return phonewave.ErrorMetadata{
+func testMeta(name string) domain.ErrorMetadata {
+	return domain.ErrorMetadata{
 		SourceOutbox: "/tmp/outbox",
 		Kind:         "report",
 		OriginalName: name,
@@ -168,7 +168,7 @@ func TestErrorQueueStore_MarkResolved(t *testing.T) {
 }
 
 func TestErrorQueueStore_ImplementsInterface(t *testing.T) {
-	var _ phonewave.ErrorQueueStore = testErrorQueueStore(t)
+	var _ domain.ErrorQueueStore = testErrorQueueStore(t)
 }
 
 func TestErrorQueueStore_ConcurrentAccess(t *testing.T) {

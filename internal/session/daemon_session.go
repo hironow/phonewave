@@ -6,26 +6,27 @@ import (
 	"time"
 
 	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 // DaemonSession holds session-layer dependencies for the daemon's I/O
 // orchestration. The root Daemon retains fsnotify + worker pool; DaemonSession
 // provides stores and logging for delivery, error recording, and event persistence.
 type DaemonSession struct {
-	ErrorQueue  phonewave.ErrorQueueStore
-	EventStore  phonewave.EventStore
+	ErrorQueue  domain.ErrorQueueStore
+	EventStore  domain.EventStore
 	DeliveryLog *DeliveryLog
 	Routes      []phonewave.ResolvedRoute
 	StateDir    string
 	Logger      *phonewave.Logger
-	Dispatcher  phonewave.EventDispatcher
+	Dispatcher  domain.EventDispatcher
 }
 
 // NewDaemonSession creates a DaemonSession with the given dependencies.
 // All fields except Dispatcher are required; Dispatcher may be nil.
 func NewDaemonSession(
-	errorQueue phonewave.ErrorQueueStore,
-	eventStore phonewave.EventStore,
+	errorQueue domain.ErrorQueueStore,
+	eventStore domain.EventStore,
 	deliveryLog *DeliveryLog,
 	routes []phonewave.ResolvedRoute,
 	stateDir string,
@@ -48,7 +49,7 @@ func (s *DaemonSession) RecordDeliveryEvent(result *phonewave.DeliveryResult) {
 	if s.EventStore == nil {
 		return
 	}
-	ev, err := phonewave.NewEvent(phonewave.EventDeliveryCompleted, map[string]string{
+	ev, err := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{
 		"kind":   result.Kind,
 		"source": result.SourcePath,
 	}, time.Now().UTC())
@@ -71,7 +72,7 @@ func (s *DaemonSession) RecordFailureEvent(filePath string, kind string, deliver
 	if s.EventStore == nil {
 		return
 	}
-	ev, err := phonewave.NewEvent(phonewave.EventDeliveryFailed, map[string]string{
+	ev, err := domain.NewEvent(domain.EventDeliveryFailed, map[string]string{
 		"file":  filePath,
 		"kind":  kind,
 		"error": deliverErr.Error(),
@@ -93,7 +94,7 @@ func (s *DaemonSession) RecordScanEvent(outboxDir string, deliveredCount int, er
 	if s.EventStore == nil {
 		return
 	}
-	ev, err := phonewave.NewEvent(phonewave.EventScanCompleted, map[string]string{
+	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
 		"outbox":    outboxDir,
 		"delivered": intToStr(deliveredCount),
 		"errors":    intToStr(errorCount),
@@ -112,7 +113,7 @@ func (s *DaemonSession) RecordRetryEvent(name string, kind string) {
 	if s.EventStore == nil {
 		return
 	}
-	ev, err := phonewave.NewEvent(phonewave.EventErrorRetried, map[string]string{
+	ev, err := domain.NewEvent(domain.EventErrorRetried, map[string]string{
 		"name": name,
 		"kind": kind,
 	}, time.Now().UTC())

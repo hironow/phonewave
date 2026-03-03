@@ -7,13 +7,14 @@ import (
 	"testing"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestPolicyEngine_Dispatch_NoHandlers(t *testing.T) {
 	// given
 	logger := phonewave.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
-	ev := phonewave.Event{Type: phonewave.EventDeliveryCompleted}
+	ev := domain.Event{Type: domain.EventDeliveryCompleted}
 
 	// when
 	err := engine.Dispatch(context.Background(), ev)
@@ -29,12 +30,12 @@ func TestPolicyEngine_RegisterAndFire(t *testing.T) {
 	logger := phonewave.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
 	called := false
-	engine.Register(phonewave.EventDeliveryCompleted, func(ctx context.Context, ev phonewave.Event) error {
+	engine.Register(domain.EventDeliveryCompleted, func(ctx context.Context, ev domain.Event) error {
 		called = true
 		return nil
 	})
 
-	ev := phonewave.Event{Type: phonewave.EventDeliveryCompleted}
+	ev := domain.Event{Type: domain.EventDeliveryCompleted}
 
 	// when
 	err := engine.Dispatch(context.Background(), ev)
@@ -53,14 +54,14 @@ func TestPolicyEngine_MultipleHandlers(t *testing.T) {
 	logger := phonewave.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
 	count := 0
-	handler := func(ctx context.Context, ev phonewave.Event) error {
+	handler := func(ctx context.Context, ev domain.Event) error {
 		count++
 		return nil
 	}
-	engine.Register(phonewave.EventDeliveryFailed, handler)
-	engine.Register(phonewave.EventDeliveryFailed, handler)
+	engine.Register(domain.EventDeliveryFailed, handler)
+	engine.Register(domain.EventDeliveryFailed, handler)
 
-	ev := phonewave.Event{Type: phonewave.EventDeliveryFailed}
+	ev := domain.Event{Type: domain.EventDeliveryFailed}
 
 	// when
 	err := engine.Dispatch(context.Background(), ev)
@@ -78,11 +79,11 @@ func TestPolicyEngine_HandlerError(t *testing.T) {
 	// given
 	logger := phonewave.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
-	engine.Register(phonewave.EventErrorRetried, func(ctx context.Context, ev phonewave.Event) error {
+	engine.Register(domain.EventErrorRetried, func(ctx context.Context, ev domain.Event) error {
 		return errors.New("handler failed")
 	})
 
-	ev := phonewave.Event{Type: phonewave.EventErrorRetried}
+	ev := domain.Event{Type: domain.EventErrorRetried}
 
 	// when
 	err := engine.Dispatch(context.Background(), ev)
@@ -98,12 +99,12 @@ func TestPolicyEngine_UnmatchedEventType(t *testing.T) {
 	logger := phonewave.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
 	called := false
-	engine.Register(phonewave.EventDeliveryCompleted, func(ctx context.Context, ev phonewave.Event) error {
+	engine.Register(domain.EventDeliveryCompleted, func(ctx context.Context, ev domain.Event) error {
 		called = true
 		return nil
 	})
 
-	ev := phonewave.Event{Type: phonewave.EventScanCompleted}
+	ev := domain.Event{Type: domain.EventScanCompleted}
 
 	// when
 	err := engine.Dispatch(context.Background(), ev)

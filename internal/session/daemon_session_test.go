@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
 
@@ -69,8 +70,8 @@ func TestDaemonSession_RecordDeliveryEvent(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events: got %d, want 1", len(events))
 	}
-	if events[0].Type != phonewave.EventDeliveryCompleted {
-		t.Errorf("type: got %q, want %q", events[0].Type, phonewave.EventDeliveryCompleted)
+	if events[0].Type != domain.EventDeliveryCompleted {
+		t.Errorf("type: got %q, want %q", events[0].Type, domain.EventDeliveryCompleted)
 	}
 }
 
@@ -89,8 +90,8 @@ func TestDaemonSession_RecordFailureEvent(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events: got %d, want 1", len(events))
 	}
-	if events[0].Type != phonewave.EventDeliveryFailed {
-		t.Errorf("type: got %q, want %q", events[0].Type, phonewave.EventDeliveryFailed)
+	if events[0].Type != domain.EventDeliveryFailed {
+		t.Errorf("type: got %q, want %q", events[0].Type, domain.EventDeliveryFailed)
 	}
 }
 
@@ -109,8 +110,8 @@ func TestDaemonSession_RecordScanEvent(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events: got %d, want 1", len(events))
 	}
-	if events[0].Type != phonewave.EventScanCompleted {
-		t.Errorf("type: got %q, want %q", events[0].Type, phonewave.EventScanCompleted)
+	if events[0].Type != domain.EventScanCompleted {
+		t.Errorf("type: got %q, want %q", events[0].Type, domain.EventScanCompleted)
 	}
 }
 
@@ -129,8 +130,8 @@ func TestDaemonSession_RecordRetryEvent(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("events: got %d, want 1", len(events))
 	}
-	if events[0].Type != phonewave.EventErrorRetried {
-		t.Errorf("type: got %q, want %q", events[0].Type, phonewave.EventErrorRetried)
+	if events[0].Type != domain.EventErrorRetried {
+		t.Errorf("type: got %q, want %q", events[0].Type, domain.EventErrorRetried)
 	}
 }
 

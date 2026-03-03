@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
@@ -84,7 +84,7 @@ func createErrorSchema(db *sql.DB) error {
 // RecordError inserts a failed D-Mail into the error store.
 // Idempotent: re-recording the same name is silently ignored (INSERT OR IGNORE).
 // Uses BEGIN IMMEDIATE for write safety under concurrent access.
-func (s *SQLiteErrorStore) RecordError(name string, data []byte, meta phonewave.ErrorMetadata) error {
+func (s *SQLiteErrorStore) RecordError(name string, data []byte, meta domain.ErrorMetadata) error {
 	ctx := context.Background()
 	conn, err := s.db.Conn(ctx)
 	if err != nil {

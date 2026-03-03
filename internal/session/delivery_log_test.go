@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestDeliveryLog_Append(t *testing.T) {
@@ -78,7 +78,7 @@ func TestDeliveryLog_Failed(t *testing.T) {
 func TestSaveToErrorQueue_WritesFileWithKindInName(t *testing.T) {
 	// given
 	stateDir := t.TempDir()
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-fail.md",
@@ -135,7 +135,7 @@ func TestSaveToErrorQueue_WritesFileWithKindInName(t *testing.T) {
 func TestSaveToErrorQueue_WritesSidecarFile(t *testing.T) {
 	// given
 	stateDir := t.TempDir()
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-fail.md",
@@ -194,7 +194,7 @@ func TestSaveToErrorQueue_WritesSidecarFile(t *testing.T) {
 func TestLoadErrorMetadata_RoundTrip(t *testing.T) {
 	// given — save a D-Mail to error queue, then load its sidecar
 	stateDir := t.TempDir()
-	original := phonewave.ErrorMetadata{
+	original := domain.ErrorMetadata{
 		SourceOutbox: "/repo/.gate/outbox",
 		Kind:         "feedback",
 		OriginalName: "feedback-001.md",
@@ -279,7 +279,7 @@ func TestDeliveryLog_Retried(t *testing.T) {
 func TestUpdateErrorMetadata_IncrementsAttempts(t *testing.T) {
 	// given — an error queue entry with attempts=1
 	stateDir := t.TempDir()
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-fail.md",
@@ -330,7 +330,7 @@ func TestUpdateErrorMetadata_IncrementsAttempts(t *testing.T) {
 func TestRemoveErrorEntry_RemovesBothFiles(t *testing.T) {
 	// given — an error queue entry with .md and .err files
 	stateDir := t.TempDir()
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-fail.md",
@@ -377,7 +377,7 @@ func TestRemoveErrorEntry_RemovesBothFiles(t *testing.T) {
 func TestSaveToErrorQueue_SanitizesPathTraversal(t *testing.T) {
 	// given — Kind and OriginalName contain path traversal sequences
 	stateDir := t.TempDir()
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "../../etc",
 		OriginalName: "../../../passwd",
@@ -458,7 +458,7 @@ func TestDeliveryLog_CloseIsConcurrencySafe(t *testing.T) {
 func TestSaveToErrorQueue_CreatesErrorsDir(t *testing.T) {
 	// given — stateDir exists but errors/ does not
 	stateDir := t.TempDir()
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/repo/.siren/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-001.md",

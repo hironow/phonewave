@@ -13,6 +13,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestRetryBackoff_InitialInterval(t *testing.T) {
@@ -1134,7 +1135,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 	}
 
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-retry\nkind: specification\ndescription: \"Retry test\"\n---\n\n# Retry Test\n")
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-retry.md",
@@ -1205,7 +1206,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 	}
 
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-maxed\nkind: specification\ndescription: \"Max retry\"\n---\n")
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-maxed.md",
@@ -1275,7 +1276,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 	}
 
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-nope\nkind: specification\ndescription: \"No retry\"\n---\n")
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-nope.md",

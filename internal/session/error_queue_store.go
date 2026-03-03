@@ -7,11 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
-// SQLiteErrorQueueStore implements phonewave.ErrorQueueStore using SQLite
+// SQLiteErrorQueueStore implements domain.ErrorQueueStore using SQLite
 // with atomic claim semantics for concurrent daemon safety.
 // All write operations use BEGIN IMMEDIATE to prevent deadlocks.
 type SQLiteErrorQueueStore struct {
@@ -19,7 +19,7 @@ type SQLiteErrorQueueStore struct {
 }
 
 // Compile-time check that SQLiteErrorQueueStore implements ErrorQueueStore.
-var _ phonewave.ErrorQueueStore = (*SQLiteErrorQueueStore)(nil)
+var _ domain.ErrorQueueStore = (*SQLiteErrorQueueStore)(nil)
 
 // NewSQLiteErrorQueueStore opens (or creates) a SQLite error queue store
 // at {stateDir}/error_queue.db and initialises the schema.
@@ -78,7 +78,7 @@ func createErrorQueueSchema(db *sql.DB) error {
 
 // Enqueue inserts a failed D-Mail into the error queue.
 // Idempotent: re-enqueuing the same name is silently ignored.
-func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta phonewave.ErrorMetadata) error {
+func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta domain.ErrorMetadata) error {
 	ctx := context.Background()
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
@@ -116,7 +116,7 @@ func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta phonewave
 // given claimer. Entries already claimed by another daemon within the last
 // 5 minutes are skipped. This prevents duplicate processing across concurrent
 // daemon instances.
-func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries int) ([]phonewave.ErrorEntry, error) {
+func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries int) ([]domain.ErrorEntry, error) {
 	ctx := context.Background()
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
@@ -156,9 +156,9 @@ func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries
 		return nil, fmt.Errorf("error queue store: claim select: %w", err)
 	}
 
-	var entries []phonewave.ErrorEntry
+	var entries []domain.ErrorEntry
 	for rows.Next() {
-		var e phonewave.ErrorEntry
+		var e domain.ErrorEntry
 		if err := rows.Scan(&e.Name, &e.Data, &e.SourceOutbox, &e.Kind, &e.ErrorMessage, &e.RetryCount); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("error queue store: scan row: %w", err)

@@ -7,13 +7,14 @@ import (
 	"strings"
 
 	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 // MigrateFileErrorQueue migrates legacy .err sidecar files from
 // {stateDir}/errors/ into the SQLiteErrorQueueStore. This is idempotent:
 // Enqueue uses INSERT OR IGNORE, so re-running is safe.
 // Successfully migrated files (both data file and .err sidecar) are removed.
-func MigrateFileErrorQueue(stateDir string, store phonewave.ErrorQueueStore, logger *phonewave.Logger) (int, error) {
+func MigrateFileErrorQueue(stateDir string, store domain.ErrorQueueStore, logger *phonewave.Logger) (int, error) {
 	errorsDir := filepath.Join(stateDir, "errors")
 	entries, err := os.ReadDir(errorsDir)
 	if err != nil {

@@ -8,13 +8,14 @@ import (
 	"time"
 
 	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestMigrateFileErrorQueue_MigratesExisting(t *testing.T) {
 	// given: a stateDir with a legacy .err sidecar + data file
 	stateDir := t.TempDir()
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/tmp/outbox",
 		Kind:         "specification",
 		OriginalName: "spec-001.md",
@@ -68,7 +69,7 @@ func TestMigrateFileErrorQueue_MigratesExisting(t *testing.T) {
 func TestMigrateFileErrorQueue_IdempotentRerun(t *testing.T) {
 	// given: migrate once, then run again
 	stateDir := t.TempDir()
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/tmp/outbox",
 		Kind:         "report",
 		OriginalName: "report-001.md",

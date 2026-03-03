@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/eventsource"
 )
 
@@ -12,7 +12,7 @@ func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 	// given
 	dir := t.TempDir()
 	store := eventsource.NewFileEventStore(dir)
-	ev, err := phonewave.NewEvent(phonewave.EventDeliveryCompleted, map[string]string{"to": "inbox"}, time.Now())
+	ev, err := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{"to": "inbox"}, time.Now())
 	if err != nil {
 		t.Fatalf("new event: %v", err)
 	}
@@ -33,8 +33,8 @@ func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 	if events[0].ID != ev.ID {
 		t.Errorf("expected ID %s, got %s", ev.ID, events[0].ID)
 	}
-	if events[0].Type != phonewave.EventDeliveryCompleted {
-		t.Errorf("expected type %s, got %s", phonewave.EventDeliveryCompleted, events[0].Type)
+	if events[0].Type != domain.EventDeliveryCompleted {
+		t.Errorf("expected type %s, got %s", domain.EventDeliveryCompleted, events[0].Type)
 	}
 }
 
@@ -42,11 +42,11 @@ func TestFileEventStore_LoadSince_FiltersOlderEvents(t *testing.T) {
 	// given
 	dir := t.TempDir()
 	store := eventsource.NewFileEventStore(dir)
-	old, err := phonewave.NewEvent(phonewave.EventScanCompleted, nil, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
+	old, err := domain.NewEvent(domain.EventScanCompleted, nil, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("new event: %v", err)
 	}
-	recent, err := phonewave.NewEvent(phonewave.EventDeliveryCompleted, nil, time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC))
+	recent, err := domain.NewEvent(domain.EventDeliveryCompleted, nil, time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("new event: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestFileEventStore_AppendRejectsInvalidEvent(t *testing.T) {
 	// given
 	dir := t.TempDir()
 	store := eventsource.NewFileEventStore(dir)
-	invalid := phonewave.Event{} // missing ID, Type, Timestamp
+	invalid := domain.Event{} // missing ID, Type, Timestamp
 
 	// when
 	err := store.Append(invalid)
@@ -119,5 +119,5 @@ func TestFileEventStore_LoadAll_NonexistentDir(t *testing.T) {
 
 func TestFileEventStore_ImplementsInterface(t *testing.T) {
 	// Compile-time check is in store_file.go, but verify at runtime too.
-	var _ phonewave.EventStore = eventsource.NewFileEventStore("")
+	var _ domain.EventStore = eventsource.NewFileEventStore("")
 }

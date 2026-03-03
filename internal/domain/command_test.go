@@ -1,15 +1,15 @@
-package phonewave_test
+package domain_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestRunDaemonCommand_Validate_Valid(t *testing.T) {
 	// given
-	cmd := phonewave.RunDaemonCommand{
+	cmd := domain.RunDaemonCommand{
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    10,
 	}
@@ -25,7 +25,7 @@ func TestRunDaemonCommand_Validate_Valid(t *testing.T) {
 
 func TestRunDaemonCommand_Validate_InvalidRetryInterval(t *testing.T) {
 	// given
-	cmd := phonewave.RunDaemonCommand{
+	cmd := domain.RunDaemonCommand{
 		RetryInterval: 0,
 		MaxRetries:    10,
 	}
@@ -41,7 +41,7 @@ func TestRunDaemonCommand_Validate_InvalidRetryInterval(t *testing.T) {
 
 func TestRunDaemonCommand_Validate_InvalidMaxRetries(t *testing.T) {
 	// given
-	cmd := phonewave.RunDaemonCommand{
+	cmd := domain.RunDaemonCommand{
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    -1,
 	}
@@ -57,7 +57,7 @@ func TestRunDaemonCommand_Validate_InvalidMaxRetries(t *testing.T) {
 
 func TestAddRepoCommand_Validate_Valid(t *testing.T) {
 	// given
-	cmd := phonewave.AddRepoCommand{
+	cmd := domain.AddRepoCommand{
 		RepoPath: "/tmp/repo",
 	}
 
@@ -72,7 +72,7 @@ func TestAddRepoCommand_Validate_Valid(t *testing.T) {
 
 func TestAddRepoCommand_Validate_MissingRepoPath(t *testing.T) {
 	// given
-	cmd := phonewave.AddRepoCommand{}
+	cmd := domain.AddRepoCommand{}
 
 	// when
 	errs := cmd.Validate()
@@ -85,7 +85,7 @@ func TestAddRepoCommand_Validate_MissingRepoPath(t *testing.T) {
 
 func TestRemoveRepoCommand_Validate_Valid(t *testing.T) {
 	// given
-	cmd := phonewave.RemoveRepoCommand{
+	cmd := domain.RemoveRepoCommand{
 		RepoPath: "/tmp/repo",
 	}
 
@@ -100,7 +100,7 @@ func TestRemoveRepoCommand_Validate_Valid(t *testing.T) {
 
 func TestRemoveRepoCommand_Validate_MissingRepoPath(t *testing.T) {
 	// given
-	cmd := phonewave.RemoveRepoCommand{}
+	cmd := domain.RemoveRepoCommand{}
 
 	// when
 	errs := cmd.Validate()
@@ -113,7 +113,7 @@ func TestRemoveRepoCommand_Validate_MissingRepoPath(t *testing.T) {
 
 func TestSyncCommand_Validate(t *testing.T) {
 	// given — SyncCommand has no required fields
-	cmd := phonewave.SyncCommand{}
+	cmd := domain.SyncCommand{}
 
 	// when
 	errs := cmd.Validate()
@@ -126,7 +126,7 @@ func TestSyncCommand_Validate(t *testing.T) {
 
 func TestStatusCommand_Validate(t *testing.T) {
 	// given — StatusCommand has no required fields
-	cmd := phonewave.StatusCommand{}
+	cmd := domain.StatusCommand{}
 
 	// when
 	errs := cmd.Validate()

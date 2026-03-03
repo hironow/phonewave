@@ -1,4 +1,4 @@
-package phonewave
+package domain
 
 import (
 	"encoding/json"

@@ -1,15 +1,15 @@
-package phonewave_test
+package domain_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestDeliveryAggregate_RecordDelivery(t *testing.T) {
 	// given
-	agg := phonewave.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate()
 
 	// when
 	ev, err := agg.RecordDelivery("/outbox/test.md", "specification", time.Now().UTC())
@@ -18,14 +18,14 @@ func TestDeliveryAggregate_RecordDelivery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if ev.Type != phonewave.EventDeliveryCompleted {
-		t.Errorf("expected type %s, got %s", phonewave.EventDeliveryCompleted, ev.Type)
+	if ev.Type != domain.EventDeliveryCompleted {
+		t.Errorf("expected type %s, got %s", domain.EventDeliveryCompleted, ev.Type)
 	}
 }
 
 func TestDeliveryAggregate_RecordFailure(t *testing.T) {
 	// given
-	agg := phonewave.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate()
 
 	// when
 	ev, err := agg.RecordFailure("/outbox/test.md", "parse error", time.Now().UTC())
@@ -34,14 +34,14 @@ func TestDeliveryAggregate_RecordFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if ev.Type != phonewave.EventDeliveryFailed {
-		t.Errorf("expected type %s, got %s", phonewave.EventDeliveryFailed, ev.Type)
+	if ev.Type != domain.EventDeliveryFailed {
+		t.Errorf("expected type %s, got %s", domain.EventDeliveryFailed, ev.Type)
 	}
 }
 
 func TestDeliveryAggregate_RecordRetry(t *testing.T) {
 	// given
-	agg := phonewave.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate()
 
 	// when
 	ev, err := agg.RecordRetry("/errors/test.md", 2, time.Now().UTC())
@@ -50,14 +50,14 @@ func TestDeliveryAggregate_RecordRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if ev.Type != phonewave.EventErrorRetried {
-		t.Errorf("expected type %s, got %s", phonewave.EventErrorRetried, ev.Type)
+	if ev.Type != domain.EventErrorRetried {
+		t.Errorf("expected type %s, got %s", domain.EventErrorRetried, ev.Type)
 	}
 }
 
 func TestDeliveryAggregate_RecordScan(t *testing.T) {
 	// given
-	agg := phonewave.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate()
 
 	// when
 	ev, err := agg.RecordScan(5, 2, time.Now().UTC())
@@ -66,7 +66,7 @@ func TestDeliveryAggregate_RecordScan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if ev.Type != phonewave.EventScanCompleted {
-		t.Errorf("expected type %s, got %s", phonewave.EventScanCompleted, ev.Type)
+	if ev.Type != domain.EventScanCompleted {
+		t.Errorf("expected type %s, got %s", domain.EventScanCompleted, ev.Type)
 	}
 }

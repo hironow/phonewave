@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 // RetryBackoff implements exponential backoff with jitter for retry burst control.
@@ -65,7 +66,7 @@ type Daemon struct {
 	deliveryStore phonewave.DeliveryStore
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
-	Dispatcher    phonewave.EventDispatcher
+	Dispatcher    domain.EventDispatcher
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -305,7 +306,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 			d.dlog.Failed(kind, event.Name, err.Error())
 		}
 
-		meta := phonewave.ErrorMetadata{
+		meta := domain.ErrorMetadata{
 			SourceOutbox: filepath.Dir(event.Name),
 			Kind:         kind,
 			OriginalName: filepath.Base(event.Name),
@@ -344,7 +345,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 // memory usage to pool_size × file_size instead of total_backlog × file_size.
 type retryEntry struct {
 	sidecarPath  string
-	meta         *phonewave.ErrorMetadata
+	meta         *domain.ErrorMetadata
 	dmailPath    string
 	originalPath string
 }
@@ -511,7 +512,7 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.Re
 		result, deliverErr := DeliverData(ctx, dmailPath, data, routes, ds)
 		if deliverErr != nil {
 			kind := extractKindOrUnknown(data)
-			meta := phonewave.ErrorMetadata{
+			meta := domain.ErrorMetadata{
 				SourceOutbox: outboxDir,
 				Kind:         kind,
 				OriginalName: entry.Name(),

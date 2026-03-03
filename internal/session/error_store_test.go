@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
 
@@ -22,7 +22,7 @@ func testErrorStore(t *testing.T) *session.SQLiteErrorStore {
 func TestSessionErrorStore_RecordAndPending(t *testing.T) {
 	// given
 	store := testErrorStore(t)
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/tmp/outbox",
 		Kind:         "report",
 		OriginalName: "test.md",
@@ -52,7 +52,7 @@ func TestSessionErrorStore_RecordAndPending(t *testing.T) {
 func TestSessionErrorStore_RecordIdempotent(t *testing.T) {
 	// given
 	store := testErrorStore(t)
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/tmp/outbox",
 		Kind:         "report",
 		OriginalName: "dup.md",
@@ -82,7 +82,7 @@ func TestSessionErrorStore_RecordIdempotent(t *testing.T) {
 func TestSessionErrorStore_IncrementRetry_Transaction(t *testing.T) {
 	// given
 	store := testErrorStore(t)
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/tmp/outbox",
 		Kind:         "feedback",
 		OriginalName: "fail.md",
@@ -114,7 +114,7 @@ func TestSessionErrorStore_IncrementRetry_Transaction(t *testing.T) {
 func TestSessionErrorStore_MarkResolved_Transaction(t *testing.T) {
 	// given
 	store := testErrorStore(t)
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: "/tmp/outbox",
 		Kind:         "report",
 		OriginalName: "resolved.md",
@@ -164,7 +164,7 @@ func TestSessionErrorStore_ConcurrentAccess(t *testing.T) {
 	go func() {
 		for i := range itemsPerStore {
 			name := fmt.Sprintf("a-%03d.md", i)
-			meta := phonewave.ErrorMetadata{
+			meta := domain.ErrorMetadata{
 				SourceOutbox: "/tmp/outbox-a", Kind: "report",
 				OriginalName: name, Attempts: 1, Error: "error-a",
 				Timestamp: time.Now().UTC(),
@@ -179,7 +179,7 @@ func TestSessionErrorStore_ConcurrentAccess(t *testing.T) {
 	go func() {
 		for i := range itemsPerStore {
 			name := fmt.Sprintf("b-%03d.md", i)
-			meta := phonewave.ErrorMetadata{
+			meta := domain.ErrorMetadata{
 				SourceOutbox: "/tmp/outbox-b", Kind: "feedback",
 				OriginalName: name, Attempts: 1, Error: "error-b",
 				Timestamp: time.Now().UTC(),

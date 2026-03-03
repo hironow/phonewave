@@ -7,9 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hironow/phonewave/internal/domain"
 	"gopkg.in/yaml.v3"
-
-	phonewave "github.com/hironow/phonewave"
 )
 
 // DeliveryLog writes append-only delivery records to .phonewave/delivery.log.
@@ -65,7 +64,7 @@ func (l *DeliveryLog) write(action, details string) {
 
 // SaveToErrorQueue saves a failed D-Mail to .phonewave/errors/ with a .err sidecar.
 // Filename format: {timestamp}-{kind}-{original_name}
-func SaveToErrorQueue(stateDir string, meta phonewave.ErrorMetadata, data []byte) error {
+func SaveToErrorQueue(stateDir string, meta domain.ErrorMetadata, data []byte) error {
 	errorsDir := filepath.Join(stateDir, "errors")
 	if err := os.MkdirAll(errorsDir, 0755); err != nil {
 		return err
@@ -130,13 +129,13 @@ func RemoveErrorEntry(dmailPath string) error {
 }
 
 // LoadErrorMetadata reads and parses a .err sidecar file.
-func LoadErrorMetadata(sidecarPath string) (*phonewave.ErrorMetadata, error) {
+func LoadErrorMetadata(sidecarPath string) (*domain.ErrorMetadata, error) {
 	data, err := os.ReadFile(sidecarPath)
 	if err != nil {
 		return nil, fmt.Errorf("read error sidecar: %w", err)
 	}
 
-	var meta phonewave.ErrorMetadata
+	var meta domain.ErrorMetadata
 	if err := yaml.Unmarshal(data, &meta); err != nil {
 		return nil, fmt.Errorf("parse error sidecar: %w", err)
 	}
