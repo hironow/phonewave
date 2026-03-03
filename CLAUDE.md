@@ -8,7 +8,8 @@
 
 - Entry: `cmd/phonewave/main.go` (signal.NotifyContext + ExitCode)
 - CLI: `internal/cmd/` (cobra v1.10.2, `NewRootCommand()` exported for testability)
-- Library: root package `phonewave` (daemon, delivery, config types, router, event, command, policy, logger, telemetry, metrics)
+- Root: `doc.go` only (root-zero: all code moved to internal/)
+- Domain: `internal/domain/` (types, interfaces, constants, pure functions — daemon, delivery, config, event, command, policy)
 - Session: `internal/session/` (config I/O, scanner, init/add/remove/sync, doctor, status, validate, daemon setup)
 - Eventsource: `internal/eventsource/` (event store + lifecycle; flat `.jsonl` storage, `os.Remove` pruning)
 - OTel: `internal/cmd/telemetry.go` (initTracer + OTLP HTTP exporter), `telemetry.go` (noop default)

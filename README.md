@@ -279,17 +279,7 @@ just prek-run       # Run all prek hooks
 |   +-- version.go             version subcommand (text/JSON output)
 |   +-- update.go              update subcommand (self-update via GitHub)
 |   +-- helpers.go             Shared CLI helpers (config path resolution)
-+-- Root package (phonewave)    Types, interfaces, pure functions
-|   +-- phonewave.go           Constants + state directory setup
-|   +-- config.go              phonewave.yaml read/write/merge
-|   +-- daemon.go              fsnotify daemon + event loop + retry
-|   +-- delivery.go            D-Mail delivery pipeline (atomic write, kind validation)
-|   +-- deliverylog.go         Append-only delivery log + error queue
-|   +-- event.go               Event envelope, EventType constants
-|   +-- command.go             COMMAND types with Validate()
-|   +-- policy.go              Policy type definitions
-|   +-- logger.go              Structured logger (noop default)
-|   +-- telemetry.go           OTel tracer (noop default)
++-- doc.go                      Package declaration (root-zero: all code in internal/)
 +-- internal/usecase/           Use case layer (PolicyEngine + handlers)
 +-- internal/session/           I/O orchestration layer
 |   +-- init.go                Init/Add/Remove/Sync orchestration
