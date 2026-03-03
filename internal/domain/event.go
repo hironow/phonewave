@@ -40,7 +40,6 @@ type EventType string
 const (
 	EventDeliveryCompleted EventType = "delivery.completed"
 	EventDeliveryFailed    EventType = "delivery.failed"
-	EventErrorRecorded     EventType = "error.recorded"
 	EventErrorRetried      EventType = "error.retried"
 	EventScanCompleted     EventType = "scan.completed"
 )

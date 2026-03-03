@@ -68,7 +68,7 @@ func TestArchivePruneCmd_ExecuteDeletesExpired(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "archive-prune", "--execute"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "archive-prune", "--execute", "--yes"})
 
 	// when
 	err := rootCmd.Execute()

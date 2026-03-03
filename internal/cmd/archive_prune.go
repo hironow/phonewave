@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/usecase"
@@ -89,6 +91,24 @@ Pass --execute to actually remove the files.`,
 			if !execute {
 				fmt.Fprintln(errW, "(dry-run — pass --execute to delete)")
 				return nil
+			}
+
+			yes, _ := cmd.Flags().GetBool("yes")
+			if !yes {
+				fmt.Fprintf(errW, "\nDelete these %d file(s)? [y/N] ", len(files))
+				scanner := bufio.NewScanner(cmd.InOrStdin())
+				if !scanner.Scan() {
+					if scanErr := scanner.Err(); scanErr != nil {
+						return fmt.Errorf("read confirmation: %w", scanErr)
+					}
+					fmt.Fprintln(errW, "Cancelled.")
+					return nil
+				}
+				answer := strings.TrimSpace(scanner.Text())
+				if answer != "y" && answer != "Y" {
+					fmt.Fprintln(errW, "Cancelled.")
+					return nil
+				}
 			}
 
 			deleted, delErr := usecase.PruneEventFiles(stateDir, files)

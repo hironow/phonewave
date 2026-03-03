@@ -106,6 +106,9 @@ func (s *DaemonSession) RecordScanEvent(outboxDir string, deliveredCount int, er
 	if err := s.EventStore.Append(ev); err != nil {
 		s.Logger.Warn("append scan event: %v", err)
 	}
+	if s.Dispatcher != nil {
+		s.Dispatcher.Dispatch(context.Background(), ev) //nolint:errcheck
+	}
 }
 
 // RecordRetryEvent records an error.retried event to the event store.
@@ -123,6 +126,9 @@ func (s *DaemonSession) RecordRetryEvent(name string, kind string) {
 	}
 	if err := s.EventStore.Append(ev); err != nil {
 		s.Logger.Warn("append retry event: %v", err)
+	}
+	if s.Dispatcher != nil {
+		s.Dispatcher.Dispatch(context.Background(), ev) //nolint:errcheck
 	}
 }
 
