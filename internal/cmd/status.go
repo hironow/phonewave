@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
-	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
 )
 
@@ -22,14 +22,12 @@ func newStatusCmd() *cobra.Command {
 			logger := domain.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
-			cfg, err := session.LoadConfig(cfgPath)
+			stateDir := filepath.Join(configBase(cmd), domain.StateDir)
+			status, err := usecase.GetStatus(cfgPath, stateDir)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
-				return fmt.Errorf("load config: %w", err)
+				return err
 			}
-
-			stateDir := filepath.Join(configBase(cmd), domain.StateDir)
-			status := session.Status(cfg, stateDir)
 
 			w := cmd.OutOrStdout()
 			fmt.Fprintf(w, "phonewave status:\n")

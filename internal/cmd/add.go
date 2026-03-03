@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/hironow/phonewave/internal/domain"
-	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
 )
 
@@ -22,24 +21,15 @@ func newAddCmd() *cobra.Command {
 			logger := domain.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
-			cfg, err := session.LoadConfig(cfgPath)
+			result, err := usecase.AddRepository(cfgPath, args[0], logger)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
-				return fmt.Errorf("load config: %w", err)
-			}
-
-			result, err := session.Add(cfg, args[0])
-			if err != nil {
 				return err
-			}
-
-			if err := session.WriteConfig(cfgPath, cfg); err != nil {
-				return fmt.Errorf("write config: %w", err)
 			}
 
 			absPath, _ := filepath.Abs(args[0])
 			logger.OK("Added %s", absPath)
-			logger.OK("%d routes total", len(cfg.Routes))
+			logger.OK("%d routes total", result.RouteCount)
 			printOrphanWarnings(logger, result.Orphans)
 			for _, w := range result.Warnings {
 				logger.Warn("%s", w)
