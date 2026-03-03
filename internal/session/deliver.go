@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/platform"
 )
 
 // Deliver reads a D-Mail file and delivers it to all matching inboxes.
@@ -32,7 +33,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ph
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
 	}
 
-	ctx, span := phonewave.Tracer.Start(ctx, "delivery.deliver",
+	ctx, span := platform.Tracer.Start(ctx, "delivery.deliver",
 		trace.WithAttributes(
 			attribute.String("dmail.path", dmailPath),
 			attribute.String("dmail.kind", kind),

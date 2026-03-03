@@ -3,14 +3,13 @@ package usecase
 import (
 	"context"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 )
 
 // registerDaemonPolicies registers POLICY handlers for daemon events.
 // Handlers are best-effort: errors are logged but never stop the daemon.
 // See ADR S0014 (POLICY pattern) and S0018 (Event Storming alignment).
-func registerDaemonPolicies(engine *PolicyEngine, logger *phonewave.Logger) {
+func registerDaemonPolicies(engine *PolicyEngine, logger *domain.Logger) {
 	engine.Register(domain.EventDeliveryCompleted, func(_ context.Context, event domain.Event) error {
 		logger.Debug("policy: delivery completed (type=%s)", event.Type)
 		return nil

@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 // DoctorIssue represents a single health check finding.
@@ -139,8 +140,8 @@ func Doctor(cfg *phonewave.Config, stateDir string) DoctorReport {
 
 	// Success rate (informational)
 	stats := ParseDeliveryStats(stateDir)
-	m := phonewave.DeliveryMetrics{Delivered: stats.Delivered, Failed: stats.Failed}
-	report.addOK("success-rate", phonewave.FormatSuccessRate(m.SuccessRate(), stats.Delivered, stats.Delivered+stats.Failed))
+	m := domain.DeliveryMetrics{Delivered: stats.Delivered, Failed: stats.Failed}
+	report.addOK("success-rate", domain.FormatSuccessRate(m.SuccessRate(), stats.Delivered, stats.Delivered+stats.Failed))
 
 	// Check daemon status
 	report.DaemonStatus = checkDaemonStatus(stateDir)

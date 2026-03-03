@@ -7,6 +7,7 @@ import (
 
 	phonewave "github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 )
 
 // DaemonSession holds session-layer dependencies for the daemon's I/O
@@ -18,7 +19,7 @@ type DaemonSession struct {
 	DeliveryLog *DeliveryLog
 	Routes      []phonewave.ResolvedRoute
 	StateDir    string
-	Logger      *phonewave.Logger
+	Logger      *domain.Logger
 	Dispatcher  domain.EventDispatcher
 }
 
@@ -30,7 +31,7 @@ func NewDaemonSession(
 	deliveryLog *DeliveryLog,
 	routes []phonewave.ResolvedRoute,
 	stateDir string,
-	logger *phonewave.Logger,
+	logger *domain.Logger,
 ) *DaemonSession {
 	return &DaemonSession{
 		ErrorQueue:  errorQueue,
@@ -45,7 +46,7 @@ func NewDaemonSession(
 // RecordDeliveryEvent records a delivery.completed event to the event store.
 // Best-effort: errors are logged but do not fail the delivery.
 func (s *DaemonSession) RecordDeliveryEvent(result *phonewave.DeliveryResult) {
-	phonewave.RecordDelivery(context.Background(), "completed", result.Kind)
+	platform.RecordDelivery(context.Background(), "completed", result.Kind)
 	if s.EventStore == nil {
 		return
 	}
@@ -68,7 +69,7 @@ func (s *DaemonSession) RecordDeliveryEvent(result *phonewave.DeliveryResult) {
 // RecordFailureEvent records a delivery.failed event to the event store.
 // Best-effort: errors are logged but do not fail the error recording.
 func (s *DaemonSession) RecordFailureEvent(filePath string, kind string, deliverErr error) {
-	phonewave.RecordDelivery(context.Background(), "failed", kind)
+	platform.RecordDelivery(context.Background(), "failed", kind)
 	if s.EventStore == nil {
 		return
 	}

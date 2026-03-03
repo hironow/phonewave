@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 )
 
 // setupTestTracer installs an InMemoryExporter with a synchronous span
@@ -25,12 +27,12 @@ func setupTestTracer(t *testing.T) *tracetest.InMemoryExporter {
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exp))
 	prev := otel.GetTracerProvider()
 	otel.SetTracerProvider(tp)
-	oldTracer := phonewave.Tracer
-	phonewave.Tracer = tp.Tracer("phonewave-test")
+	oldTracer := platform.Tracer
+	platform.Tracer = tp.Tracer("phonewave-test")
 	t.Cleanup(func() {
 		tp.Shutdown(context.Background())
 		otel.SetTracerProvider(prev)
-		phonewave.Tracer = oldTracer
+		platform.Tracer = oldTracer
 	})
 	return exp
 }
@@ -76,7 +78,7 @@ func TestDaemon_Run_CreatesStartupScanSpan(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(nil, false))
+	}, domain.NewLogger(nil, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +128,7 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(nil, false))
+	}, domain.NewLogger(nil, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +179,7 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(nil, false))
+	}, domain.NewLogger(nil, false))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package phonewave
+package platform
 
 import (
 	"go.opentelemetry.io/otel/metric"

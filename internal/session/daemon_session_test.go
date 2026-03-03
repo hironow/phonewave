@@ -20,7 +20,7 @@ func newTestDaemonSession(t *testing.T) (*session.DaemonSession, string) {
 		t.Fatalf("create delivery log: %v", err)
 	}
 	t.Cleanup(func() { dlog.Close() })
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 	routes := []phonewave.ResolvedRoute{
 		{Kind: "specification", FromOutbox: "/tmp/outbox", ToInboxes: []string{"/tmp/inbox"}},
 	}

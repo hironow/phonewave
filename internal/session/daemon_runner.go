@@ -20,6 +20,7 @@ import (
 
 	phonewave "github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 )
 
 // RetryBackoff implements exponential backoff with jitter for retry burst control.
@@ -60,7 +61,7 @@ func (b *RetryBackoff) RecordFailure() {
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
 	opts          phonewave.DaemonOptions
-	logger        *phonewave.Logger
+	logger        *domain.Logger
 	watcher       *fsnotify.Watcher
 	dlog          *DeliveryLog
 	deliveryStore phonewave.DeliveryStore
@@ -71,9 +72,9 @@ type Daemon struct {
 
 // NewDaemon creates a new Daemon with the given options and logger.
 // If logger is nil, a silent logger (io.Discard) is used.
-func NewDaemon(opts phonewave.DaemonOptions, logger *phonewave.Logger) (*Daemon, error) {
+func NewDaemon(opts phonewave.DaemonOptions, logger *domain.Logger) (*Daemon, error) {
 	if logger == nil {
-		logger = phonewave.NewLogger(nil, false)
+		logger = domain.NewLogger(nil, false)
 	}
 	watcher, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close — stored in Daemon struct, closed in Run()
 	if err != nil {
@@ -154,7 +155,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	scanGroup := d.pool.NewGroup()
 	for _, dir := range d.opts.OutboxDirs {
 		scanGroup.Submit(func() {
-			scanCtx, scanSpan := phonewave.Tracer.Start(ctx, "daemon.startup_scan", // nosemgrep: adr0003-otel-span-without-defer-end — span.End() called explicitly after SetAttributes
+			scanCtx, scanSpan := platform.Tracer.Start(ctx, "daemon.startup_scan", // nosemgrep: adr0003-otel-span-without-defer-end — span.End() called explicitly after SetAttributes
 				trace.WithNewRoot(),
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
@@ -266,7 +267,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	ctx, span := phonewave.Tracer.Start(context.Background(), "daemon.handle_event",
+	ctx, span := platform.Tracer.Start(context.Background(), "daemon.handle_event",
 		trace.WithAttributes(
 			attribute.String("event.name", event.Name),
 			attribute.String("event.op", event.Op.String()),
@@ -354,7 +355,7 @@ type retryEntry struct {
 // that have not exceeded MaxRetries. Eligible retries run concurrently
 // via the daemon's worker pool. Returns the number of successful retries.
 func (d *Daemon) retryPending() int {
-	ctx, retrySpan := phonewave.Tracer.Start(context.Background(), "daemon.retry_pending")
+	ctx, retrySpan := platform.Tracer.Start(context.Background(), "daemon.retry_pending")
 	defer retrySpan.End()
 
 	errorsDir := filepath.Join(d.opts.StateDir, "errors")
@@ -467,9 +468,9 @@ func extractKindOrUnknown(data []byte) string {
 // delivering each one according to the provided routes. Files are delivered
 // concurrently via a worker pool. Failed deliveries are saved to the error queue
 // in stateDir.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, stateDir string, logger *phonewave.Logger, ds phonewave.DeliveryStore) ([]*phonewave.DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []phonewave.ResolvedRoute, stateDir string, logger *domain.Logger, ds phonewave.DeliveryStore) ([]*phonewave.DeliveryResult, []error) {
 	if logger == nil {
-		logger = phonewave.NewLogger(nil, false)
+		logger = domain.NewLogger(nil, false)
 	}
 	entries, err := os.ReadDir(outboxDir)
 	if err != nil {

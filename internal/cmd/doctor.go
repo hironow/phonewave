@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -20,7 +21,7 @@ func newDoctorCmd() *cobra.Command {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			outputFmt, _ := cmd.Flags().GetString("output")
 			jsonOut := outputFmt == "json"
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := domain.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
 			cfg, err := session.LoadConfig(cfgPath)
@@ -70,7 +71,6 @@ func newDoctorCmd() *cobra.Command {
 			return nil
 		},
 	}
-
 
 	return cmd
 }

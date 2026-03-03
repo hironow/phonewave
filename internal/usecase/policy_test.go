@@ -6,13 +6,12 @@ import (
 	"io"
 	"testing"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestPolicyEngine_Dispatch_NoHandlers(t *testing.T) {
 	// given
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
 	ev := domain.Event{Type: domain.EventDeliveryCompleted}
 
@@ -27,7 +26,7 @@ func TestPolicyEngine_Dispatch_NoHandlers(t *testing.T) {
 
 func TestPolicyEngine_RegisterAndFire(t *testing.T) {
 	// given
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
 	called := false
 	engine.Register(domain.EventDeliveryCompleted, func(ctx context.Context, ev domain.Event) error {
@@ -51,7 +50,7 @@ func TestPolicyEngine_RegisterAndFire(t *testing.T) {
 
 func TestPolicyEngine_MultipleHandlers(t *testing.T) {
 	// given
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
 	count := 0
 	handler := func(ctx context.Context, ev domain.Event) error {
@@ -77,7 +76,7 @@ func TestPolicyEngine_MultipleHandlers(t *testing.T) {
 
 func TestPolicyEngine_HandlerError(t *testing.T) {
 	// given
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
 	engine.Register(domain.EventErrorRetried, func(ctx context.Context, ev domain.Event) error {
 		return errors.New("handler failed")
@@ -96,7 +95,7 @@ func TestPolicyEngine_HandlerError(t *testing.T) {
 
 func TestPolicyEngine_UnmatchedEventType(t *testing.T) {
 	// given
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 	engine := NewPolicyEngine(logger)
 	called := false
 	engine.Register(domain.EventDeliveryCompleted, func(ctx context.Context, ev domain.Event) error {

@@ -3,7 +3,6 @@ package cmd
 import (
 	"time"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
@@ -41,7 +40,7 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	retryInterval, _ := cmd.Flags().GetDuration("retry-interval")
 	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+	logger := domain.NewLogger(cmd.ErrOrStderr(), verbose)
 
 	return usecase.SetupAndRunDaemon(cmd.Context(), domain.RunDaemonCommand{
 		Verbose:       verbose,

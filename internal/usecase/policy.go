@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 
-	"github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 )
 
@@ -16,11 +15,11 @@ type PolicyHandler func(ctx context.Context, event domain.Event) error
 // ensuring event persistence is never rolled back due to policy failures.
 type PolicyEngine struct {
 	handlers map[domain.EventType][]PolicyHandler
-	logger   *phonewave.Logger
+	logger   *domain.Logger
 }
 
 // NewPolicyEngine creates an empty PolicyEngine.
-func NewPolicyEngine(logger *phonewave.Logger) *PolicyEngine {
+func NewPolicyEngine(logger *domain.Logger) *PolicyEngine {
 	return &PolicyEngine{
 		handlers: make(map[domain.EventType][]PolicyHandler),
 		logger:   logger,

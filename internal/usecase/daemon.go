@@ -12,7 +12,7 @@ import (
 
 // SetupAndRunDaemon validates the RunDaemonCommand, resolves configuration,
 // creates a Daemon, and runs the event loop until ctx is cancelled.
-func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath, baseDir string, logger *phonewave.Logger) error {
+func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath, baseDir string, logger *domain.Logger) error {
 	if errs := cmd.Validate(); len(errs) > 0 {
 		return fmt.Errorf("command validation: %w", errs[0])
 	}

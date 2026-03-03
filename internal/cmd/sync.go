@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -17,7 +17,7 @@ func newSyncCmd() *cobra.Command {
 		Example: `  phonewave sync`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := domain.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
 			cfg, err := session.LoadConfig(cfgPath)

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
@@ -37,7 +36,7 @@ func TestMigrateFileErrorQueue_MigratesExisting(t *testing.T) {
 	}
 
 	store := testErrorQueueStore(t)
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 
 	// when
 	migrated, err := session.MigrateFileErrorQueue(stateDir, store, logger)
@@ -80,7 +79,7 @@ func TestMigrateFileErrorQueue_IdempotentRerun(t *testing.T) {
 	session.SaveToErrorQueue(stateDir, meta, []byte("report data"))
 
 	store := testErrorQueueStore(t)
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 
 	// First migration
 	session.MigrateFileErrorQueue(stateDir, store, logger)
@@ -107,7 +106,7 @@ func TestMigrateFileErrorQueue_EmptyDir(t *testing.T) {
 	// given: stateDir with no errors/ directory
 	stateDir := t.TempDir()
 	store := testErrorQueueStore(t)
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 
 	// when
 	migrated, err := session.MigrateFileErrorQueue(stateDir, store, logger)

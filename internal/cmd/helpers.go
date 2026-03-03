@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +21,7 @@ func configBase(cmd *cobra.Command) string {
 	return filepath.Dir(configPath(cmd))
 }
 
-func printOrphanWarnings(logger *phonewave.Logger, orphans phonewave.OrphanReport) {
+func printOrphanWarnings(logger *domain.Logger, orphans phonewave.OrphanReport) {
 	for _, kind := range orphans.UnconsumedKinds {
 		logger.Warn("Orphaned: kind=%q is produced but not consumed", kind)
 	}

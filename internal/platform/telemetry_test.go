@@ -1,4 +1,4 @@
-package phonewave
+package platform
 
 import (
 	"context"
@@ -74,4 +74,3 @@ func TestSetupTestTracer_SpansAvailableImmediately(t *testing.T) {
 		t.Errorf("span name = %q, want %q", spans[0].Name, "sync-span")
 	}
 }
-

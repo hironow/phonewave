@@ -8,7 +8,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/platform"
 )
 
 // setupTestTracer installs an InMemoryExporter with a synchronous span processor
@@ -20,12 +20,12 @@ func setupTestTracer(t *testing.T) *tracetest.InMemoryExporter {
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exp))
 	prev := otel.GetTracerProvider()
 	otel.SetTracerProvider(tp)
-	oldTracer := phonewave.Tracer
-	phonewave.Tracer = tp.Tracer("phonewave-test")
+	oldTracer := platform.Tracer
+	platform.Tracer = tp.Tracer("phonewave-test")
 	t.Cleanup(func() {
 		tp.Shutdown(context.Background())
 		otel.SetTracerProvider(prev)
-		phonewave.Tracer = oldTracer
+		platform.Tracer = oldTracer
 	})
 	return exp
 }

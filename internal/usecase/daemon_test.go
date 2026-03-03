@@ -20,7 +20,7 @@ func TestSetupAndRunDaemon_InvalidCommand(t *testing.T) {
 		RetryInterval: 0,
 		MaxRetries:    10,
 	}
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 
 	// when
 	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger)
@@ -37,7 +37,7 @@ func TestSetupAndRunDaemon_MissingConfig(t *testing.T) {
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    10,
 	}
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 
 	// when
 	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger)
@@ -100,7 +100,7 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    10,
 	}
-	logger := phonewave.NewLogger(io.Discard, false)
+	logger := domain.NewLogger(io.Discard, false)
 
 	// when
 	err = SetupAndRunDaemon(context.Background(), cmd, configPath, baseDir, logger)
