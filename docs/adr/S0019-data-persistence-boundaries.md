@@ -45,6 +45,7 @@ pattern separates environment-specific data from portable configuration.
 ### Reference Data Management (S0012)
 
 When tools need to reference external data (Linear issues, GitHub PRs):
+
 - Store lightweight references (ID, title, URL, status) not full content
 - References are best-effort and may become stale
 - Re-fetch individual items on demand rather than bulk sync
@@ -53,15 +54,18 @@ When tools need to reference external data (Linear issues, GitHub PRs):
 ## Consequences
 
 ### Positive
+
 - Config files are portable across developer machines and CI environments
 - Clear separation of concerns between portable and local data
 - `.run/` convention provides consistent gitignored state directory
 - `*.local.*` pattern enables per-developer customization without conflicts
 
 ### Negative
+
 - Developers must remember to use `*.local.*` for environment-specific overrides
 - Relative path resolution adds slight complexity to config loading
 
 ### Neutral
+
 - amadeus is the reference implementation for this pattern (`.gate/` fully gitignored, `*.local.*` adopted)
 - phonewave.yaml uses relative paths since S1 resolution

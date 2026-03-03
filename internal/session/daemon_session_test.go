@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 )
 
@@ -19,7 +20,7 @@ func newTestDaemonSession(t *testing.T) (*session.DaemonSession, string) {
 		t.Fatalf("create delivery log: %v", err)
 	}
 	t.Cleanup(func() { dlog.Close() })
-	logger := domain.NewLogger(io.Discard, false)
+	logger := platform.NewLogger(io.Discard, false)
 	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: "/tmp/outbox", ToInboxes: []string{"/tmp/inbox"}},
 	}

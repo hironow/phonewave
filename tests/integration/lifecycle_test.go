@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 )
 
@@ -188,7 +189,7 @@ description: "Pre-existing specification"
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -350,7 +351,7 @@ description: "Unknown"
 		OutboxDirs: outboxDirs,
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon (restart): %v", err)
 	}

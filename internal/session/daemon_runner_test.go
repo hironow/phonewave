@@ -13,6 +13,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 )
 
 func TestRetryBackoff_InitialInterval(t *testing.T) {
@@ -147,7 +148,7 @@ description: "Pre-existing spec"
 	ds := newTestDeliveryStore(t)
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, domain.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
 
 	// then
 	if len(errs) != 0 {
@@ -192,7 +193,7 @@ func TestDaemon_WatchAndDeliver(t *testing.T) {
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -277,7 +278,7 @@ description: "Startup log test"
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -329,7 +330,7 @@ func TestDaemon_PIDFile(t *testing.T) {
 		Routes:     []domain.ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -382,7 +383,7 @@ func TestDaemon_ConcurrentBurstDelivery(t *testing.T) {
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -441,7 +442,7 @@ func TestDaemon_MalformedDMail(t *testing.T) {
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -511,7 +512,7 @@ func TestDaemon_UnknownKind(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -593,7 +594,7 @@ func TestDaemon_IgnoresNonMdFiles(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -657,7 +658,7 @@ description: "Valid"
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, domain.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
 
 	if len(errs) != 0 {
 		t.Errorf("unexpected errors: %v", errs)
@@ -715,7 +716,7 @@ description: "Also valid"
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, domain.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
 
 	if len(results) != 2 {
 		t.Errorf("results = %d, want 2 (valid D-Mails delivered)", len(results))
@@ -757,7 +758,7 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, domain.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
 
 	if len(results) != 0 {
 		t.Errorf("results = %d, want 0", len(results))
@@ -789,7 +790,7 @@ func TestDaemon_MultipleOutboxes(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox1, outbox2},
 		StateDir:   stateDir,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -868,7 +869,7 @@ func TestDaemon_BurstDelivery(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -972,7 +973,7 @@ description: "Preserve test"
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1026,7 +1027,7 @@ description: "Preserve test"
 	routes := []domain.ResolvedRoute{}
 	ds := newTestDeliveryStore(t)
 
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir, domain.NewLogger(io.Discard, false), ds)
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
 
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
 		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
@@ -1066,7 +1067,7 @@ description: "Rename event test"
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1103,7 +1104,7 @@ func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
 		Routes:     []domain.ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1157,7 +1158,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		Verbose:       true,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1223,7 +1224,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		StateDir:      stateDir,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1296,7 +1297,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
 		RetryInterval: 0,
-	}, domain.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}

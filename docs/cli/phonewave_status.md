@@ -32,5 +32,4 @@ phonewave status [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)	 - D-Mail courier daemon
-
+* [phonewave](phonewave.md)  - D-Mail courier daemon

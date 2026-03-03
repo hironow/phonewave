@@ -3,7 +3,7 @@ package cmd
 import (
 	"path/filepath"
 
-	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +18,7 @@ func newAddCmd() *cobra.Command {
   phonewave add /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := domain.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
 			result, err := usecase.AddRepository(cfgPath, args[0], logger)

@@ -44,13 +44,16 @@ subcommand uses the argument shape that matches its operational semantics:
 ## Consequences
 
 ### Positive
+
 - ADR now matches actual implementation — no doc/code mismatch
 - Each tool's ergonomics are optimized for its risk profile (destructive vs read-only)
 
 ### Negative
+
 - No single argument pattern across all tools
 - New users must learn per-tool conventions
 
 ### Neutral
+
 - phonewave's config-based approach and paintress's explicit path are the two
   poles; sightjack and amadeus share the optional-with-cwd-default middle ground

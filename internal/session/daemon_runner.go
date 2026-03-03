@@ -20,6 +20,7 @@ import (
 
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
+	"github.com/hironow/phonewave/internal/port"
 )
 
 // RetryBackoff implements exponential backoff with jitter for retry burst control.
@@ -60,20 +61,21 @@ func (b *RetryBackoff) RecordFailure() {
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
 	opts          domain.DaemonOptions
-	logger        *domain.Logger
+	logger        domain.Logger
 	watcher       *fsnotify.Watcher
 	dlog          *DeliveryLog
 	deliveryStore domain.DeliveryStore
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
-	Dispatcher    domain.EventDispatcher
+	Dispatcher    port.EventDispatcher
+	Session       *DaemonSession
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
 // If logger is nil, a silent logger (io.Discard) is used.
-func NewDaemon(opts domain.DaemonOptions, logger *domain.Logger) (*Daemon, error) {
+func NewDaemon(opts domain.DaemonOptions, logger domain.Logger) (*Daemon, error) {
 	if logger == nil {
-		logger = domain.NewLogger(nil, false)
+		logger = &domain.NopLogger{}
 	}
 	watcher, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close — stored in Daemon struct, closed in Run()
 	if err != nil {
@@ -305,6 +307,9 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		if d.dlog != nil {
 			d.dlog.Failed(kind, event.Name, err.Error())
 		}
+		if d.Session != nil {
+			d.Session.RecordFailureEvent(event.Name, kind, err)
+		}
 
 		meta := domain.ErrorMetadata{
 			SourceOutbox: filepath.Dir(event.Name),
@@ -333,6 +338,9 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		if _, statErr := os.Stat(result.SourcePath); errors.Is(statErr, os.ErrNotExist) {
 			d.dlog.Removed(result.SourcePath)
 		}
+	}
+	if d.Session != nil {
+		d.Session.RecordDeliveryEvent(result)
 	}
 
 	if d.opts.Verbose {
@@ -435,6 +443,9 @@ func (d *Daemon) retryPending() int {
 					d.dlog.Retried(result.Kind, e.originalPath, target)
 				}
 			}
+			if d.Session != nil {
+				d.Session.RecordRetryEvent(e.meta.OriginalName, result.Kind)
+			}
 
 			if d.opts.Verbose {
 				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.meta.OriginalName, result.Kind, result.DeliveredTo)
@@ -467,9 +478,9 @@ func extractKindOrUnknown(data []byte) string {
 // delivering each one according to the provided routes. Files are delivered
 // concurrently via a worker pool. Failed deliveries are saved to the error queue
 // in stateDir.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger *domain.Logger, ds domain.DeliveryStore) ([]*domain.DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds domain.DeliveryStore) ([]*domain.DeliveryResult, []error) {
 	if logger == nil {
-		logger = domain.NewLogger(nil, false)
+		logger = &domain.NopLogger{}
 	}
 	entries, err := os.ReadDir(outboxDir)
 	if err != nil {

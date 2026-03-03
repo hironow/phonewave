@@ -20,7 +20,7 @@ func configBase(cmd *cobra.Command) string {
 	return filepath.Dir(configPath(cmd))
 }
 
-func printOrphanWarnings(logger *domain.Logger, orphans domain.OrphanReport) {
+func printOrphanWarnings(logger domain.Logger, orphans domain.OrphanReport) {
 	for _, kind := range orphans.UnconsumedKinds {
 		logger.Warn("Orphaned: kind=%q is produced but not consumed", kind)
 	}

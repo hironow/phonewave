@@ -60,6 +60,7 @@ paintress fetches issues with priority from Linear API.
 ### Status Commands (GAP-1-04)
 
 Each tool gains a `status` subcommand:
+
 - Human-readable text to stdout
 - Reads local state (event store + filesystem)
 - Follows phonewave's existing StatusReport pattern
@@ -67,16 +68,19 @@ Each tool gains a `status` subcommand:
 ## Consequences
 
 ### Positive
+
 - Rework decisions become explicit protocol contracts
 - Priority propagation enables reproducible scheduling
 - CI result kind enables future CI integration
 - Status commands provide per-tool operational visibility
 
 ### Negative
+
 - D-Mail struct divergence increases (new golden files needed)
 - Retry counting adds session-level state to paintress
 
 ### Neutral
+
 - Schema stays at v1 (no breaking change)
 - CI bridge deferred (protocol only)
 - Cross-tool dashboard aggregation not included

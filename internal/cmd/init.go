@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +22,7 @@ func newInitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			force, _ := cmd.Flags().GetBool("force")
-			logger := domain.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
 			if !force {

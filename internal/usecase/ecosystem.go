@@ -16,7 +16,7 @@ func configBaseFromPath(cfgPath string) string {
 // InitEcosystem scans repositories, generates a config, writes it, and
 // ensures the state directory exists.
 // Wraps the full Load→Init→Write→EnsureStateDir cycle.
-func InitEcosystem(cfgPath string, repoPaths []string, logger *domain.Logger) (*domain.InitResult, error) {
+func InitEcosystem(cfgPath string, repoPaths []string, logger domain.Logger) (*domain.InitResult, error) {
 	result, err := session.Init(repoPaths)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func InitEcosystem(cfgPath string, repoPaths []string, logger *domain.Logger) (*
 
 // AddRepository adds a new repository to the ecosystem and persists the config.
 // Wraps LoadConfig→Add→WriteConfig.
-func AddRepository(cfgPath, repoPath string, logger *domain.Logger) (*domain.AddResult, error) {
+func AddRepository(cfgPath, repoPath string, logger domain.Logger) (*domain.AddResult, error) {
 	cfg, err := session.LoadConfig(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
@@ -62,7 +62,7 @@ type RemoveResult struct {
 
 // RemoveRepository removes a repository from the ecosystem and persists the config.
 // Wraps LoadConfig→Remove→WriteConfig.
-func RemoveRepository(cfgPath, repoPath string, logger *domain.Logger) (*RemoveResult, error) {
+func RemoveRepository(cfgPath, repoPath string, logger domain.Logger) (*RemoveResult, error) {
 	cfg, err := session.LoadConfig(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
@@ -85,7 +85,7 @@ func RemoveRepository(cfgPath, repoPath string, logger *domain.Logger) (*RemoveR
 
 // SyncEcosystem re-scans all repositories and reconciles the routing table.
 // Wraps LoadConfig→Sync→WriteConfig.
-func SyncEcosystem(cfgPath string, logger *domain.Logger) (*domain.SyncReport, error) {
+func SyncEcosystem(cfgPath string, logger domain.Logger) (*domain.SyncReport, error) {
 	cfg, err := session.LoadConfig(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)

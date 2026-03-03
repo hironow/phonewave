@@ -7,6 +7,7 @@ import (
 
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
+	"github.com/hironow/phonewave/internal/port"
 )
 
 // DaemonSession holds session-layer dependencies for the daemon's I/O
@@ -18,8 +19,8 @@ type DaemonSession struct {
 	DeliveryLog *DeliveryLog
 	Routes      []domain.ResolvedRoute
 	StateDir    string
-	Logger      *domain.Logger
-	Dispatcher  domain.EventDispatcher
+	Logger      domain.Logger
+	Dispatcher  port.EventDispatcher
 }
 
 // NewDaemonSession creates a DaemonSession with the given dependencies.
@@ -30,7 +31,7 @@ func NewDaemonSession(
 	deliveryLog *DeliveryLog,
 	routes []domain.ResolvedRoute,
 	stateDir string,
-	logger *domain.Logger,
+	logger domain.Logger,
 ) *DaemonSession {
 	return &DaemonSession{
 		ErrorQueue:  errorQueue,

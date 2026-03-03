@@ -11,7 +11,7 @@ import (
 
 // SetupAndRunDaemon validates the RunDaemonCommand, resolves configuration,
 // creates a Daemon, and runs the event loop until ctx is cancelled.
-func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath, baseDir string, logger *domain.Logger) error {
+func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath, baseDir string, logger domain.Logger) error {
 	if errs := cmd.Validate(); len(errs) > 0 {
 		return fmt.Errorf("command validation: %w", errs[0])
 	}
@@ -92,7 +92,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath
 
 	ds := session.NewDaemonSession(errorQueue, eventStore, dlog, routes, stateDir, logger)
 	ds.Dispatcher = engine
-	_ = ds // DaemonSession available for future wiring; daemon uses it via Run hooks
+	d.Session = ds
 
 	logger.OK("phonewave daemon starting (%d routes, %d outboxes)", len(routes), len(outboxDirs))
 

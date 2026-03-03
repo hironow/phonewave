@@ -77,7 +77,7 @@ func TestDaemon_Run_CreatesStartupScanSpan(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(nil, false))
+	}, platform.NewLogger(nil, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(nil, false))
+	}, platform.NewLogger(nil, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, domain.NewLogger(nil, false))
+	}, platform.NewLogger(nil, false))
 	if err != nil {
 		t.Fatal(err)
 	}

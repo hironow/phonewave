@@ -4,7 +4,11 @@ import (
 	"context"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/port"
 )
+
+// compile-time interface check
+var _ port.EventDispatcher = (*PolicyEngine)(nil)
 
 // PolicyHandler processes a domain event as part of a POLICY reaction.
 // WHEN [EVENT] THEN [COMMAND] — handlers implement the THEN side.
@@ -15,11 +19,11 @@ type PolicyHandler func(ctx context.Context, event domain.Event) error
 // ensuring event persistence is never rolled back due to policy failures.
 type PolicyEngine struct {
 	handlers map[domain.EventType][]PolicyHandler
-	logger   *domain.Logger
+	logger   domain.Logger
 }
 
 // NewPolicyEngine creates an empty PolicyEngine.
-func NewPolicyEngine(logger *domain.Logger) *PolicyEngine {
+func NewPolicyEngine(logger domain.Logger) *PolicyEngine {
 	return &PolicyEngine{
 		handlers: make(map[domain.EventType][]PolicyHandler),
 		logger:   logger,
