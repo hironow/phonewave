@@ -115,42 +115,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	defer os.Remove(startedPath)
 
-	// Startup scan: deliver any files that accumulated while daemon was down.
-	// Each outbox directory is scanned concurrently via the daemon's worker pool.
-	scanGroup := d.pool.NewGroup()
-	for _, dir := range d.opts.OutboxDirs {
-		scanGroup.Submit(func() {
-			scanCtx, scanSpan := platform.Tracer.Start(ctx, "daemon.startup_scan", // nosemgrep: adr0003-otel-span-without-defer-end — span.End() called explicitly after SetAttributes
-				trace.WithNewRoot(),
-				trace.WithAttributes(attribute.String("outbox.dir", dir)),
-			)
-			var eq domain.ErrorQueueStore
-			if d.Session != nil {
-				eq = d.Session.ErrorQueue
-			}
-			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore, eq)
-			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
-			scanSpan.End()
-			for _, r := range results {
-				if d.dlog != nil {
-					for _, target := range r.DeliveredTo {
-						d.dlog.Delivered(r.Kind, r.SourcePath, target)
-					}
-					// Only log REMOVED if source was actually removed (all targets flushed)
-					if _, statErr := os.Stat(r.SourcePath); errors.Is(statErr, os.ErrNotExist) {
-						d.dlog.Removed(r.SourcePath)
-					}
-				}
-				if d.opts.Verbose {
-					d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
-				}
-			}
-			for _, err := range errs {
-				d.logger.Warn("Startup scan: %v", err)
-			}
-		})
-	}
-	scanGroup.Wait()
+	d.runStartupScan(ctx)
 
 	if d.opts.Verbose {
 		d.logger.OK("Daemon started (PID %d), watching %d outbox directories", os.Getpid(), len(d.opts.OutboxDirs))
@@ -218,21 +183,25 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 }
 
-// handleEvent processes a single fsnotify event.
-func (d *Daemon) handleEvent(event fsnotify.Event) {
-	// React to Create and Rename events for .md files.
-	// Rename is needed because producers using atomic temp+rename
-	// may only emit Rename (not Create) on some platforms (e.g. Linux inotify).
+// shouldProcessEvent returns true if the fsnotify event should be processed.
+// It filters for Create/Rename events of .md files, excluding temp files.
+func shouldProcessEvent(event fsnotify.Event) bool {
 	if !event.Has(fsnotify.Create) && !event.Has(fsnotify.Rename) {
-		return
+		return false
 	}
-
 	name := filepath.Base(event.Name)
 	if filepath.Ext(name) != ".md" {
-		return
+		return false
 	}
-	// Skip temp files
 	if strings.HasPrefix(name, ".phonewave-tmp-") {
+		return false
+	}
+	return true
+}
+
+// handleEvent processes a single fsnotify event.
+func (d *Daemon) handleEvent(event fsnotify.Event) {
+	if !shouldProcessEvent(event) {
 		return
 	}
 
@@ -280,26 +249,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 			d.Session.RecordFailureEvent(event.Name, kind, err)
 		}
 
-		meta := domain.ErrorMetadata{
-			SourceOutbox: filepath.Dir(event.Name),
-			Kind:         kind,
-			OriginalName: filepath.Base(event.Name),
-			Attempts:     1,
-			Error:        err.Error(),
-			Timestamp:    time.Now().UTC(),
-		}
-		if d.Session == nil || d.Session.ErrorQueue == nil {
-			d.logger.Error("Error queue unavailable, leaving in outbox for next startup")
-			return
-		}
-		name := fmt.Sprintf("%s-%s-%s", meta.Timestamp.Format("2006-01-02T150405.000000000"), meta.Kind, meta.OriginalName)
-		if saveErr := d.Session.ErrorQueue.Enqueue(name, data, meta); saveErr != nil {
-			d.logger.Error("Error queue enqueue: %v", saveErr)
-			return
-		}
-
-		// Error queue write succeeded — safe to remove from outbox
-		os.Remove(event.Name)
+		d.enqueueDeliveryFailure(event.Name, data, kind, err)
 		return
 	}
 
@@ -319,6 +269,31 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	if d.opts.Verbose {
 		d.logger.OK("Delivered %s (kind=%s) to %v", result.SourcePath, result.Kind, result.DeliveredTo)
 	}
+}
+
+// enqueueDeliveryFailure moves a failed delivery from the outbox to the error
+// queue. On successful enqueue the outbox file is removed. If the error queue
+// is unavailable the file is left in the outbox for the next startup scan.
+func (d *Daemon) enqueueDeliveryFailure(path string, data []byte, kind string, deliverErr error) {
+	meta := domain.ErrorMetadata{
+		SourceOutbox: filepath.Dir(path),
+		Kind:         kind,
+		OriginalName: filepath.Base(path),
+		Attempts:     1,
+		Error:        deliverErr.Error(),
+		Timestamp:    time.Now().UTC(),
+	}
+	if d.Session == nil || d.Session.ErrorQueue == nil {
+		d.logger.Error("Error queue unavailable, leaving in outbox for next startup")
+		return
+	}
+	name := fmt.Sprintf("%s-%s-%s", meta.Timestamp.Format("2006-01-02T150405.000000000"), meta.Kind, meta.OriginalName)
+	if saveErr := d.Session.ErrorQueue.Enqueue(name, data, meta); saveErr != nil {
+		d.logger.Error("Error queue enqueue: %v", saveErr)
+		return
+	}
+	// Error queue write succeeded — safe to remove from outbox
+	os.Remove(path)
 }
 
 // retryPending claims pending error queue entries via SQLite and attempts
@@ -392,6 +367,45 @@ func (d *Daemon) retryPending() int {
 		successes++
 	}
 	return successes
+}
+
+// runStartupScan delivers files that accumulated while the daemon was down.
+// Each outbox directory is scanned concurrently via the daemon's worker pool.
+func (d *Daemon) runStartupScan(ctx context.Context) {
+	scanGroup := d.pool.NewGroup()
+	for _, dir := range d.opts.OutboxDirs {
+		scanGroup.Submit(func() {
+			scanCtx, scanSpan := platform.Tracer.Start(ctx, "daemon.startup_scan", // nosemgrep: adr0003-otel-span-without-defer-end — span.End() called explicitly after SetAttributes
+				trace.WithNewRoot(),
+				trace.WithAttributes(attribute.String("outbox.dir", dir)),
+			)
+			var eq domain.ErrorQueueStore
+			if d.Session != nil {
+				eq = d.Session.ErrorQueue
+			}
+			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore, eq)
+			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
+			scanSpan.End()
+			for _, r := range results {
+				if d.dlog != nil {
+					for _, target := range r.DeliveredTo {
+						d.dlog.Delivered(r.Kind, r.SourcePath, target)
+					}
+					// Only log REMOVED if source was actually removed (all targets flushed)
+					if _, statErr := os.Stat(r.SourcePath); errors.Is(statErr, os.ErrNotExist) {
+						d.dlog.Removed(r.SourcePath)
+					}
+				}
+				if d.opts.Verbose {
+					d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)
+				}
+			}
+			for _, err := range errs {
+				d.logger.Warn("Startup scan: %v", err)
+			}
+		})
+	}
+	scanGroup.Wait()
 }
 
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
