@@ -68,6 +68,7 @@ type ErrorEntry struct {
 	Data         []byte
 	SourceOutbox string
 	Kind         string
+	OriginalName string
 	ErrorMessage string
 	RetryCount   int
 }

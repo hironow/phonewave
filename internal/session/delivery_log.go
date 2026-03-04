@@ -93,42 +93,8 @@ func SaveToErrorQueue(stateDir string, meta domain.ErrorMetadata, data []byte) e
 	return nil
 }
 
-// UpdateErrorMetadata increments the attempts counter and updates the error message
-// in an existing .err sidecar file.
-func UpdateErrorMetadata(sidecarPath string, newError string) error {
-	meta, err := LoadErrorMetadata(sidecarPath)
-	if err != nil {
-		return err
-	}
-
-	meta.Attempts++
-	meta.Error = newError
-	meta.Timestamp = time.Now().UTC()
-
-	data, err := yaml.Marshal(meta)
-	if err != nil {
-		return fmt.Errorf("marshal error metadata: %w", err)
-	}
-
-	if err := os.WriteFile(sidecarPath, data, 0644); err != nil {
-		return fmt.Errorf("write error sidecar: %w", err)
-	}
-	return nil
-}
-
-// RemoveErrorEntry removes a D-Mail file and its .err sidecar from the error queue.
-func RemoveErrorEntry(dmailPath string) error {
-	if err := os.Remove(dmailPath); err != nil {
-		return fmt.Errorf("remove error entry: %w", err)
-	}
-	sidecarPath := dmailPath + ".err"
-	if err := os.Remove(sidecarPath); err != nil {
-		return fmt.Errorf("remove error sidecar: %w", err)
-	}
-	return nil
-}
-
 // LoadErrorMetadata reads and parses a .err sidecar file.
+// Used by MigrateFileErrorQueue to migrate legacy file-based entries to SQLite.
 func LoadErrorMetadata(sidecarPath string) (*domain.ErrorMetadata, error) {
 	data, err := os.ReadFile(sidecarPath)
 	if err != nil {

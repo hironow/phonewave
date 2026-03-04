@@ -97,9 +97,9 @@ func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta domain.Er
 	}()
 
 	_, err = conn.ExecContext(ctx,
-		`INSERT OR IGNORE INTO error_queue (name, data, source_outbox, kind, original_name, error_message)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		name, data, meta.SourceOutbox, meta.Kind, meta.OriginalName, meta.Error,
+		`INSERT OR IGNORE INTO error_queue (name, data, source_outbox, kind, original_name, error_message, retry_count)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		name, data, meta.SourceOutbox, meta.Kind, meta.OriginalName, meta.Error, meta.Attempts,
 	)
 	if err != nil {
 		return fmt.Errorf("error queue store: enqueue %s: %w", name, err)
@@ -148,7 +148,7 @@ func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries
 
 	// Read back claimed rows.
 	rows, err := conn.QueryContext(ctx,
-		`SELECT name, data, source_outbox, kind, error_message, retry_count
+		`SELECT name, data, source_outbox, kind, original_name, error_message, retry_count
 		 FROM error_queue WHERE claimed_by = ? AND resolved = 0`,
 		claimerID,
 	)
@@ -159,7 +159,7 @@ func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries
 	var entries []domain.ErrorEntry
 	for rows.Next() {
 		var e domain.ErrorEntry
-		if err := rows.Scan(&e.Name, &e.Data, &e.SourceOutbox, &e.Kind, &e.ErrorMessage, &e.RetryCount); err != nil {
+		if err := rows.Scan(&e.Name, &e.Data, &e.SourceOutbox, &e.Kind, &e.OriginalName, &e.ErrorMessage, &e.RetryCount); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("error queue store: scan row: %w", err)
 		}

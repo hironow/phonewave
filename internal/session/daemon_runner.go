@@ -160,7 +160,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 				trace.WithNewRoot(),
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
-			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore)
+			var eq domain.ErrorQueueStore
+			if d.Session != nil {
+				eq = d.Session.ErrorQueue
+			}
+			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore, eq)
 			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
 			scanSpan.End()
 			for _, r := range results {
@@ -319,9 +323,13 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 			Error:        err.Error(),
 			Timestamp:    time.Now().UTC(),
 		}
-		if saveErr := SaveToErrorQueue(d.opts.StateDir, meta, data); saveErr != nil {
-			d.logger.Error("Save to error queue: %v", saveErr)
-			// Do NOT remove from outbox — startup scan will retry on next restart
+		if d.Session == nil || d.Session.ErrorQueue == nil {
+			d.logger.Error("Error queue unavailable, leaving in outbox for next startup")
+			return
+		}
+		name := fmt.Sprintf("%s-%s-%s", meta.Timestamp.Format("2006-01-02T150405.000000000"), meta.Kind, meta.OriginalName)
+		if saveErr := d.Session.ErrorQueue.Enqueue(name, data, meta); saveErr != nil {
+			d.logger.Error("Error queue enqueue: %v", saveErr)
 			return
 		}
 
@@ -348,107 +356,64 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	}
 }
 
-// retryEntry holds metadata for a single error queue retry.
-// D-Mail data is read lazily inside the worker goroutine to bound
-// memory usage to pool_size × file_size instead of total_backlog × file_size.
-type retryEntry struct {
-	sidecarPath  string
-	meta         *domain.ErrorMetadata
-	dmailPath    string
-	originalPath string
-}
-
-// retryPending scans the error queue and attempts to re-deliver entries
-// that have not exceeded MaxRetries. Eligible retries run concurrently
-// via the daemon's worker pool. Returns the number of successful retries.
+// retryPending claims pending error queue entries via SQLite and attempts
+// to re-deliver them. Returns the number of successful retries.
 func (d *Daemon) retryPending() int {
+	if d.Session == nil || d.Session.ErrorQueue == nil {
+		return 0
+	}
+
 	ctx, retrySpan := platform.Tracer.Start(context.Background(), "daemon.retry_pending")
 	defer retrySpan.End()
-
-	errorsDir := filepath.Join(d.opts.StateDir, "errors")
-	entries, err := os.ReadDir(errorsDir)
-	if err != nil {
-		return 0 // no error queue directory yet
-	}
 
 	maxRetries := d.opts.MaxRetries
 	if maxRetries <= 0 {
 		maxRetries = 10
 	}
 
-	// Collect eligible entries (sequential I/O: metadata + data reads)
-	var eligible []retryEntry
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".err") {
-			continue
-		}
-
-		sidecarPath := filepath.Join(errorsDir, entry.Name())
-		meta, err := LoadErrorMetadata(sidecarPath)
-		if err != nil {
-			d.logger.Warn("Retry: load metadata %s: %v", sidecarPath, err)
-			continue
-		}
-
-		if meta.Attempts >= maxRetries {
-			continue
-		}
-
-		dmailPath := strings.TrimSuffix(sidecarPath, ".err")
-
-		eligible = append(eligible, retryEntry{
-			sidecarPath:  sidecarPath,
-			meta:         meta,
-			dmailPath:    dmailPath,
-			originalPath: filepath.Join(meta.SourceOutbox, meta.OriginalName),
-		})
-	}
-
-	if len(eligible) == 0 {
+	claimerID := fmt.Sprintf("daemon-%d", os.Getpid())
+	entries, err := d.Session.ErrorQueue.ClaimPendingRetries(claimerID, maxRetries)
+	if err != nil {
+		d.logger.Error("Retry: claim pending: %v", err)
 		return 0
 	}
 
-	// Track successes across goroutines. Using a channel avoids mutexes
-	// while keeping the counting simple for the pool-based concurrency model.
-	successCh := make(chan struct{}, len(eligible))
+	if len(entries) == 0 {
+		return 0
+	}
 
-	// Retry eligible entries concurrently. D-Mail data is read inside each
-	// worker so memory is bounded by pool concurrency, not backlog size.
+	successCh := make(chan struct{}, len(entries))
+
 	retryGroup := d.pool.NewGroup()
-	for _, e := range eligible {
+	for _, e := range entries {
 		retryGroup.Submit(func() {
-			data, readErr := os.ReadFile(e.dmailPath)
-			if readErr != nil {
-				d.logger.Warn("Retry: read %s: %v", e.dmailPath, readErr)
-				return
-			}
-
-			result, deliverErr := DeliverData(ctx, e.originalPath, data, d.opts.Routes, d.deliveryStore)
+			originalPath := filepath.Join(e.SourceOutbox, e.OriginalName)
+			result, deliverErr := DeliverData(ctx, originalPath, e.Data, d.opts.Routes, d.deliveryStore)
 			if deliverErr != nil {
-				if err := UpdateErrorMetadata(e.sidecarPath, deliverErr.Error()); err != nil {
-					d.logger.Warn("Retry: update metadata: %v", err)
+				if incErr := d.Session.ErrorQueue.IncrementRetry(e.Name, deliverErr.Error()); incErr != nil {
+					d.logger.Warn("Retry: increment retry: %v", incErr)
 				}
 				if d.opts.Verbose {
-					d.logger.Warn("Retry failed for %s (attempt %d): %v", e.meta.OriginalName, e.meta.Attempts+1, deliverErr)
+					d.logger.Warn("Retry failed for %s (attempt %d): %v", e.OriginalName, e.RetryCount+1, deliverErr)
 				}
 				return
 			}
 
-			if err := RemoveErrorEntry(e.dmailPath); err != nil {
-				d.logger.Warn("Retry: remove error entry: %v", err)
+			if markErr := d.Session.ErrorQueue.MarkResolved(e.Name); markErr != nil {
+				d.logger.Warn("Retry: mark resolved: %v", markErr)
 			}
 
 			if d.dlog != nil {
 				for _, target := range result.DeliveredTo {
-					d.dlog.Retried(result.Kind, e.originalPath, target)
+					d.dlog.Retried(result.Kind, originalPath, target)
 				}
 			}
 			if d.Session != nil {
-				d.Session.RecordRetryEvent(e.meta.OriginalName, result.Kind)
+				d.Session.RecordRetryEvent(e.OriginalName, result.Kind)
 			}
 
 			if d.opts.Verbose {
-				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.meta.OriginalName, result.Kind, result.DeliveredTo)
+				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.OriginalName, result.Kind, result.DeliveredTo)
 			}
 
 			successCh <- struct{}{}
@@ -476,9 +441,9 @@ func extractKindOrUnknown(data []byte) string {
 
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
 // delivering each one according to the provided routes. Files are delivered
-// concurrently via a worker pool. Failed deliveries are saved to the error queue
-// in stateDir.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds domain.DeliveryStore) ([]*domain.DeliveryResult, []error) {
+// sequentially. Failed deliveries are enqueued via errorQueue (SQLite).
+// If errorQueue is nil, failed files remain in the outbox for next startup.
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds domain.DeliveryStore, errorQueue domain.ErrorQueueStore) ([]*domain.DeliveryResult, []error) {
 	if logger == nil {
 		logger = &domain.NopLogger{}
 	}
@@ -531,10 +496,15 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 				Error:        deliverErr.Error(),
 				Timestamp:    time.Now().UTC(),
 			}
-			if saveErr := SaveToErrorQueue(stateDir, meta, data); saveErr != nil {
-				logger.Error("Save to error queue: %v", saveErr)
+			if errorQueue == nil {
+				logger.Error("Error queue unavailable, leaving %s in outbox", dmailPath)
 			} else {
-				os.Remove(dmailPath)
+				name := fmt.Sprintf("%s-%s-%s", meta.Timestamp.Format("2006-01-02T150405.000000000"), meta.Kind, meta.OriginalName)
+				if saveErr := errorQueue.Enqueue(name, data, meta); saveErr != nil {
+					logger.Error("Error queue enqueue: %v", saveErr)
+				} else {
+					os.Remove(dmailPath)
+				}
 			}
 			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
 			continue

@@ -148,7 +148,7 @@ description: "Pre-existing spec"
 	ds := newTestDeliveryStore(t)
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
 	// then
 	if len(errs) != 0 {
@@ -508,6 +508,12 @@ func TestDaemon_UnknownKind(t *testing.T) {
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
+
 	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
@@ -516,6 +522,7 @@ func TestDaemon_UnknownKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
+	d.Session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -550,25 +557,13 @@ description: "Unknown kind"
 		t.Error("source should be removed from outbox on delivery failure (moved to error queue)")
 	}
 
-	errorsDir := filepath.Join(stateDir, "errors")
-	errEntries, readErr := os.ReadDir(errorsDir)
-	if readErr != nil {
-		t.Fatalf("read errors dir: %v", readErr)
+	// Verify error is in SQLite error queue
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	var mdCount int
-	var errCount int
-	for _, e := range errEntries {
-		if strings.HasSuffix(e.Name(), ".err") {
-			errCount++
-		} else {
-			mdCount++
-		}
-	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1", mdCount)
-	}
-	if errCount != 1 {
-		t.Errorf("error queue .err sidecars = %d, want 1", errCount)
+	if pendingCount != 1 {
+		t.Errorf("SQLite error queue pending count = %d, want 1", pendingCount)
 	}
 
 	cancel()
@@ -658,7 +653,7 @@ description: "Valid"
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
 	if len(errs) != 0 {
 		t.Errorf("unexpected errors: %v", errs)
@@ -715,8 +710,13 @@ description: "Also valid"
 	}
 
 	ds := newTestDeliveryStore(t)
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, errorQueue)
 
 	if len(results) != 2 {
 		t.Errorf("results = %d, want 2 (valid D-Mails delivered)", len(results))
@@ -736,16 +736,13 @@ description: "Also valid"
 		t.Error("bad-002.md should be removed from outbox (moved to error queue)")
 	}
 
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	foundInErrorQueue := false
-	for _, e := range errorEntries {
-		if strings.Contains(e.Name(), "bad-002.md") && !strings.HasSuffix(e.Name(), ".err") {
-			foundInErrorQueue = true
-			break
-		}
+	// Verify error is in SQLite error queue
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	if !foundInErrorQueue {
-		t.Error("bad-002.md should be in the error queue")
+	if pendingCount != 1 {
+		t.Errorf("SQLite error queue pending count = %d, want 1", pendingCount)
 	}
 }
 
@@ -758,7 +755,7 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
 	if len(results) != 0 {
 		t.Errorf("results = %d, want 0", len(results))
@@ -949,12 +946,7 @@ func TestDaemon_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Sabotage: create "errors" as a regular file so MkdirAll inside SaveToErrorQueue fails
-	errorsBlocker := filepath.Join(stateDir, "errors")
-	if err := os.WriteFile(errorsBlocker, []byte("blocker"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
+	// No ErrorQueue injected (Session is nil) — handleEvent leaves file in outbox
 	routes := []domain.ResolvedRoute{}
 
 	dmailContent := `---
@@ -1007,11 +999,6 @@ func TestScanAndDeliver_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	errorsBlocker := filepath.Join(stateDir, "errors")
-	if err := os.WriteFile(errorsBlocker, []byte("blocker"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
 	dmailContent := `---
 dmail-schema-version: "1"
 name: spec-scan-preserve
@@ -1027,7 +1014,8 @@ description: "Preserve test"
 	routes := []domain.ResolvedRoute{}
 	ds := newTestDeliveryStore(t)
 
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds)
+	// nil errorQueue — file should be preserved in outbox
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
 		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
@@ -1134,6 +1122,12 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		}
 	}
 
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
+
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-retry\nkind: specification\ndescription: \"Retry test\"\n---\n\n# Retry Test\n")
 	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
@@ -1143,13 +1137,19 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Now().UTC(),
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+	if err := errorQueue.Enqueue("spec-retry-err", dmailData, meta); err != nil {
 		t.Fatal(err)
 	}
 
 	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
+
+	dlog, dlErr := NewDeliveryLog(stateDir)
+	if dlErr != nil {
+		t.Fatal(dlErr)
+	}
+	defer dlog.Close()
 
 	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:        routes,
@@ -1162,6 +1162,9 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
+	d.Session = &DaemonSession{ErrorQueue: errorQueue}
+	d.dlog = dlog
+	d.deliveryStore = newTestDeliveryStore(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1175,15 +1178,13 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		t.Error("D-Mail not found in inbox after retry")
 	}
 
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
+	// Verify entry marked as resolved in SQLite
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	if mdCount != 0 {
-		t.Errorf("error queue still has %d files, want 0", mdCount)
+	if pendingCount != 0 {
+		t.Errorf("SQLite error queue pending count = %d, want 0", pendingCount)
 	}
 
 	logData, _ := os.ReadFile(filepath.Join(stateDir, "delivery.log"))
@@ -1205,6 +1206,12 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		}
 	}
 
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
+
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-maxed\nkind: specification\ndescription: \"Max retry\"\n---\n")
 	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
@@ -1214,7 +1221,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Now().UTC(),
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+	if err := errorQueue.Enqueue("spec-maxed-err", dmailData, meta); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1228,6 +1235,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
+	d.Session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1237,27 +1245,13 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 
 	time.Sleep(350 * time.Millisecond)
 
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
+	// Verify entry is still pending but not claimed (retry_count >= maxRetries)
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1 (should be skipped)", mdCount)
-	}
-
-	for _, e := range errorEntries {
-		if strings.HasSuffix(e.Name(), ".err") {
-			loaded, err := LoadErrorMetadata(filepath.Join(stateDir, "errors", e.Name()))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if loaded.Attempts != 10 {
-				t.Errorf("attempts = %d, want 10 (should not have been retried)", loaded.Attempts)
-			}
-		}
+	if pendingCount != 0 {
+		t.Errorf("pending count = %d, want 0 (Attempts=10 >= MaxRetries=10, should not be claimable)", pendingCount)
 	}
 
 	cancel()
@@ -1275,6 +1269,12 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		}
 	}
 
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
+
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-nope\nkind: specification\ndescription: \"No retry\"\n---\n")
 	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
@@ -1284,7 +1284,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Now().UTC(),
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+	if err := errorQueue.Enqueue("spec-nope-err", dmailData, meta); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1301,6 +1301,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
+	d.Session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1314,15 +1315,13 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		t.Error("D-Mail should NOT be in inbox (retry disabled)")
 	}
 
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
+	// Entry should still be pending in SQLite (retry not attempted)
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1 (retry disabled)", mdCount)
+	if pendingCount != 1 {
+		t.Errorf("pending count = %d, want 1 (retry disabled)", pendingCount)
 	}
 
 	cancel()
