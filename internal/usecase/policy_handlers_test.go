@@ -228,12 +228,13 @@ func TestPolicyHandler_ScanCompleted_RecordsMetrics(t *testing.T) {
 	}
 }
 
-func TestPolicyHandler_DeliveryFailed_DebugOnly_NoInfoOutput(t *testing.T) {
-	// given: delivery.failed stays Debug-only (infinite recursion prevention)
+func TestPolicyHandler_DeliveryFailed_NotifiesSideEffect(t *testing.T) {
+	// given
 	var buf bytes.Buffer
 	logger := platform.NewLogger(&buf, false)
+	spy := &spyNotifier{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{})
+	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{})
 
 	ev, err := domain.NewEvent(domain.EventDeliveryFailed, map[string]string{
 		"kind":  "specification",
@@ -246,9 +247,47 @@ func TestPolicyHandler_DeliveryFailed_DebugOnly_NoInfoOutput(t *testing.T) {
 	// when
 	engine.Dispatch(context.Background(), ev)
 
-	// then: no output (Debug suppressed when verbose=false)
-	output := buf.String()
-	if output != "" {
-		t.Errorf("expected no output for Debug-only handler with verbose=false, got: %s", output)
+	// then: Notify should have been called once
+	if len(spy.calls) != 1 {
+		t.Fatalf("expected 1 Notify call, got %d", len(spy.calls))
+	}
+	call := spy.calls[0]
+	if !strings.Contains(call.title, "Phonewave") {
+		t.Errorf("expected title to contain 'Phonewave', got: %s", call.title)
+	}
+	if !strings.Contains(call.message, "failed") {
+		t.Errorf("expected message to contain 'failed', got: %s", call.message)
+	}
+}
+
+func TestPolicyHandler_ErrorRetried_NotifiesSideEffect(t *testing.T) {
+	// given
+	var buf bytes.Buffer
+	logger := platform.NewLogger(&buf, false)
+	spy := &spyNotifier{}
+	engine := NewPolicyEngine(logger)
+	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{})
+
+	ev, err := domain.NewEvent(domain.EventErrorRetried, map[string]string{
+		"name": "failed-001.md",
+		"kind": "specification",
+	}, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// when
+	engine.Dispatch(context.Background(), ev)
+
+	// then: Notify should have been called once
+	if len(spy.calls) != 1 {
+		t.Fatalf("expected 1 Notify call, got %d", len(spy.calls))
+	}
+	call := spy.calls[0]
+	if !strings.Contains(call.title, "Phonewave") {
+		t.Errorf("expected title to contain 'Phonewave', got: %s", call.title)
+	}
+	if !strings.Contains(call.message, "failed-001.md") {
+		t.Errorf("expected message to contain name, got: %s", call.message)
 	}
 }
