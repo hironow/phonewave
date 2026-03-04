@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
@@ -50,11 +51,35 @@ func newInitCmd() *cobra.Command {
 			printOrphanWarnings(logger, result.Orphans)
 
 			logger.OK("Config written to %s", cfgPath)
+
+			// Write .otel.env if --otel-backend is set
+			otelBackend, _ := cmd.Flags().GetString("otel-backend")
+			if otelBackend != "" {
+				otelEntity, _ := cmd.Flags().GetString("otel-entity")
+				otelProject, _ := cmd.Flags().GetString("otel-project")
+				content, otelErr := domain.OtelEnvContent(otelBackend, otelEntity, otelProject)
+				if otelErr != nil {
+					return otelErr
+				}
+				stateDir := filepath.Join(filepath.Dir(cfgPath), domain.StateDir)
+				if err := os.MkdirAll(stateDir, 0o755); err != nil {
+					return fmt.Errorf("create state dir: %w", err)
+				}
+				otelPath := filepath.Join(stateDir, ".otel.env")
+				if err := os.WriteFile(otelPath, []byte(content), 0o644); err != nil {
+					return fmt.Errorf("write .otel.env: %w", err)
+				}
+				logger.OK("OTel backend configured: %s → %s", otelBackend, otelPath)
+			}
+
 			return nil
 		},
 	}
 
 	cmd.Flags().Bool("force", false, "overwrite existing configuration")
+	cmd.Flags().String("otel-backend", "", "OTel backend: jaeger, weave")
+	cmd.Flags().String("otel-entity", "", "Weave entity/team (required for weave)")
+	cmd.Flags().String("otel-project", "", "Weave project (required for weave)")
 
 	return cmd
 }

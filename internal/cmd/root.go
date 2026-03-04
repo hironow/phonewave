@@ -41,6 +41,7 @@ func NewRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			applyOtelEnv(filepath.Join(configBase(cmd), domain.StateDir))
 			shutdownTracerFn = initTracer("phonewave", Version)
 			shutdownMeterFn = initMeter("phonewave", Version)
 			spanCtx := startRootSpan(cmd.Context(), cmd.Name())
