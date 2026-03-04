@@ -31,7 +31,7 @@ func TestPolicyHandler_DeliveryCompleted_InfoOutput(t *testing.T) {
 	var buf bytes.Buffer
 	logger := platform.NewLogger(&buf, false)
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{})
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{})
 
 	ev, err := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{
 		"kind":   "specification",
@@ -60,7 +60,7 @@ func TestPolicyHandler_ScanCompleted_NotifiesSideEffect(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyNotifier{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, spy)
+	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{})
 
 	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
 		"outbox":    "/some/outbox",
@@ -95,7 +95,7 @@ func TestPolicyHandler_DeliveryFailed_DebugOnly_NoInfoOutput(t *testing.T) {
 	var buf bytes.Buffer
 	logger := platform.NewLogger(&buf, false)
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{})
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{})
 
 	ev, err := domain.NewEvent(domain.EventDeliveryFailed, map[string]string{
 		"kind":  "specification",

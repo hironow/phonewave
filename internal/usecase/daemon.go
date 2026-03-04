@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/port"
 	"github.com/hironow/phonewave/internal/session"
 )
 
@@ -73,7 +74,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath
 	// Inject PolicyEngine for best-effort event dispatch (ADR S0014, S0018)
 	engine := NewPolicyEngine(logger)
 	notifier := session.BuildNotifier()
-	registerDaemonPolicies(engine, logger, notifier)
+	registerDaemonPolicies(engine, logger, notifier, port.NopPolicyMetrics{})
 	d.Dispatcher = engine
 
 	// Create DaemonSession for session-layer event recording
