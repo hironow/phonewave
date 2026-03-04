@@ -13,17 +13,21 @@ import (
 
 func newCleanCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clean",
+		Use:   "clean [path]",
 		Short: "Remove runtime state from .phonewave/",
 		Long: `Remove runtime state files from the .phonewave/ directory.
 
 Removes: delivery.log, .run/, watch.pid, watch.started, events/
 Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
 		Example: `  phonewave clean
+  phonewave clean /path/to/project
   phonewave clean --yes`,
-		Args: cobra.NoArgs,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			base := configBase(cmd)
+			base, err := resolveBaseDir(cmd, args)
+			if err != nil {
+				return err
+			}
 			stateDir := filepath.Join(base, domain.StateDir)
 
 			info, err := os.Stat(stateDir)

@@ -19,7 +19,7 @@ func newArchivePruneCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "archive-prune",
+		Use:   "archive-prune [path]",
 		Short: "Prune expired event files",
 		Long: `Prune expired event files from the events directory.
 
@@ -32,17 +32,23 @@ Pass --execute to actually remove the files.`,
   # Delete expired files
   phonewave archive-prune --execute
 
+  # Specific project directory
+  phonewave archive-prune /path/to/project --execute
+
   # JSON output for scripting
   phonewave archive-prune -o json
 
   # Custom retention period
   phonewave archive-prune --days 7 --execute`,
-		Args: cobra.NoArgs,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if execute && cmd.Flags().Changed("dry-run") {
 				return fmt.Errorf("--execute and --dry-run are mutually exclusive")
 			}
-			base := configBase(cmd)
+			base, err := resolveBaseDir(cmd, args)
+			if err != nil {
+				return err
+			}
 			stateDir := filepath.Join(base, domain.StateDir)
 			outputFmt, _ := cmd.Flags().GetString("output")
 			errW := cmd.ErrOrStderr()

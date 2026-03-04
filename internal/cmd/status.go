@@ -13,17 +13,22 @@ import (
 
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "status",
-		Short:   "Show daemon and delivery status",
-		Long:    "Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.",
-		Args:    cobra.NoArgs,
-		Example: `  phonewave status`,
+		Use:   "status [path]",
+		Short: "Show daemon and delivery status",
+		Long:  "Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.",
+		Args:  cobra.MaximumNArgs(1),
+		Example: `  phonewave status
+  phonewave status /path/to/project`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
-			cfgPath := configPath(cmd)
-			stateDir := filepath.Join(configBase(cmd), domain.StateDir)
+			base, err := resolveBaseDir(cmd, args)
+			if err != nil {
+				return err
+			}
+			cfgPath := filepath.Join(base, domain.ConfigFile)
+			stateDir := filepath.Join(base, domain.StateDir)
 			status, err := usecase.GetStatus(cfgPath, stateDir)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
