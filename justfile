@@ -158,6 +158,10 @@ test-scenario: check-go
 test-scenario-all: check-go
     mise exec -- go test -tags scenario ./tests/scenario/ -count=1 -v -timeout=900s
 
+# Run live W&B Weave trace delivery test (requires WANDB_API_KEY)
+test-weave-live:
+    go test ./tests/integration/ -run TestWeave_LiveTraceDelivery -count=1 -v -timeout=60s
+
 # Run all tests including E2E tests
 test-all: test test-e2e
 
