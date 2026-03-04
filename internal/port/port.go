@@ -24,3 +24,13 @@ type Notifier interface {
 type NopNotifier struct{}
 
 func (NopNotifier) Notify(context.Context, string, string) error { return nil }
+
+// PolicyMetrics records policy handler execution metrics.
+type PolicyMetrics interface {
+	RecordPolicyEvent(ctx context.Context, eventType string, status string)
+}
+
+// NopPolicyMetrics is a no-op metrics recorder for tests and quiet mode.
+type NopPolicyMetrics struct{}
+
+func (NopPolicyMetrics) RecordPolicyEvent(context.Context, string, string) {}
