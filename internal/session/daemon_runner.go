@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,41 +21,6 @@ import (
 	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/port"
 )
-
-// RetryBackoff implements exponential backoff with jitter for retry burst control.
-// When consecutive retries fail, the interval increases exponentially up to a max.
-// A successful retry resets the interval to the base value.
-type RetryBackoff struct {
-	base    time.Duration
-	max     time.Duration
-	current time.Duration
-}
-
-// NewRetryBackoff creates a new RetryBackoff with the given base and max intervals.
-func NewRetryBackoff(base, max time.Duration) *RetryBackoff {
-	return &RetryBackoff{base: base, max: max, current: base}
-}
-
-// Next returns the current interval with ±25% jitter applied.
-func (b *RetryBackoff) Next() time.Duration {
-	// jitter: ±25% of current
-	quarter := b.current / 4
-	jitter := time.Duration(rand.Int64N(int64(quarter)*2+1)) - quarter
-	return b.current + jitter
-}
-
-// RecordSuccess resets the backoff interval to the base value.
-func (b *RetryBackoff) RecordSuccess() {
-	b.current = b.base
-}
-
-// RecordFailure doubles the backoff interval, capped at the max value.
-func (b *RetryBackoff) RecordFailure() {
-	b.current *= 2
-	if b.current > b.max {
-		b.current = b.max
-	}
-}
 
 // Daemon watches outbox directories and delivers D-Mails.
 type Daemon struct {
@@ -207,9 +171,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Optional retry timer with exponential backoff (nil channel disables the case)
 	var retryCh <-chan time.Time
 	var retryTimer *time.Timer
-	var backoff *RetryBackoff
+	var backoff *domain.RetryBackoff
 	if d.opts.RetryInterval > 0 {
-		backoff = NewRetryBackoff(d.opts.RetryInterval, d.opts.RetryInterval*32)
+		backoff = domain.NewRetryBackoff(d.opts.RetryInterval, d.opts.RetryInterval*32)
 		retryTimer = time.NewTimer(backoff.Next())
 		retryCh = retryTimer.C
 		defer retryTimer.Stop()
@@ -304,7 +268,8 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 
 	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore)
 	if err != nil {
-		kind := extractKindOrUnknown(data)
+		kind, _ := domain.ExtractDMailKind(data)
+		if kind == "" { kind = "unknown" }
 		d.logger.Error("Deliver %s: %v", event.Name, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -429,16 +394,6 @@ func (d *Daemon) retryPending() int {
 	return successes
 }
 
-// extractKindOrUnknown attempts to extract the kind from D-Mail data,
-// returning "unknown" if parsing fails.
-func extractKindOrUnknown(data []byte) string {
-	kind, err := domain.ExtractDMailKind(data)
-	if err != nil {
-		return "unknown"
-	}
-	return kind
-}
-
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
 // delivering each one according to the provided routes. Files are delivered
 // sequentially. Failed deliveries are enqueued via errorQueue (SQLite).
@@ -487,7 +442,8 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 
 		result, deliverErr := DeliverData(ctx, dmailPath, data, routes, ds)
 		if deliverErr != nil {
-			kind := extractKindOrUnknown(data)
+			kind, _ := domain.ExtractDMailKind(data)
+		if kind == "" { kind = "unknown" }
 			meta := domain.ErrorMetadata{
 				SourceOutbox: outboxDir,
 				Kind:         kind,
