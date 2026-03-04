@@ -48,5 +48,5 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		DryRun:        dryRun,
 		RetryInterval: retryInterval,
 		MaxRetries:    maxRetries,
-	}, configPath(cmd), configBase(cmd), logger)
+	}, configPath(cmd), configBase(cmd), logger, &platform.OTelPolicyMetrics{})
 }

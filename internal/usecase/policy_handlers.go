@@ -14,31 +14,34 @@ import (
 // Handlers are best-effort: errors are logged but never stop the daemon.
 // See ADR S0014 (POLICY pattern) and S0018 (Event Storming alignment).
 func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier port.Notifier, metrics port.PolicyMetrics) {
-	engine.Register(domain.EventDeliveryCompleted, func(_ context.Context, event domain.Event) error {
+	engine.Register(domain.EventDeliveryCompleted, func(ctx context.Context, event domain.Event) error {
 		var data map[string]string
 		if err := json.Unmarshal(event.Data, &data); err != nil {
 			logger.Debug("policy: delivery completed parse error: %v", err)
 			return nil
 		}
 		logger.Info("policy: delivery completed (kind=%s)", data["kind"])
+		metrics.RecordPolicyEvent(ctx, "delivery.completed", "handled")
 		return nil
 	})
 
-	// NOTE: delivery.failed handler stays Debug-only to avoid infinite recursion.
-	// RecordFailureEvent dispatches delivery.failed events, so calling any
-	// recording method here would cause recursive dispatch.
-	engine.Register(domain.EventDeliveryFailed, func(_ context.Context, event domain.Event) error {
+	// NOTE: delivery.failed handler stays Debug-only to avoid infinite recursion
+	// in event dispatch. RecordPolicyEvent is safe here because it only
+	// increments an OTel counter — it does NOT dispatch events.
+	engine.Register(domain.EventDeliveryFailed, func(ctx context.Context, event domain.Event) error {
 		logger.Debug("policy: delivery failed (type=%s)", event.Type)
+		metrics.RecordPolicyEvent(ctx, "delivery.failed", "handled")
 		return nil
 	})
 
-	engine.Register(domain.EventErrorRetried, func(_ context.Context, event domain.Event) error {
+	engine.Register(domain.EventErrorRetried, func(ctx context.Context, event domain.Event) error {
 		var data map[string]string
 		if err := json.Unmarshal(event.Data, &data); err != nil {
 			logger.Debug("policy: error retried parse error: %v", err)
 			return nil
 		}
 		logger.Info("policy: error retried (name=%s, kind=%s)", data["name"], data["kind"])
+		metrics.RecordPolicyEvent(ctx, "error.retried", "handled")
 		return nil
 	})
 
@@ -55,6 +58,7 @@ func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier
 			fmt.Sprintf("Scan completed: %s delivered, %s errors", data["delivered"], data["errors"])); err != nil {
 			logger.Debug("policy: notify error: %v", err)
 		}
+		metrics.RecordPolicyEvent(ctx, "scan.completed", "handled")
 		return nil
 	})
 }

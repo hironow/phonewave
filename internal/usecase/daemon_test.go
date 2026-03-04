@@ -23,7 +23,7 @@ func TestSetupAndRunDaemon_InvalidCommand(t *testing.T) {
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when
-	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger)
+	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger, nil)
 
 	// then
 	if err == nil {
@@ -40,7 +40,7 @@ func TestSetupAndRunDaemon_MissingConfig(t *testing.T) {
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when
-	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger)
+	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger, nil)
 
 	// then
 	if err == nil {
@@ -103,7 +103,7 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when
-	err = SetupAndRunDaemon(context.Background(), cmd, configPath, baseDir, logger)
+	err = SetupAndRunDaemon(context.Background(), cmd, configPath, baseDir, logger, nil)
 
 	// then: must fail with "already running"
 	if err == nil {
