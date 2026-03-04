@@ -6,9 +6,6 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/hironow/phonewave/internal/domain"
-	"gopkg.in/yaml.v3"
 )
 
 // DeliveryLog writes append-only delivery records to .phonewave/delivery.log.
@@ -60,50 +57,4 @@ func (l *DeliveryLog) write(action, details string) {
 	defer l.mu.Unlock()
 	ts := time.Now().UTC().Format(time.RFC3339)
 	fmt.Fprintf(l.file, "%s %-9s %s\n", ts, action, details)
-}
-
-// SaveToErrorQueue saves a failed D-Mail to .phonewave/errors/ with a .err sidecar.
-// Filename format: {timestamp}-{kind}-{original_name}
-func SaveToErrorQueue(stateDir string, meta domain.ErrorMetadata, data []byte) error {
-	errorsDir := filepath.Join(stateDir, "errors")
-	if err := os.MkdirAll(errorsDir, 0755); err != nil {
-		return err
-	}
-
-	ts := meta.Timestamp.Format("2006-01-02T150405.000000000")
-	// Sanitize Kind and OriginalName to prevent path traversal
-	safeKind := filepath.Base(meta.Kind)
-	safeName := filepath.Base(meta.OriginalName)
-	errorFile := filepath.Join(errorsDir, fmt.Sprintf("%s-%s-%s", ts, safeKind, safeName))
-
-	if err := os.WriteFile(errorFile, data, 0644); err != nil {
-		return fmt.Errorf("write error file: %w", err)
-	}
-
-	sidecarData, err := yaml.Marshal(meta)
-	if err != nil {
-		return fmt.Errorf("marshal error metadata: %w", err)
-	}
-
-	sidecarPath := errorFile + ".err"
-	if err := os.WriteFile(sidecarPath, sidecarData, 0644); err != nil {
-		return fmt.Errorf("write error sidecar: %w", err)
-	}
-
-	return nil
-}
-
-// LoadErrorMetadata reads and parses a .err sidecar file.
-// Used by MigrateFileErrorQueue to migrate legacy file-based entries to SQLite.
-func LoadErrorMetadata(sidecarPath string) (*domain.ErrorMetadata, error) {
-	data, err := os.ReadFile(sidecarPath)
-	if err != nil {
-		return nil, fmt.Errorf("read error sidecar: %w", err)
-	}
-
-	var meta domain.ErrorMetadata
-	if err := yaml.Unmarshal(data, &meta); err != nil {
-		return nil, fmt.Errorf("parse error sidecar: %w", err)
-	}
-	return &meta, nil
 }

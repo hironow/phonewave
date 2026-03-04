@@ -14,7 +14,7 @@ func TestStatus_DaemonStopped(t *testing.T) {
 	// given — no PID file, a config with some endpoints
 	repoDir := t.TempDir()
 	stateDir := filepath.Join(repoDir, domain.StateDir)
-	if err := os.MkdirAll(filepath.Join(stateDir, "errors"), 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -55,20 +55,26 @@ func TestStatus_DaemonStopped(t *testing.T) {
 }
 
 func TestStatus_PendingErrors(t *testing.T) {
-	// given — some files in errors/ directory
+	// given — enqueue items into SQLite error queue
 	repoDir := t.TempDir()
 	stateDir := filepath.Join(repoDir, domain.StateDir)
-	errorsDir := filepath.Join(stateDir, "errors")
-	if err := os.MkdirAll(errorsDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Write two error files
+	eq, err := NewErrorQueueStore(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, name := range []string{"failed-001.md", "failed-002.md"} {
-		if err := os.WriteFile(filepath.Join(errorsDir, name), []byte("error"), 0644); err != nil {
+		if err := eq.Enqueue(name, []byte("error"), domain.ErrorMetadata{
+			Kind:  "specification",
+			Error: "no route",
+		}); err != nil {
 			t.Fatal(err)
 		}
 	}
+	eq.Close()
 
 	cfg := &domain.Config{}
 

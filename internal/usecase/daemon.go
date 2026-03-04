@@ -57,14 +57,6 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, cfgPath
 	}
 	defer errorQueue.Close()
 
-	// Migrate legacy .err sidecar files to SQLite ErrorQueueStore
-	migrated, migrateErr := session.MigrateFileErrorQueue(stateDir, errorQueue, logger)
-	if migrateErr != nil {
-		logger.Warn("Error queue migration: %v", migrateErr)
-	} else if migrated > 0 {
-		logger.OK("Migrated %d legacy error queue entries to SQLite", migrated)
-	}
-
 	d, err := session.NewDaemon(domain.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,

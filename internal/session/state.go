@@ -13,7 +13,6 @@ func EnsureStateDir(base string) error {
 	stateDir := filepath.Join(base, domain.StateDir)
 	dirs := []string{
 		stateDir,
-		filepath.Join(stateDir, "errors"),
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0755); err != nil {

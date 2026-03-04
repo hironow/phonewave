@@ -30,7 +30,7 @@ This maps to the courier daemon's design:
 | **D-Mail** | `.md` file with YAML frontmatter | A message routed by `kind` |
 | **Worldline** | Repository state | Each delivery changes the target repo's state |
 | **Divergence Meter** | Delivery log | Tracks what was delivered, when, where |
-| **Error Queue** | `.phonewave/errors/` | Failed D-Mails waiting for retry (like unsent D-Mails) |
+| **Error Queue** | `.phonewave/.run/error_queue.db` | Failed D-Mails waiting for retry (SQLite, like unsent D-Mails) |
 
 ## D-Mail Protocol
 
@@ -100,7 +100,7 @@ Repository A                   Repository B
           |  Delivery pipeline   |
           |       |              |
           |  delivery.log        |
-          |  .phonewave/errors/  |
+          |  .run/error_queue.db |
           +----------------------+
 ```
 

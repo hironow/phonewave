@@ -111,14 +111,11 @@ func Status(cfg *domain.Config, stateDir string) domain.StatusReport {
 		Failed:    stats.Failed,
 	}.SuccessRate()
 
-	// Count pending error files (exclude .err sidecars to avoid 2x count)
-	errorsDir := filepath.Join(stateDir, "errors")
-	entries, err := os.ReadDir(errorsDir)
-	if err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() && !strings.HasSuffix(entry.Name(), ".err") {
-				report.PendingErrors++
-			}
+	// Count pending errors from SQLite error queue
+	if eq, eqErr := NewErrorQueueStore(stateDir); eqErr == nil {
+		defer eq.Close()
+		if count, cErr := eq.PendingCount(1<<31 - 1); cErr == nil {
+			report.PendingErrors = count
 		}
 	}
 

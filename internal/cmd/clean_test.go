@@ -57,7 +57,7 @@ func TestCollectCleanTargets_AllExpectedCandidates(t *testing.T) {
 			t.Fatalf("create %s: %v", name, err)
 		}
 	}
-	for _, dir := range []string{"errors", "events", ".run"} {
+	for _, dir := range []string{"events", ".run"} {
 		if err := os.MkdirAll(filepath.Join(stateDir, dir), 0o755); err != nil {
 			t.Fatalf("create %s: %v", dir, err)
 		}
@@ -66,10 +66,9 @@ func TestCollectCleanTargets_AllExpectedCandidates(t *testing.T) {
 	// when
 	targets := collectCleanTargets(stateDir)
 
-	// then — all 6 expected candidates should be present
+	// then — all 5 expected candidates should be present
 	expected := map[string]bool{
 		"delivery.log":  false,
-		"errors":        false,
 		".run":          false,
 		"watch.pid":     false,
 		"watch.started": false,
