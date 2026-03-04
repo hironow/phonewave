@@ -14,6 +14,9 @@ import (
 // Handlers are best-effort: errors are logged but never stop the daemon.
 // See ADR S0014 (POLICY pattern) and S0018 (Event Storming alignment).
 func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier port.Notifier, metrics port.PolicyMetrics) {
+	// POLICY CONTRACT: observation-only — log + metrics.
+	// No notification needed: individual deliveries are frequent events;
+	// the aggregate scan.completed handler provides user-facing notification.
 	engine.Register(domain.EventDeliveryCompleted, func(ctx context.Context, event domain.Event) error {
 		var data map[string]string
 		if err := json.Unmarshal(event.Data, &data); err != nil {
@@ -25,15 +28,19 @@ func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier
 		return nil
 	})
 
-	// NOTE: delivery.failed handler stays Debug-only to avoid infinite recursion
-	// in event dispatch. RecordPolicyEvent is safe here because it only
-	// increments an OTel counter — it does NOT dispatch events.
+	// POLICY CONTRACT: observation-only — debug log + metrics.
+	// Stays Debug-level to avoid infinite recursion in event dispatch.
+	// RecordPolicyEvent is safe: it only increments an OTel counter,
+	// it does NOT dispatch events.
 	engine.Register(domain.EventDeliveryFailed, func(ctx context.Context, event domain.Event) error {
 		logger.Debug("policy: delivery failed (type=%s)", event.Type)
 		metrics.RecordPolicyEvent(ctx, "delivery.failed", "handled")
 		return nil
 	})
 
+	// POLICY CONTRACT: observation-only — log + metrics.
+	// Retries are normal operational flow; scan.completed provides
+	// the user-facing summary.
 	engine.Register(domain.EventErrorRetried, func(ctx context.Context, event domain.Event) error {
 		var data map[string]string
 		if err := json.Unmarshal(event.Data, &data); err != nil {
