@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	pond "github.com/alitto/pond/v2"
@@ -184,19 +183,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 }
 
 // shouldProcessEvent returns true if the fsnotify event should be processed.
-// It filters for Create/Rename events of .md files, excluding temp files.
+// It filters for Create/Rename events of deliverable D-Mail files.
 func shouldProcessEvent(event fsnotify.Event) bool {
 	if !event.Has(fsnotify.Create) && !event.Has(fsnotify.Rename) {
 		return false
 	}
-	name := filepath.Base(event.Name)
-	if filepath.Ext(name) != ".md" {
-		return false
-	}
-	if strings.HasPrefix(name, ".phonewave-tmp-") {
-		return false
-	}
-	return true
+	return domain.IsDMailFile(event.Name)
 }
 
 // handleEvent processes a single fsnotify event.
@@ -408,80 +400,3 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 	scanGroup.Wait()
 }
 
-// ScanAndDeliver processes all existing .md files in the given outbox directory,
-// delivering each one according to the provided routes. Files are delivered
-// sequentially. Failed deliveries are enqueued via errorQueue (SQLite).
-// If errorQueue is nil, failed files remain in the outbox for next startup.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds domain.DeliveryStore, errorQueue domain.ErrorQueueStore) ([]*domain.DeliveryResult, []error) {
-	if logger == nil {
-		logger = &domain.NopLogger{}
-	}
-	entries, err := os.ReadDir(outboxDir)
-	if err != nil {
-		return nil, []error{fmt.Errorf("scan outbox %s: %w", outboxDir, err)}
-	}
-
-	// Filter eligible entries
-	var filtered []os.DirEntry
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if filepath.Ext(entry.Name()) != ".md" {
-			continue
-		}
-		if strings.HasPrefix(entry.Name(), ".phonewave-tmp-") {
-			continue
-		}
-		filtered = append(filtered, entry)
-	}
-
-	if len(filtered) == 0 {
-		return nil, nil
-	}
-
-	// Deliver files sequentially. The caller (daemon startup scan) already
-	// parallelises per-outbox via its worker pool, so a nested pool here
-	// would multiply concurrency to NumCPU² and spike FD/memory usage.
-	var results []*domain.DeliveryResult
-	var errs []error
-	for _, entry := range filtered {
-		dmailPath := filepath.Join(outboxDir, entry.Name())
-
-		data, readErr := os.ReadFile(dmailPath)
-		if readErr != nil {
-			errs = append(errs, fmt.Errorf("read %s: %w", dmailPath, readErr))
-			continue
-		}
-
-		result, deliverErr := DeliverData(ctx, dmailPath, data, routes, ds)
-		if deliverErr != nil {
-			kind, _ := domain.ExtractDMailKind(data)
-		if kind == "" { kind = "unknown" }
-			meta := domain.ErrorMetadata{
-				SourceOutbox: outboxDir,
-				Kind:         kind,
-				OriginalName: entry.Name(),
-				Attempts:     1,
-				Error:        deliverErr.Error(),
-				Timestamp:    time.Now().UTC(),
-			}
-			if errorQueue == nil {
-				logger.Error("Error queue unavailable, leaving %s in outbox", dmailPath)
-			} else {
-				name := fmt.Sprintf("%s-%s-%s", meta.Timestamp.Format("2006-01-02T150405.000000000"), meta.Kind, meta.OriginalName)
-				if saveErr := errorQueue.Enqueue(name, data, meta); saveErr != nil {
-					logger.Error("Error queue enqueue: %v", saveErr)
-				} else {
-					os.Remove(dmailPath)
-				}
-			}
-			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
-			continue
-		}
-
-		results = append(results, result)
-	}
-
-	return results, errs
-}
