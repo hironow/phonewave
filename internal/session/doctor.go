@@ -30,7 +30,8 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	for _, repo := range cfg.Repositories {
 		// 1. Verify repository path exists
 		if _, err := os.Stat(repo.Path); os.IsNotExist(err) {
-			report.AddError("", fmt.Sprintf("Repository path does not exist: %s", repo.Path))
+			report.AddErrorWithHint("", fmt.Sprintf("Repository path does not exist: %s", repo.Path),
+			`check config.yaml repositories.path or run "phonewave remove <path>"`)
 			continue
 		}
 
@@ -48,7 +49,8 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 			// Check endpoint directory exists
 			epDir := filepath.Join(repo.Path, ep.Dir)
 			if _, err := os.Stat(epDir); os.IsNotExist(err) {
-				report.AddError(epLabel, fmt.Sprintf("Endpoint directory missing: %s", epDir))
+				report.AddErrorWithHint(epLabel, fmt.Sprintf("Endpoint directory missing: %s", epDir),
+				`create the directory or run "phonewave sync" to reconcile`)
 				epHealth.OK = false
 				report.Endpoints = append(report.Endpoints, epHealth)
 				continue
@@ -59,7 +61,8 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 				subDir := filepath.Join(epDir, sub)
 				if _, err := os.Stat(subDir); os.IsNotExist(err) {
 					if err := os.MkdirAll(subDir, 0755); err != nil {
-						report.AddError(epLabel, fmt.Sprintf("Failed to create %s/: %v", sub, err))
+						report.AddErrorWithHint(epLabel, fmt.Sprintf("Failed to create %s/: %v", sub, err),
+						"check file permissions on the endpoint directory")
 						epHealth.OK = false
 					} else {
 						report.AddFixed(epLabel, fmt.Sprintf("Created missing %s/ directory", sub))
@@ -76,18 +79,22 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 					if os.IsNotExist(err) {
 						continue // SKILL.md does not exist; skip
 					}
-					report.AddWarn(epLabel, fmt.Sprintf("Failed to read %s SKILL.md: %v", skillName, err))
+					report.AddWarnWithHint(epLabel, fmt.Sprintf("Failed to read %s SKILL.md: %v", skillName, err),
+					"check file permissions on the skills directory")
 					continue
 				}
 				if _, err := ParseSkillFrontmatter(data); err != nil {
-					report.AddWarn(epLabel, fmt.Sprintf("%s SKILL.md parse error: %v", skillName, err))
+					report.AddWarnWithHint(epLabel, fmt.Sprintf("%s SKILL.md parse error: %v", skillName, err),
+					"fix YAML frontmatter in SKILL.md")
 				}
 				// Run skills-ref spec compliance check (best-effort)
 				if problems, err := ValidateSkillDir(skillDir); err != nil {
-					report.AddWarn(epLabel, fmt.Sprintf("skills-ref validate %s: %v", skillName, err))
+					report.AddWarnWithHint(epLabel, fmt.Sprintf("skills-ref validate %s: %v", skillName, err),
+					"see Agent Skills spec for compliance requirements")
 				} else if len(problems) > 0 {
 					for _, p := range problems {
-						report.AddWarn(epLabel, fmt.Sprintf("skills-ref: %s", p))
+						report.AddWarnWithHint(epLabel, fmt.Sprintf("skills-ref: %s", p),
+							"see Agent Skills spec for compliance requirements")
 					}
 				}
 			}
@@ -100,10 +107,12 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	// Check orphaned routes (per-repo to match routing scope)
 	orphans := domain.DetectOrphansPerRepo(cfg)
 	for _, kind := range orphans.UnconsumedKinds {
-		report.AddWarn("", fmt.Sprintf("Orphaned: kind=%q is produced but not consumed", kind))
+		report.AddWarnWithHint("", fmt.Sprintf("Orphaned: kind=%q is produced but not consumed", kind),
+			`add a consumer for this kind or run "phonewave sync"`)
 	}
 	for _, kind := range orphans.UnproducedKinds {
-		report.AddWarn("", fmt.Sprintf("Orphaned: kind=%q is consumed but not produced", kind))
+		report.AddWarnWithHint("", fmt.Sprintf("Orphaned: kind=%q is consumed but not produced", kind),
+			`add a producer for this kind or run "phonewave sync"`)
 	}
 
 	// Success rate (informational)

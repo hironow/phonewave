@@ -5,6 +5,7 @@ type DoctorIssue struct {
 	Endpoint string `json:"endpoint"`
 	Message  string `json:"message"`
 	Severity string `json:"severity"` // "error", "warn", "fixed", "ok"
+	Hint     string `json:"hint,omitempty"`
 }
 
 // DaemonHealthStatus holds daemon-related health info.
@@ -40,6 +41,17 @@ func (r *DoctorReport) AddError(endpoint, msg string) {
 // AddWarn appends a warning-level issue.
 func (r *DoctorReport) AddWarn(endpoint, msg string) {
 	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "warn"})
+}
+
+// AddErrorWithHint appends an error-level issue with a remediation hint.
+func (r *DoctorReport) AddErrorWithHint(endpoint, msg, hint string) {
+	r.Healthy = false
+	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "error", Hint: hint})
+}
+
+// AddWarnWithHint appends a warning-level issue with a remediation hint.
+func (r *DoctorReport) AddWarnWithHint(endpoint, msg, hint string) {
+	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "warn", Hint: hint})
 }
 
 // AddFixed appends a fixed-level issue (auto-repaired).

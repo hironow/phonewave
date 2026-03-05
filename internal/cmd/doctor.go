@@ -54,6 +54,9 @@ func newDoctorCmd() *cobra.Command {
 				case "error":
 					logger.Error("%s  %s", issue.Endpoint, issue.Message)
 				}
+				if issue.Hint != "" {
+					logger.Info("         hint: %s", issue.Hint)
+				}
 			}
 
 			if report.DaemonStatus.Running {
