@@ -7,13 +7,14 @@ Show daemon and delivery status
 Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.
 
 ```
-phonewave status [flags]
+phonewave status [path] [flags]
 ```
 
 ### Examples
 
 ```
   phonewave status
+  phonewave status /path/to/project
 ```
 
 ### Options
@@ -32,4 +33,5 @@ phonewave status [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)  - D-Mail courier daemon
+* [phonewave](phonewave.md)	 - D-Mail courier daemon
+

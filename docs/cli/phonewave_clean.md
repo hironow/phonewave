@@ -10,13 +10,14 @@ Removes: delivery.log, .run/, watch.pid, watch.started, events/
 Preserves: phonewave.yaml (config) and .phonewave/.gitignore
 
 ```
-phonewave clean [flags]
+phonewave clean [path] [flags]
 ```
 
 ### Examples
 
 ```
   phonewave clean
+  phonewave clean /path/to/project
   phonewave clean --yes
 ```
 
@@ -37,4 +38,5 @@ phonewave clean [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)  - D-Mail courier daemon
+* [phonewave](phonewave.md)	 - D-Mail courier daemon
+

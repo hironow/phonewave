@@ -11,7 +11,7 @@ By default, runs in dry-run mode showing what would be deleted.
 Pass --execute to actually remove the files.
 
 ```
-phonewave archive-prune [flags]
+phonewave archive-prune [path] [flags]
 ```
 
 ### Examples
@@ -22,6 +22,9 @@ phonewave archive-prune [flags]
 
   # Delete expired files
   phonewave archive-prune --execute
+
+  # Specific project directory
+  phonewave archive-prune /path/to/project --execute
 
   # JSON output for scripting
   phonewave archive-prune -o json
@@ -50,4 +53,5 @@ phonewave archive-prune [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)  - D-Mail courier daemon
+* [phonewave](phonewave.md)	 - D-Mail courier daemon
+

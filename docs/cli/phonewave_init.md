@@ -21,8 +21,11 @@ phonewave init <repo-path> [repo-path...] [flags]
 ### Options
 
 ```
-      --force   overwrite existing configuration
-  -h, --help    help for init
+      --force                 overwrite existing configuration
+  -h, --help                  help for init
+      --otel-backend string   OTel backend: jaeger, weave
+      --otel-entity string    Weave entity/team (required for weave)
+      --otel-project string   Weave project (required for weave)
 ```
 
 ### Options inherited from parent commands
@@ -35,4 +38,5 @@ phonewave init <repo-path> [repo-path...] [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)  - D-Mail courier daemon
+* [phonewave](phonewave.md)	 - D-Mail courier daemon
+
