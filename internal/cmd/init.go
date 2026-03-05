@@ -57,7 +57,7 @@ func newInitCmd() *cobra.Command {
 			if otelBackend != "" {
 				otelEntity, _ := cmd.Flags().GetString("otel-entity")
 				otelProject, _ := cmd.Flags().GetString("otel-project")
-				content, otelErr := domain.OtelEnvContent(otelBackend, otelEntity, otelProject)
+				content, otelErr := platform.OtelEnvContent(otelBackend, otelEntity, otelProject)
 				if otelErr != nil {
 					return otelErr
 				}
