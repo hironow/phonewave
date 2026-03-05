@@ -193,6 +193,12 @@ docgen:
 release-snapshot:
     goreleaser release --snapshot --clean
 
+# Check docs for stale references (e.g. deprecated internal/port path)
+docs-check:
+    @echo "Checking for stale references..."
+    @! grep -rn 'internal/port[^/]' docs/ internal/domain/doc.go 2>/dev/null || (echo "ERROR: stale internal/port references found" && exit 1)
+    @echo "docs-check passed"
+
 # Clean build artifacts
 clean:
     rm -f {{TOOL}} coverage.out
