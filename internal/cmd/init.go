@@ -8,6 +8,7 @@ import (
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
 )
 
@@ -32,17 +33,13 @@ func newInitCmd() *cobra.Command {
 				}
 			}
 
-			result, err := session.Init(args)
+			initCmd := domain.InitCommand{
+				RepoPaths:  args,
+				ConfigPath: cfgPath,
+			}
+			result, err := usecase.RunInit(initCmd, &session.InitAdapter{})
 			if err != nil {
 				return err
-			}
-
-			if err := session.WriteConfig(cfgPath, result.Config); err != nil {
-				return fmt.Errorf("write config: %w", err)
-			}
-
-			if err := session.EnsureStateDir(filepath.Dir(cfgPath)); err != nil {
-				return fmt.Errorf("create state dir: %w", err)
 			}
 
 			logger.OK("Scanned %d repositories", result.RepoCount)

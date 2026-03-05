@@ -11,6 +11,11 @@ import (
 // ErrUnsupportedOS is returned by LocalNotifier on unsupported platforms.
 var ErrUnsupportedOS = errors.New("notify: unsupported OS for local notifications")
 
+// InitRunner handles init-time I/O: repo scanning, config writing, state dir creation.
+type InitRunner interface {
+	ScanAndInit(repoPaths []string, cfgPath string) (*domain.InitResult, error)
+}
+
 // EventDispatcher processes events after persistence (e.g. POLICY dispatch).
 type EventDispatcher interface {
 	Dispatch(ctx context.Context, event domain.Event) error

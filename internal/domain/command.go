@@ -5,6 +5,24 @@ import (
 	"time"
 )
 
+// InitCommand represents the intent to initialize phonewave configuration.
+type InitCommand struct {
+	RepoPaths  []string
+	ConfigPath string
+}
+
+// Validate checks that the command has valid required fields.
+func (c *InitCommand) Validate() []error {
+	var errs []error
+	if len(c.RepoPaths) == 0 {
+		errs = append(errs, fmt.Errorf("at least one RepoPaths is required"))
+	}
+	if c.ConfigPath == "" {
+		errs = append(errs, fmt.Errorf("ConfigPath is required"))
+	}
+	return errs
+}
+
 // RunDaemonCommand represents the intent to start the phonewave daemon.
 // Independent of cobra — framework concerns are separated at the cmd layer.
 type RunDaemonCommand struct {
