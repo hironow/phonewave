@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hironow/phonewave/internal/port"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 // cmdFactoryFunc creates an *exec.Cmd — injectable for testing.

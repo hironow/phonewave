@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/hironow/phonewave/internal/domain"
-	"github.com/hironow/phonewave/internal/usecase"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +53,7 @@ Pass --execute to actually remove the files.`,
 			outputFmt, _ := cmd.Flags().GetString("output")
 			errW := cmd.ErrOrStderr()
 
-			files, err := usecase.ListExpiredEventFiles(stateDir, days)
+			files, err := session.ListExpiredEventFiles(stateDir, days)
 			if err != nil {
 				return fmt.Errorf("failed to list expired events: %w", err)
 			}
@@ -68,7 +68,7 @@ Pass --execute to actually remove the files.`,
 					Files:      files,
 				}
 				if execute && len(files) > 0 {
-					deleted, delErr := usecase.PruneEventFiles(stateDir, files)
+					deleted, delErr := session.PruneEventFiles(stateDir, files)
 					if delErr != nil {
 						return fmt.Errorf("event prune failed: %w", delErr)
 					}
@@ -117,7 +117,7 @@ Pass --execute to actually remove the files.`,
 				}
 			}
 
-			deleted, delErr := usecase.PruneEventFiles(stateDir, files)
+			deleted, delErr := session.PruneEventFiles(stateDir, files)
 			if delErr != nil {
 				return fmt.Errorf("event prune failed: %w", delErr)
 			}

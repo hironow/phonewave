@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
-	"github.com/hironow/phonewave/internal/port"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 // ScanAndDeliver processes all existing .md files in the given outbox directory,

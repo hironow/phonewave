@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/hironow/phonewave/internal/platform"
-	"github.com/hironow/phonewave/internal/usecase"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -21,16 +22,25 @@ func newRemoveCmd() *cobra.Command {
 			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
-			result, err := usecase.RemoveRepository(cfgPath, args[0], logger)
+			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
+				return fmt.Errorf("load config: %w", err)
+			}
+
+			orphans, err := session.Remove(cfg, args[0])
+			if err != nil {
 				return err
+			}
+
+			if err := session.WriteConfig(cfgPath, cfg); err != nil {
+				return fmt.Errorf("write config: %w", err)
 			}
 
 			absPath, _ := filepath.Abs(args[0])
 			logger.OK("Removed %s", absPath)
-			logger.OK("%d routes remaining", result.RouteCount)
-			printOrphanWarnings(logger, result.Orphans)
+			logger.OK("%d routes remaining", len(cfg.Routes))
+			printOrphanWarnings(logger, *orphans)
 
 			return nil
 		},

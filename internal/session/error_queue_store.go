@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave/internal/domain"
-	"github.com/hironow/phonewave/internal/port"
+	"github.com/hironow/phonewave/internal/usecase/port"
 	_ "modernc.org/sqlite"
 )
 

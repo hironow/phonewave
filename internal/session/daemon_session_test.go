@@ -14,7 +14,7 @@ func newTestDaemonSession(t *testing.T) (*session.DaemonSession, string) {
 	t.Helper()
 	dir := t.TempDir()
 	errorQueue := testErrorQueueStore(t)
-	eventStore := session.NewEventStore(dir)
+	eventStore := session.NewEventStore(dir, &domain.NopLogger{})
 	dlog, err := session.NewDeliveryLog(dir)
 	if err != nil {
 		t.Fatalf("create delivery log: %v", err)

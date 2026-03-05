@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hironow/phonewave/internal/port"
+	"github.com/hironow/phonewave/internal/usecase/port"
 	"github.com/hironow/phonewave/internal/session"
 )
 

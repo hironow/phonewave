@@ -3,14 +3,15 @@ package session
 import (
 	"path/filepath"
 
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/eventsource"
-	"github.com/hironow/phonewave/internal/port"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 // NewEventStore creates a FileEventStore at the conventional path.
 // cmd layer should use this instead of importing eventsource directly (ADR S0008).
-func NewEventStore(stateDir string) port.EventStore {
-	return eventsource.NewFileEventStore(filepath.Join(stateDir, "events"))
+func NewEventStore(stateDir string, logger domain.Logger) port.EventStore {
+	return eventsource.NewFileEventStore(filepath.Join(stateDir, "events"), logger)
 }
 
 // NewErrorQueueStore creates a SQLiteErrorQueueStore at {stateDir}/.run/error_queue.db.

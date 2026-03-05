@@ -64,3 +64,34 @@ type DeliveryStore interface {
 	PruneFlushed() (int, error)
 	Close() error
 }
+
+// DaemonRunner represents a fully-constructed daemon ready for policy engine injection.
+// All infrastructure setup (config loading, store creation, lock acquisition) is done
+// before the DaemonRunner is constructed. The usecase layer uses it only for:
+// 1. Checking outbox count (business decision to not start if zero)
+// 2. Injecting the PolicyEngine dispatcher
+// 3. Running the daemon event loop
+type DaemonRunner interface {
+	// SetDispatcher injects the event dispatcher (PolicyEngine) into the daemon.
+	SetDispatcher(d EventDispatcher)
+	// BuildNotifier returns the configured notifier for policy handlers.
+	BuildNotifier() Notifier
+	// RouteCount returns the number of resolved delivery routes.
+	RouteCount() int
+	// OutboxCount returns the number of watched outbox directories.
+	OutboxCount() int
+	// Run starts the daemon event loop. Blocks until ctx is cancelled.
+	Run(ctx context.Context) error
+	// Close releases all resources (stores, logs, locks).
+	Close() error
+}
+
+// NopDaemonRunner is a no-op DaemonRunner for tests.
+type NopDaemonRunner struct{}
+
+func (NopDaemonRunner) SetDispatcher(EventDispatcher)       {}
+func (NopDaemonRunner) BuildNotifier() Notifier             { return NopNotifier{} }
+func (NopDaemonRunner) RouteCount() int                     { return 0 }
+func (NopDaemonRunner) OutboxCount() int                    { return 0 }
+func (NopDaemonRunner) Run(context.Context) error           { return nil }
+func (NopDaemonRunner) Close() error                        { return nil }

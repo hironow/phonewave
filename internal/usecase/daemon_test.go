@@ -12,6 +12,7 @@ import (
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 func TestSetupAndRunDaemon_InvalidCommand(t *testing.T) {
@@ -23,7 +24,7 @@ func TestSetupAndRunDaemon_InvalidCommand(t *testing.T) {
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when
-	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger, nil)
+	err := SetupAndRunDaemon(context.Background(), cmd, logger, nil, port.NopDaemonRunner{})
 
 	// then
 	if err == nil {
@@ -39,8 +40,8 @@ func TestSetupAndRunDaemon_MissingConfig(t *testing.T) {
 	}
 	logger := platform.NewLogger(io.Discard, false)
 
-	// when
-	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger, nil)
+	// when: factory should fail with missing config
+	_, err := session.NewDaemonRunner(cmd, "/nonexistent/config.yaml", "/tmp", domain.NewDeliveryAggregate(), logger)
 
 	// then
 	if err == nil {
@@ -96,14 +97,14 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 	}
 	defer unlock()
 
-	cmd := domain.RunDaemonCommand{
+	daemonCmd := domain.RunDaemonCommand{
 		RetryInterval: 60 * time.Second,
 		MaxRetries:    10,
 	}
 	logger := platform.NewLogger(io.Discard, false)
 
-	// when
-	err = SetupAndRunDaemon(context.Background(), cmd, configPath, baseDir, logger, nil)
+	// when: factory should fail with lock already held
+	_, err = session.NewDaemonRunner(daemonCmd, configPath, baseDir, domain.NewDeliveryAggregate(), logger)
 
 	// then: must fail with "already running"
 	if err == nil {

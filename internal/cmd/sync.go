@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/hironow/phonewave/internal/platform"
-	"github.com/hironow/phonewave/internal/usecase"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -18,10 +20,19 @@ func newSyncCmd() *cobra.Command {
 			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
-			report, err := usecase.SyncEcosystem(cfgPath, logger)
+			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
-				return err
+				return fmt.Errorf("load config: %w", err)
+			}
+
+			report, err := session.Sync(cfg)
+			if err != nil {
+				return fmt.Errorf("sync: %w", err)
+			}
+
+			if err := session.WriteConfig(cfgPath, cfg); err != nil {
+				return fmt.Errorf("write config: %w", err)
 			}
 
 			logger.OK("Synced %d repositories, %d routes", report.RepoCount, report.TotalRoutes)

@@ -11,7 +11,7 @@ import (
 func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 	// given
 	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
 	ev, err := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{"to": "inbox"}, time.Now())
 	if err != nil {
 		t.Fatalf("new event: %v", err)
@@ -41,7 +41,7 @@ func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 func TestFileEventStore_LoadSince_FiltersOlderEvents(t *testing.T) {
 	// given
 	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
 	old, err := domain.NewEvent(domain.EventScanCompleted, nil, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("new event: %v", err)
@@ -72,7 +72,7 @@ func TestFileEventStore_LoadSince_FiltersOlderEvents(t *testing.T) {
 func TestFileEventStore_AppendRejectsInvalidEvent(t *testing.T) {
 	// given
 	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
 	invalid := domain.Event{} // missing ID, Type, Timestamp
 
 	// when
@@ -87,7 +87,7 @@ func TestFileEventStore_AppendRejectsInvalidEvent(t *testing.T) {
 func TestFileEventStore_LoadAll_EmptyDir(t *testing.T) {
 	// given
 	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
 
 	// when
 	events, err := store.LoadAll()
@@ -103,7 +103,7 @@ func TestFileEventStore_LoadAll_EmptyDir(t *testing.T) {
 
 func TestFileEventStore_LoadAll_NonexistentDir(t *testing.T) {
 	// given
-	store := eventsource.NewFileEventStore("/nonexistent/path/events")
+	store := eventsource.NewFileEventStore("/nonexistent/path/events", &domain.NopLogger{})
 
 	// when
 	events, err := store.LoadAll()
@@ -120,7 +120,7 @@ func TestFileEventStore_LoadAll_NonexistentDir(t *testing.T) {
 func TestFileEventStore_ImplementsInterface(t *testing.T) {
 	// Duck typing: FileEventStore satisfies port.EventStore via Go structural typing.
 	// Verified by store_factory.go which assigns *FileEventStore to port.EventStore.
-	store := eventsource.NewFileEventStore(t.TempDir())
+	store := eventsource.NewFileEventStore(t.TempDir(), &domain.NopLogger{})
 	if store == nil {
 		t.Fatal("expected non-nil store")
 	}
