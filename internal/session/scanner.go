@@ -119,7 +119,7 @@ func ScanRepository(repoPath string) ([]domain.Endpoint, error) {
 			continue
 		}
 		// Skip common non-tool dot directories
-		if name == ".git" || name == ".github" || name == ".phonewave" {
+		if name == ".git" || name == ".github" || name == domain.StateDir {
 			continue
 		}
 
