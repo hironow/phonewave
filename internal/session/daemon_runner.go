@@ -27,7 +27,7 @@ type Daemon struct {
 	logger        domain.Logger
 	watcher       *fsnotify.Watcher
 	dlog          *DeliveryLog
-	deliveryStore domain.DeliveryStore
+	deliveryStore port.DeliveryStore
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
 	Dispatcher    port.EventDispatcher
@@ -371,7 +371,7 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 				trace.WithNewRoot(),
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
-			var eq domain.ErrorQueueStore
+			var eq port.ErrorQueueStore
 			if d.Session != nil {
 				eq = d.Session.ErrorQueue
 			}

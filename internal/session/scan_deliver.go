@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/port"
 )
 
 // ScanAndDeliver processes all existing .md files in the given outbox directory,
 // delivering each one according to the provided routes. Files are delivered
 // sequentially. Failed deliveries are enqueued via errorQueue (SQLite).
 // If errorQueue is nil, failed files remain in the outbox for next startup.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds domain.DeliveryStore, errorQueue domain.ErrorQueueStore) ([]*domain.DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds port.DeliveryStore, errorQueue port.ErrorQueueStore) ([]*domain.DeliveryResult, []error) {
 	if logger == nil {
 		logger = &domain.NopLogger{}
 	}

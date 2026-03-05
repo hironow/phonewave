@@ -58,9 +58,3 @@ func TestValidateEvent_AcceptsValidEvent(t *testing.T) {
 		t.Errorf("expected no error, got: %v", err)
 	}
 }
-
-func TestEventStoreInterface_Exists(t *testing.T) {
-	// Compile-time check: EventStore interface is defined.
-	var _ EventStore = nil
-	_ = t
-}

@@ -118,6 +118,10 @@ func TestFileEventStore_LoadAll_NonexistentDir(t *testing.T) {
 }
 
 func TestFileEventStore_ImplementsInterface(t *testing.T) {
-	// Compile-time check is in store_file.go, but verify at runtime too.
-	var _ domain.EventStore = eventsource.NewFileEventStore("")
+	// Duck typing: FileEventStore satisfies port.EventStore via Go structural typing.
+	// Verified by store_factory.go which assigns *FileEventStore to port.EventStore.
+	store := eventsource.NewFileEventStore(t.TempDir())
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
 }

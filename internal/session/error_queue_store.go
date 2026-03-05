@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/port"
 	_ "modernc.org/sqlite"
 )
 
-// SQLiteErrorQueueStore implements domain.ErrorQueueStore using SQLite
+// SQLiteErrorQueueStore implements port.ErrorQueueStore using SQLite
 // with atomic claim semantics for concurrent daemon safety.
 // All write operations use BEGIN IMMEDIATE to prevent deadlocks.
 type SQLiteErrorQueueStore struct {
@@ -19,7 +20,7 @@ type SQLiteErrorQueueStore struct {
 }
 
 // Compile-time check that SQLiteErrorQueueStore implements ErrorQueueStore.
-var _ domain.ErrorQueueStore = (*SQLiteErrorQueueStore)(nil)
+var _ port.ErrorQueueStore = (*SQLiteErrorQueueStore)(nil)
 
 // NewSQLiteErrorQueueStore opens (or creates) a SQLite error queue store
 // at {stateDir}/error_queue.db and initialises the schema.

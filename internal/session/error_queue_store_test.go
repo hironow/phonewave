@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/port"
 	"github.com/hironow/phonewave/internal/session"
 )
 
@@ -168,7 +169,7 @@ func TestErrorQueueStore_MarkResolved(t *testing.T) {
 }
 
 func TestErrorQueueStore_ImplementsInterface(t *testing.T) {
-	var _ domain.ErrorQueueStore = testErrorQueueStore(t)
+	var _ port.ErrorQueueStore = testErrorQueueStore(t)
 }
 
 func TestEnqueue_SetsRetryCountFromAttempts(t *testing.T) {

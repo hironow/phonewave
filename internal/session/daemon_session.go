@@ -14,8 +14,8 @@ import (
 // orchestration. The root Daemon retains fsnotify + worker pool; DaemonSession
 // provides stores and logging for delivery, error recording, and event persistence.
 type DaemonSession struct {
-	ErrorQueue  domain.ErrorQueueStore
-	EventStore  domain.EventStore
+	ErrorQueue  port.ErrorQueueStore
+	EventStore  port.EventStore
 	DeliveryLog *DeliveryLog
 	Routes      []domain.ResolvedRoute
 	StateDir    string
@@ -26,8 +26,8 @@ type DaemonSession struct {
 // NewDaemonSession creates a DaemonSession with the given dependencies.
 // All fields except Dispatcher are required; Dispatcher may be nil.
 func NewDaemonSession(
-	errorQueue domain.ErrorQueueStore,
-	eventStore domain.EventStore,
+	errorQueue port.ErrorQueueStore,
+	eventStore port.EventStore,
 	deliveryLog *DeliveryLog,
 	routes []domain.ResolvedRoute,
 	stateDir string,

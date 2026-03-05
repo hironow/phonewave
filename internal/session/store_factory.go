@@ -3,13 +3,13 @@ package session
 import (
 	"path/filepath"
 
-	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/eventsource"
+	"github.com/hironow/phonewave/internal/port"
 )
 
 // NewEventStore creates a FileEventStore at the conventional path.
 // cmd layer should use this instead of importing eventsource directly (ADR S0008).
-func NewEventStore(stateDir string) domain.EventStore {
+func NewEventStore(stateDir string) port.EventStore {
 	return eventsource.NewFileEventStore(filepath.Join(stateDir, "events"))
 }
 

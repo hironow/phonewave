@@ -13,7 +13,7 @@ import (
 
 const maxDeliveryRetryCount = 3
 
-// SQLiteDeliveryStore implements domain.DeliveryStore using SQLite
+// SQLiteDeliveryStore implements port.DeliveryStore using SQLite
 // with a 2-phase Flush to minimise lock hold time during filesystem I/O.
 type SQLiteDeliveryStore struct {
 	db *sql.DB

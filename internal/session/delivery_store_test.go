@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/port"
 )
 
 func newTestDeliveryStore(t *testing.T) *SQLiteDeliveryStore {
@@ -314,4 +314,4 @@ func TestSQLiteDeliveryStore_FilePermission(t *testing.T) {
 }
 
 // Compile-time check
-var _ domain.DeliveryStore = (*SQLiteDeliveryStore)(nil)
+var _ port.DeliveryStore = (*SQLiteDeliveryStore)(nil)

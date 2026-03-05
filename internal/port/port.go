@@ -3,6 +3,7 @@ package port
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
 )
@@ -34,3 +35,32 @@ type PolicyMetrics interface {
 type NopPolicyMetrics struct{}
 
 func (NopPolicyMetrics) RecordPolicyEvent(context.Context, string, string) {}
+
+// EventStore is the interface for an append-only event log.
+type EventStore interface {
+	Append(events ...domain.Event) error
+	LoadAll() ([]domain.Event, error)
+	LoadSince(after time.Time) ([]domain.Event, error)
+}
+
+// ErrorQueueStore manages failed D-Mail delivery records with atomic claim
+// semantics to prevent duplicate processing across concurrent daemon instances.
+type ErrorQueueStore interface {
+	Enqueue(name string, data []byte, meta domain.ErrorMetadata) error
+	ClaimPendingRetries(claimerID string, maxRetries int) ([]domain.ErrorEntry, error)
+	PendingCount(maxRetries int) (int, error)
+	IncrementRetry(name string, newError string) error
+	MarkResolved(name string) error
+	Close() error
+}
+
+// DeliveryStore manages staged delivery intents with transactional guarantees.
+// Stage records the intent; Flush writes files and marks them done.
+type DeliveryStore interface {
+	StageDelivery(dmailPath string, data []byte, targets []string) error
+	FlushDeliveries() ([]domain.DeliveryFlushed, error)
+	RecoverUnflushed() ([]domain.StagedDelivery, error)
+	AllFlushedFor(dmailPath string) (bool, error)
+	PruneFlushed() (int, error)
+	Close() error
+}
