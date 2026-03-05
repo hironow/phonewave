@@ -303,6 +303,14 @@ just prek-run       # Run all prek hooks
 |   +-- cli/                   Auto-generated CLI reference
 ```
 
+## Documentation
+
+- [docs/](docs/README.md) — Full documentation index
+- [docs/phonewave-directory.md](docs/phonewave-directory.md) — `.phonewave/` directory structure
+- [docs/policies.md](docs/policies.md) — Event → Policy mapping
+- [docs/otel-backends.md](docs/otel-backends.md) — OTel backend configuration
+- [docs/adr/](docs/adr/README.md) — Architecture Decision Records
+
 ## Prerequisites
 
 - Go 1.26+

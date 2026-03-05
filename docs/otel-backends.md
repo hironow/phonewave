@@ -76,7 +76,7 @@ endpoint and verifies the exporter completes without error. Skipped when
 ## GenAI Semantic Conventions
 
 phonewave does not invoke LLMs directly and does not emit `gen_ai.*` span attributes.
-Tools that invoke Claude (sightjack, paintress) emit:
+Tools that invoke Claude (sightjack, paintress, amadeus) emit:
 
 - `gen_ai.operation.name=chat`
 - `gen_ai.system=anthropic`
