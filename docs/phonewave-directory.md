@@ -12,6 +12,8 @@ the working directory (where `phonewave init` is run) and each monitored reposit
     watch.pid                 # daemon PID (ephemeral)
     watch.started             # daemon start timestamp (ephemeral)
     delivery.log              # append-only delivery audit log
+    events/
+      {YYYY-MM-DD}.jsonl      # event store (append-only, one file per day)
     .run/
       error_queue.db          # SQLite error queue (dead letter)
 ```
@@ -48,6 +50,7 @@ in each repository for SKILL.md files.
 | `.phonewave/watch.pid` | Running daemon's PID. Used by `status` and `doctor` to check liveness (signal 0). Removed on shutdown |
 | `.phonewave/watch.started` | RFC3339 timestamp of daemon start. Used by `status` to compute uptime. Removed on shutdown |
 | `.phonewave/delivery.log` | Append-only log of delivery events. Each line: `{RFC3339} {ACTION} {details}`. Actions: `DELIVERED`, `REMOVED`, `FAILED`, `RETRIED`. Parsed by `ParseDeliveryStats` for 24h status |
+| `.phonewave/events/{YYYY-MM-DD}.jsonl` | Event store. Append-only JSONL files, one per day. Each line is a JSON-encoded `domain.Event`. Used by `archive-prune` and `clean` |
 | `.phonewave/.run/error_queue.db` | SQLite error queue. Failed D-Mails are enqueued here for retry. Schema: `error_queue` table with name, data, metadata, retry_count, created_at |
 
 ### Repository Endpoints
@@ -100,6 +103,7 @@ Producer                  phonewave daemon               Consumer
 | `.phonewave/watch.pid` | `Daemon.Run` | Daemon startup (removed on shutdown) |
 | `.phonewave/watch.started` | `Daemon.Run` | Daemon startup (removed on shutdown) |
 | `.phonewave/delivery.log` | `NewDeliveryLog` | Daemon startup (append-only, persists across restarts) |
+| `.phonewave/events/*.jsonl` | `FileEventStore.Append` | Daemon startup (append-only, persists across restarts) |
 | `.phonewave/.run/error_queue.db` | `NewErrorQueueStore` | Daemon startup (SQLite, persists across restarts) |
 | `<endpoint>/outbox/*.md` | External tool (producer) | Before delivery |
 | `<endpoint>/inbox/*.md` | `atomicWrite` | Successful delivery |

@@ -14,10 +14,10 @@ Errors are logged but never propagated — `Dispatch()` always returns nil.
 
 | Policy Name | WHEN [EVENT] | THEN [COMMAND] | Side Effects |
 |---|---|---|---|
-| DeliveryCompletedLogMetrics | delivery.completed | LogDeliveryMetrics | Log (Info) |
-| DeliveryFailedRecordError | delivery.failed | RecordDeliveryError | Log (Debug only — avoids recursion) |
-| ErrorRetriedLogMetrics | error.retried | LogRetryMetrics | Log (Info) |
-| ScanCompletedLogMetrics | scan.completed | LogScanMetrics | Log (Info) + Desktop notification (5s timeout) |
+| DeliveryCompletedLogMetrics | delivery.completed | LogDeliveryMetrics | Log (Info) + Metrics |
+| DeliveryFailedRecordError | delivery.failed | RecordDeliveryError | Log (Info) + Desktop Notify + Metrics |
+| ErrorRetriedLogMetrics | error.retried | LogRetryMetrics | Log (Info) + Desktop Notify + Metrics |
+| ScanCompletedLogMetrics | scan.completed | LogScanMetrics | Log (Info) + Desktop Notify + Metrics |
 
 ## Event Payload Format
 
