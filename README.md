@@ -303,6 +303,18 @@ just prek-run       # Run all prek hooks
 |   +-- cli/                   Auto-generated CLI reference
 ```
 
+## What / Why / How
+
+| Aspect | Description |
+|--------|-------------|
+| **What** | File-based message courier daemon that routes D-Mails between AI agent tool repositories |
+| **Why** | Enable inter-tool communication without shared databases or direct API coupling |
+| **How** | fsnotify watch on outbox directories → YAML frontmatter routing → atomic inbox delivery → SQLite error queue with retry |
+| **Input** | D-Mail `.md` files written to outbox directories by other tools |
+| **Output** | D-Mail `.md` files delivered to inbox directories of consuming tools |
+| **Telemetry** | OTel spans: `phonewave.run`, `startup_scan`, `handle_event`, `deliver_data` |
+| **External Systems** | File system (fsnotify), OTel exporter (Jaeger/Weave) |
+
 ## Documentation
 
 - [docs/](docs/README.md) — Full documentation index
