@@ -21,19 +21,21 @@ type DeliveryCompletedPayload struct {
 // DeliveryFailedPayload is the payload for EventDeliveryFailed.
 type DeliveryFailedPayload struct {
 	Path  string `json:"path"`
+	Kind  string `json:"kind"`
 	Error string `json:"error"`
 }
 
 // ErrorRetriedPayload is the payload for EventErrorRetried.
 type ErrorRetriedPayload struct {
-	Path    string `json:"path"`
-	Attempt int    `json:"attempt"`
+	Name string `json:"name"`
+	Kind string `json:"kind"`
 }
 
 // ScanCompletedPayload is the payload for EventScanCompleted.
 type ScanCompletedPayload struct {
-	Delivered int `json:"delivered"`
-	Failed    int `json:"failed"`
+	Outbox    string `json:"outbox"`
+	Delivered int    `json:"delivered"`
+	Failed    int    `json:"failed"`
 }
 
 // RecordDelivery produces a delivery.completed event.
@@ -45,24 +47,26 @@ func (a *DeliveryAggregate) RecordDelivery(path, kind string, now time.Time) (Ev
 }
 
 // RecordFailure produces a delivery.failed event.
-func (a *DeliveryAggregate) RecordFailure(path, errMsg string, now time.Time) (Event, error) {
+func (a *DeliveryAggregate) RecordFailure(path, kind, errMsg string, now time.Time) (Event, error) {
 	return NewEvent(EventDeliveryFailed, DeliveryFailedPayload{
 		Path:  path,
+		Kind:  kind,
 		Error: errMsg,
 	}, now)
 }
 
 // RecordRetry produces an error.retried event.
-func (a *DeliveryAggregate) RecordRetry(path string, attempt int, now time.Time) (Event, error) {
+func (a *DeliveryAggregate) RecordRetry(name, kind string, now time.Time) (Event, error) {
 	return NewEvent(EventErrorRetried, ErrorRetriedPayload{
-		Path:    path,
-		Attempt: attempt,
+		Name: name,
+		Kind: kind,
 	}, now)
 }
 
 // RecordScan produces a scan.completed event.
-func (a *DeliveryAggregate) RecordScan(delivered, failed int, now time.Time) (Event, error) {
+func (a *DeliveryAggregate) RecordScan(outbox string, delivered, failed int, now time.Time) (Event, error) {
 	return NewEvent(EventScanCompleted, ScanCompletedPayload{
+		Outbox:    outbox,
 		Delivered: delivered,
 		Failed:    failed,
 	}, now)

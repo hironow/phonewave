@@ -24,7 +24,8 @@ func newTestDaemonSession(t *testing.T) (*session.DaemonSession, string) {
 	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: "/tmp/outbox", ToInboxes: []string{"/tmp/inbox"}},
 	}
-	ds := session.NewDaemonSession(errorQueue, eventStore, dlog, routes, dir, logger)
+	agg := domain.NewDeliveryAggregate()
+	ds := session.NewDaemonSession(agg, errorQueue, eventStore, dlog, routes, dir, logger)
 	return ds, dir
 }
 

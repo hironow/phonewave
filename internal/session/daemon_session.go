@@ -2,7 +2,6 @@ package session
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
@@ -14,6 +13,7 @@ import (
 // orchestration. The root Daemon retains fsnotify + worker pool; DaemonSession
 // provides stores and logging for delivery, error recording, and event persistence.
 type DaemonSession struct {
+	Aggregate   *domain.DeliveryAggregate
 	ErrorQueue  port.ErrorQueueStore
 	EventStore  port.EventStore
 	DeliveryLog *DeliveryLog
@@ -26,6 +26,7 @@ type DaemonSession struct {
 // NewDaemonSession creates a DaemonSession with the given dependencies.
 // All fields except Dispatcher are required; Dispatcher may be nil.
 func NewDaemonSession(
+	aggregate *domain.DeliveryAggregate,
 	errorQueue port.ErrorQueueStore,
 	eventStore port.EventStore,
 	deliveryLog *DeliveryLog,
@@ -34,6 +35,7 @@ func NewDaemonSession(
 	logger domain.Logger,
 ) *DaemonSession {
 	return &DaemonSession{
+		Aggregate:   aggregate,
 		ErrorQueue:  errorQueue,
 		EventStore:  eventStore,
 		DeliveryLog: deliveryLog,
@@ -50,10 +52,7 @@ func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {
 	if s.EventStore == nil {
 		return
 	}
-	ev, err := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{
-		"kind":   result.Kind,
-		"source": result.SourcePath,
-	}, time.Now().UTC())
+	ev, err := s.Aggregate.RecordDelivery(result.SourcePath, result.Kind, time.Now().UTC())
 	if err != nil {
 		s.Logger.Warn("record delivery event: %v", err)
 		return
@@ -73,11 +72,7 @@ func (s *DaemonSession) RecordFailureEvent(filePath string, kind string, deliver
 	if s.EventStore == nil {
 		return
 	}
-	ev, err := domain.NewEvent(domain.EventDeliveryFailed, map[string]string{
-		"file":  filePath,
-		"kind":  kind,
-		"error": deliverErr.Error(),
-	}, time.Now().UTC())
+	ev, err := s.Aggregate.RecordFailure(filePath, kind, deliverErr.Error(), time.Now().UTC())
 	if err != nil {
 		s.Logger.Warn("record failure event: %v", err)
 		return
@@ -95,11 +90,7 @@ func (s *DaemonSession) RecordScanEvent(outboxDir string, deliveredCount int, er
 	if s.EventStore == nil {
 		return
 	}
-	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
-		"outbox":    outboxDir,
-		"delivered": intToStr(deliveredCount),
-		"errors":    intToStr(errorCount),
-	}, time.Now().UTC())
+	ev, err := s.Aggregate.RecordScan(outboxDir, deliveredCount, errorCount, time.Now().UTC())
 	if err != nil {
 		s.Logger.Warn("record scan event: %v", err)
 		return
@@ -117,10 +108,7 @@ func (s *DaemonSession) RecordRetryEvent(name string, kind string) {
 	if s.EventStore == nil {
 		return
 	}
-	ev, err := domain.NewEvent(domain.EventErrorRetried, map[string]string{
-		"name": name,
-		"kind": kind,
-	}, time.Now().UTC())
+	ev, err := s.Aggregate.RecordRetry(name, kind, time.Now().UTC())
 	if err != nil {
 		s.Logger.Warn("record retry event: %v", err)
 		return
@@ -133,6 +121,3 @@ func (s *DaemonSession) RecordRetryEvent(name string, kind string) {
 	}
 }
 
-func intToStr(n int) string {
-	return fmt.Sprintf("%d", n)
-}
