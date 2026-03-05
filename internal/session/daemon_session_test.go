@@ -4,13 +4,54 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
-func newTestDaemonSession(t *testing.T) (*session.DaemonSession, string) {
+// testDaemonEventEmitter implements port.DaemonEventEmitter for session tests.
+// It wraps the aggregate + event store without usecase import.
+type testDaemonEventEmitter struct {
+	agg   *domain.DeliveryAggregate
+	store port.EventStore
+}
+
+func (e *testDaemonEventEmitter) EmitDelivery(sourcePath string, kind string, now time.Time) error {
+	ev, err := e.agg.RecordDelivery(sourcePath, kind, now)
+	if err != nil {
+		return err
+	}
+	return e.store.Append(ev)
+}
+
+func (e *testDaemonEventEmitter) EmitFailure(filePath string, kind string, errMsg string, now time.Time) error {
+	ev, err := e.agg.RecordFailure(filePath, kind, errMsg, now)
+	if err != nil {
+		return err
+	}
+	return e.store.Append(ev)
+}
+
+func (e *testDaemonEventEmitter) EmitScan(outboxDir string, delivered, errors int, now time.Time) error {
+	ev, err := e.agg.RecordScan(outboxDir, delivered, errors, now)
+	if err != nil {
+		return err
+	}
+	return e.store.Append(ev)
+}
+
+func (e *testDaemonEventEmitter) EmitRetry(name string, kind string, now time.Time) error {
+	ev, err := e.agg.RecordRetry(name, kind, now)
+	if err != nil {
+		return err
+	}
+	return e.store.Append(ev)
+}
+
+func newTestDaemonSession(t *testing.T) (*session.DaemonSession, port.EventStore) {
 	t.Helper()
 	dir := t.TempDir()
 	errorQueue := testErrorQueueStore(t)
@@ -25,8 +66,10 @@ func newTestDaemonSession(t *testing.T) (*session.DaemonSession, string) {
 		{Kind: "specification", FromOutbox: "/tmp/outbox", ToInboxes: []string{"/tmp/inbox"}},
 	}
 	agg := domain.NewDeliveryAggregate()
-	ds := session.NewDaemonSession(agg, errorQueue, eventStore, dlog, routes, dir, logger)
-	return ds, dir
+	emitter := &testDaemonEventEmitter{agg: agg, store: eventStore}
+	ds := session.NewDaemonSession(errorQueue, dlog, routes, dir, logger)
+	ds.Emitter = emitter
+	return ds, eventStore
 }
 
 func TestNewDaemonSession(t *testing.T) {
@@ -40,8 +83,8 @@ func TestNewDaemonSession(t *testing.T) {
 	if ds.ErrorQueue == nil {
 		t.Error("ErrorQueue should be set")
 	}
-	if ds.EventStore == nil {
-		t.Error("EventStore should be set")
+	if ds.Emitter == nil {
+		t.Error("Emitter should be set")
 	}
 	if ds.DeliveryLog == nil {
 		t.Error("DeliveryLog should be set")
@@ -53,7 +96,7 @@ func TestNewDaemonSession(t *testing.T) {
 
 func TestDaemonSession_RecordDeliveryEvent(t *testing.T) {
 	// given
-	ds, _ := newTestDaemonSession(t)
+	ds, eventStore := newTestDaemonSession(t)
 	result := &domain.DeliveryResult{
 		Kind:        "specification",
 		SourcePath:  "/tmp/outbox/spec.md",
@@ -64,7 +107,7 @@ func TestDaemonSession_RecordDeliveryEvent(t *testing.T) {
 	ds.RecordDeliveryEvent(result)
 
 	// then
-	events, err := ds.EventStore.LoadAll()
+	events, err := eventStore.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -78,13 +121,13 @@ func TestDaemonSession_RecordDeliveryEvent(t *testing.T) {
 
 func TestDaemonSession_RecordFailureEvent(t *testing.T) {
 	// given
-	ds, _ := newTestDaemonSession(t)
+	ds, eventStore := newTestDaemonSession(t)
 
 	// when
 	ds.RecordFailureEvent("/tmp/outbox/bad.md", "specification", fmt.Errorf("no route"))
 
 	// then
-	events, err := ds.EventStore.LoadAll()
+	events, err := eventStore.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -98,13 +141,13 @@ func TestDaemonSession_RecordFailureEvent(t *testing.T) {
 
 func TestDaemonSession_RecordScanEvent(t *testing.T) {
 	// given
-	ds, _ := newTestDaemonSession(t)
+	ds, eventStore := newTestDaemonSession(t)
 
 	// when
 	ds.RecordScanEvent("/tmp/outbox", 3, 1)
 
 	// then
-	events, err := ds.EventStore.LoadAll()
+	events, err := eventStore.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -118,13 +161,13 @@ func TestDaemonSession_RecordScanEvent(t *testing.T) {
 
 func TestDaemonSession_RecordRetryEvent(t *testing.T) {
 	// given
-	ds, _ := newTestDaemonSession(t)
+	ds, eventStore := newTestDaemonSession(t)
 
 	// when
 	ds.RecordRetryEvent("retry-spec.md", "specification")
 
 	// then
-	events, err := ds.EventStore.LoadAll()
+	events, err := eventStore.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -136,10 +179,10 @@ func TestDaemonSession_RecordRetryEvent(t *testing.T) {
 	}
 }
 
-func TestDaemonSession_RecordDeliveryEvent_NilEventStore(t *testing.T) {
-	// given: DaemonSession with nil EventStore
+func TestDaemonSession_RecordDeliveryEvent_NilEmitter(t *testing.T) {
+	// given: DaemonSession with nil Emitter
 	ds, _ := newTestDaemonSession(t)
-	ds.EventStore = nil
+	ds.Emitter = nil
 
 	// when: should not panic
 	ds.RecordDeliveryEvent(&domain.DeliveryResult{
@@ -147,3 +190,4 @@ func TestDaemonSession_RecordDeliveryEvent_NilEventStore(t *testing.T) {
 		SourcePath: "/tmp/outbox/spec.md",
 	})
 }
+

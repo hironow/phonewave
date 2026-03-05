@@ -30,7 +30,6 @@ type Daemon struct {
 	deliveryStore port.DeliveryStore
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
-	Dispatcher    port.EventDispatcher
 	Session       *DaemonSession
 }
 

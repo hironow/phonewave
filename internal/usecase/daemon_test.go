@@ -41,7 +41,7 @@ func TestSetupAndRunDaemon_MissingConfig(t *testing.T) {
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when: factory should fail with missing config
-	_, err := session.NewDaemonRunner(cmd, "/nonexistent/config.yaml", "/tmp", domain.NewDeliveryAggregate(), logger)
+	_, err := session.NewDaemonRunner(cmd, "/nonexistent/config.yaml", "/tmp", logger)
 
 	// then
 	if err == nil {
@@ -104,7 +104,7 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when: factory should fail with lock already held
-	_, err = session.NewDaemonRunner(daemonCmd, configPath, baseDir, domain.NewDeliveryAggregate(), logger)
+	_, err = session.NewDaemonRunner(daemonCmd, configPath, baseDir, logger)
 
 	// then: must fail with "already running"
 	if err == nil {

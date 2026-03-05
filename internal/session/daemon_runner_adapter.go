@@ -15,6 +15,7 @@ type daemonRunnerAdapter struct {
 	session     *DaemonSession
 	errorQueue  port.ErrorQueueStore
 	dlog        *DeliveryLog
+	eventStore  port.EventStore
 	unlock      func()
 	notifier    port.Notifier
 	routeCount  int
@@ -24,7 +25,7 @@ type daemonRunnerAdapter struct {
 // NewDaemonRunner creates a fully-constructed daemon runner.
 // It performs all infrastructure setup: config loading, route resolution,
 // state directory creation, lock acquisition, store creation, and daemon construction.
-func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, agg *domain.DeliveryAggregate, logger domain.Logger) (port.DaemonRunner, error) {
+func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logger domain.Logger) (port.DaemonRunner, error) {
 	cfg, err := LoadConfig(cfgPath)
 	if err != nil {
 		logger.Info("Run 'phonewave init' first")
@@ -83,7 +84,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, agg *
 		return nil, fmt.Errorf("open delivery log: %w", err)
 	}
 
-	ds := NewDaemonSession(agg, errorQueue, eventStore, dlog, routes, stateDir, logger)
+	ds := NewDaemonSession(errorQueue, dlog, routes, stateDir, logger)
 	d.Session = ds
 
 	notifier := BuildNotifier()
@@ -93,6 +94,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, agg *
 		session:     ds,
 		errorQueue:  errorQueue,
 		dlog:        dlog,
+		eventStore:  eventStore,
 		unlock:      unlock,
 		notifier:    notifier,
 		routeCount:  len(routes),
@@ -100,9 +102,12 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, agg *
 	}, nil
 }
 
-func (a *daemonRunnerAdapter) SetDispatcher(d port.EventDispatcher) {
-	a.daemon.Dispatcher = d
-	a.session.Dispatcher = d
+func (a *daemonRunnerAdapter) SetEmitter(e port.DaemonEventEmitter) {
+	a.session.Emitter = e
+}
+
+func (a *daemonRunnerAdapter) EventStore() port.EventStore {
+	return a.eventStore
 }
 
 func (a *daemonRunnerAdapter) BuildNotifier() port.Notifier {

@@ -65,15 +65,27 @@ type DeliveryStore interface {
 	Close() error
 }
 
-// DaemonRunner represents a fully-constructed daemon ready for policy engine injection.
+// DaemonEventEmitter wraps aggregate event production + persistence + dispatch.
+// Implemented in usecase layer, injected into session via DaemonRunner.SetEmitter.
+// Dispatch is best-effort: errors are logged but not returned.
+type DaemonEventEmitter interface {
+	EmitDelivery(sourcePath string, kind string, now time.Time) error
+	EmitFailure(filePath string, kind string, errMsg string, now time.Time) error
+	EmitScan(outboxDir string, delivered, errors int, now time.Time) error
+	EmitRetry(name string, kind string, now time.Time) error
+}
+
+// DaemonRunner represents a fully-constructed daemon ready for emitter injection.
 // All infrastructure setup (config loading, store creation, lock acquisition) is done
 // before the DaemonRunner is constructed. The usecase layer uses it only for:
 // 1. Checking outbox count (business decision to not start if zero)
-// 2. Injecting the PolicyEngine dispatcher
+// 2. Injecting the DaemonEventEmitter (aggregate + store + dispatcher)
 // 3. Running the daemon event loop
 type DaemonRunner interface {
-	// SetDispatcher injects the event dispatcher (PolicyEngine) into the daemon.
-	SetDispatcher(d EventDispatcher)
+	// SetEmitter injects the event emitter (wraps aggregate + store + dispatcher).
+	SetEmitter(e DaemonEventEmitter)
+	// EventStore returns the session-layer event store for emitter construction.
+	EventStore() EventStore
 	// BuildNotifier returns the configured notifier for policy handlers.
 	BuildNotifier() Notifier
 	// RouteCount returns the number of resolved delivery routes.
@@ -89,7 +101,8 @@ type DaemonRunner interface {
 // NopDaemonRunner is a no-op DaemonRunner for tests.
 type NopDaemonRunner struct{}
 
-func (NopDaemonRunner) SetDispatcher(EventDispatcher)       {}
+func (NopDaemonRunner) SetEmitter(DaemonEventEmitter)       {}
+func (NopDaemonRunner) EventStore() EventStore              { return nil }
 func (NopDaemonRunner) BuildNotifier() Notifier             { return NopNotifier{} }
 func (NopDaemonRunner) RouteCount() int                     { return 0 }
 func (NopDaemonRunner) OutboxCount() int                    { return 0 }

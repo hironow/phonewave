@@ -51,8 +51,7 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		MaxRetries:    maxRetries,
 	}
 
-	agg := domain.NewDeliveryAggregate()
-	runner, err := session.NewDaemonRunner(daemonCmd, configPath(cmd), configBase(cmd), agg, logger)
+	runner, err := session.NewDaemonRunner(daemonCmd, configPath(cmd), configBase(cmd), logger)
 	if err != nil {
 		return err
 	}
