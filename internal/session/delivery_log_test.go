@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"fmt"
@@ -7,12 +7,14 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestDeliveryLog_Append(t *testing.T) {
 	// given
 	stateDir := t.TempDir()
-	log, err := NewDeliveryLog(stateDir)
+	log, err := session.NewDeliveryLog(stateDir)
 	if err != nil {
 		t.Fatalf("NewDeliveryLog: %v", err)
 	}
@@ -48,7 +50,7 @@ func TestDeliveryLog_Append(t *testing.T) {
 func TestDeliveryLog_Failed(t *testing.T) {
 	// given
 	stateDir := t.TempDir()
-	log, err := NewDeliveryLog(stateDir)
+	log, err := session.NewDeliveryLog(stateDir)
 	if err != nil {
 		t.Fatalf("NewDeliveryLog: %v", err)
 	}
@@ -76,7 +78,7 @@ func TestDeliveryLog_Failed(t *testing.T) {
 func TestDeliveryLog_Retried(t *testing.T) {
 	// given
 	stateDir := t.TempDir()
-	log, err := NewDeliveryLog(stateDir)
+	log, err := session.NewDeliveryLog(stateDir)
 	if err != nil {
 		t.Fatalf("NewDeliveryLog: %v", err)
 	}
@@ -104,7 +106,7 @@ func TestDeliveryLog_Retried(t *testing.T) {
 func TestDeliveryLog_CloseIsConcurrencySafe(t *testing.T) {
 	// given — a delivery log with concurrent writers
 	stateDir := t.TempDir()
-	log, err := NewDeliveryLog(stateDir)
+	log, err := session.NewDeliveryLog(stateDir)
 	if err != nil {
 		t.Fatalf("NewDeliveryLog: %v", err)
 	}
@@ -140,7 +142,7 @@ func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
 	stateDir := t.TempDir()
 
 	// First session
-	log1, err := NewDeliveryLog(stateDir)
+	log1, err := session.NewDeliveryLog(stateDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +150,7 @@ func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
 	log1.Close()
 
 	// Second session (simulates daemon restart)
-	log2, err := NewDeliveryLog(stateDir)
+	log2, err := session.NewDeliveryLog(stateDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +179,7 @@ func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
 // protects concurrent writes.
 func TestRace_DeliveryLog_ConcurrentWrite(t *testing.T) {
 	dir := t.TempDir()
-	log, err := NewDeliveryLog(dir)
+	log, err := session.NewDeliveryLog(dir)
 	if err != nil {
 		t.Fatalf("NewDeliveryLog: %v", err)
 	}

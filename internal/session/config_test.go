@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"os"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestConfigRoundTrip(t *testing.T) {
@@ -32,12 +33,12 @@ func TestConfigRoundTrip(t *testing.T) {
 	configPath := filepath.Join(dir, domain.ConfigFile)
 
 	// when — write
-	if err := WriteConfig(configPath, cfg); err != nil {
+	if err := session.WriteConfig(configPath, cfg); err != nil {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
 	// then — read back
-	loaded, err := LoadConfig(configPath)
+	loaded, err := session.LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
@@ -63,7 +64,7 @@ func TestConfigRoundTrip(t *testing.T) {
 }
 
 func TestLoadConfig_NotFound(t *testing.T) {
-	_, err := LoadConfig("/nonexistent/phonewave.yaml")
+	_, err := session.LoadConfig("/nonexistent/phonewave.yaml")
 	if err == nil {
 		t.Fatal("expected error for missing config file")
 	}
@@ -84,7 +85,7 @@ func TestWriteConfig_CreatesYAMLFile(t *testing.T) {
 		},
 	}
 
-	if err := WriteConfig(configPath, cfg); err != nil {
+	if err := session.WriteConfig(configPath, cfg); err != nil {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
@@ -115,7 +116,7 @@ func TestWriteConfig_StoresRelativePaths(t *testing.T) {
 	}
 
 	// when
-	if err := WriteConfig(configPath, cfg); err != nil {
+	if err := session.WriteConfig(configPath, cfg); err != nil {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
@@ -158,7 +159,7 @@ routes:
 	}
 
 	// when
-	cfg, err := LoadConfig(configPath)
+	cfg, err := session.LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
@@ -192,7 +193,7 @@ routes:
 	}
 
 	// when
-	cfg, err := LoadConfig(configPath)
+	cfg, err := session.LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
@@ -218,7 +219,7 @@ func TestWriteConfig_RoutesAlsoRelative(t *testing.T) {
 	}
 
 	// when
-	if err := WriteConfig(configPath, cfg); err != nil {
+	if err := session.WriteConfig(configPath, cfg); err != nil {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 

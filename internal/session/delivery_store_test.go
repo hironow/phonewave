@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"context"
@@ -8,13 +8,14 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
-func newTestDeliveryStore(t *testing.T) *SQLiteDeliveryStore {
+func newTestDeliveryStore(t *testing.T) *session.SQLiteDeliveryStore {
 	t.Helper()
 	stateDir := t.TempDir()
-	ds, err := NewSQLiteDeliveryStore(stateDir)
+	ds, err := session.NewSQLiteDeliveryStore(stateDir)
 	if err != nil {
 		t.Fatalf("NewSQLiteDeliveryStore: %v", err)
 	}
@@ -296,7 +297,7 @@ func TestSQLiteDeliveryStore_ConcurrentStageFlush(t *testing.T) {
 func TestSQLiteDeliveryStore_FilePermission(t *testing.T) {
 	// given — create a delivery store
 	stateDir := t.TempDir()
-	ds, err := NewSQLiteDeliveryStore(stateDir)
+	ds, err := session.NewSQLiteDeliveryStore(stateDir)
 	if err != nil {
 		t.Fatalf("NewSQLiteDeliveryStore: %v", err)
 	}
@@ -315,4 +316,4 @@ func TestSQLiteDeliveryStore_FilePermission(t *testing.T) {
 }
 
 // Compile-time check
-var _ port.DeliveryStore = (*SQLiteDeliveryStore)(nil)
+var _ port.DeliveryStore = (*session.SQLiteDeliveryStore)(nil)

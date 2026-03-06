@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"os"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestEnsureStateDir_CreatesGitignore(t *testing.T) {
@@ -14,7 +15,7 @@ func TestEnsureStateDir_CreatesGitignore(t *testing.T) {
 	base := t.TempDir()
 
 	// when
-	if err := EnsureStateDir(base); err != nil {
+	if err := session.EnsureStateDir(base); err != nil {
 		t.Fatalf("EnsureStateDir: %v", err)
 	}
 
@@ -37,10 +38,10 @@ func TestEnsureStateDir_GitignoreIdempotent(t *testing.T) {
 	base := t.TempDir()
 
 	// when: call twice
-	if err := EnsureStateDir(base); err != nil {
+	if err := session.EnsureStateDir(base); err != nil {
 		t.Fatalf("first EnsureStateDir: %v", err)
 	}
-	if err := EnsureStateDir(base); err != nil {
+	if err := session.EnsureStateDir(base); err != nil {
 		t.Fatalf("second EnsureStateDir: %v", err)
 	}
 
@@ -69,7 +70,7 @@ func TestEnsureStateDir_GitignoreAppendsMissing(t *testing.T) {
 	}
 
 	// when
-	if err := EnsureStateDir(base); err != nil {
+	if err := session.EnsureStateDir(base); err != nil {
 		t.Fatalf("EnsureStateDir: %v", err)
 	}
 

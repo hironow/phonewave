@@ -380,3 +380,10 @@ func TestSync_SkillsRefWarnings(t *testing.T) {
 		t.Errorf("expected skills-ref warning from Sync, got warnings: %v", report.Warnings)
 	}
 }
+
+func writeSkillFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestDeliver_SingleTarget(t *testing.T) {
@@ -44,7 +45,7 @@ description: "Test spec"
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then
 	if err != nil {
@@ -102,7 +103,7 @@ description: "Corrective feedback"
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then
 	if err != nil {
@@ -150,7 +151,7 @@ kind: unknown_type
 
 	ds := newTestDeliveryStore(t)
 
-	_, err := Deliver(context.Background(), dmailPath, routes, ds)
+	_, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 	if err == nil {
 		t.Fatal("expected error for unknown kind")
 	}
@@ -174,7 +175,7 @@ func TestDeliver_FileVanished(t *testing.T) {
 	ds := newTestDeliveryStore(t)
 
 	// when — try to deliver a file that doesn't exist
-	_, err := Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes, ds)
+	_, err := session.Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes, ds)
 
 	// then — should return error, not panic
 	if err == nil {
@@ -219,7 +220,7 @@ description: "New version"
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes, ds)
+	result, err := session.Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes, ds)
 
 	// then — should succeed (atomic rename overwrites)
 	if err != nil {
@@ -268,7 +269,7 @@ description: "No inbox target"
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then — Stage→Flush: flush failure is NOT returned as error.
 	// DeliveryStore retry_count handles re-flush on next delivery.
@@ -319,7 +320,7 @@ description: "Partial failure test"
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then — Stage→Flush: partial flush failure is NOT returned as error.
 	// Successfully flushed targets are kept; failed targets will be retried.

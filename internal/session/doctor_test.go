@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"encoding/json"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestDoctor_HealthyEcosystem(t *testing.T) {
@@ -59,7 +60,7 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 	}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then
 	if !report.Healthy {
@@ -95,7 +96,7 @@ func TestDoctor_MissingDirs(t *testing.T) {
 	}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then — should have warnings about missing dirs but auto-create them
 	hasCreated := false
@@ -133,7 +134,7 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 	}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then
 	if report.Healthy {
@@ -181,7 +182,7 @@ func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
 	}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then — should have a warning about invalid kind
 	hasKindWarn := false
@@ -206,7 +207,7 @@ func TestDoctor_DaemonNotRunning(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then
 	if !report.DaemonStatus.Checked {
@@ -218,7 +219,7 @@ func TestDoctor_DaemonNotRunning(t *testing.T) {
 }
 
 func TestDoctor_SkillsRefValidation(t *testing.T) {
-	if !skillsRefAvailable() {
+	if !session.ExportSkillsRefAvailable() {
 		t.Skip("skills-ref not available")
 	}
 
@@ -254,7 +255,7 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 	}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then — should have a warning from skills-ref validation
 	hasSpecWarn := false
@@ -283,7 +284,7 @@ func TestFormatDoctorJSON_Parseable(t *testing.T) {
 	}
 
 	// when
-	data, err := FormatDoctorJSON(report)
+	data, err := session.FormatDoctorJSON(report)
 
 	// then — must be valid JSON
 	if err != nil {
@@ -320,7 +321,7 @@ func TestDoctor_IncludesSuccessRate(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then — should include a success-rate issue with correct stats
 	var found bool
@@ -343,7 +344,7 @@ func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then — should still include success-rate with "no deliveries"
 	var found bool
@@ -377,7 +378,7 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then — daemon should NOT be reported as running (stale PID)
 	if report.DaemonStatus.Running {

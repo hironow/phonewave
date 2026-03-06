@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"os"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestDoctor_MissingRepoPath_HasHint(t *testing.T) {
@@ -24,7 +25,7 @@ func TestDoctor_MissingRepoPath_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then
 	for _, issue := range report.Issues {
@@ -61,7 +62,7 @@ func TestDoctor_MissingEndpointDir_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then
 	for _, issue := range report.Issues {
@@ -101,7 +102,7 @@ func TestDoctor_OrphanedKind_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir)
 
 	// then
 	for _, issue := range report.Issues {
@@ -167,7 +168,7 @@ func TestFormatDoctorJSON_IncludesHint(t *testing.T) {
 	}
 
 	// when
-	data, err := FormatDoctorJSON(report)
+	data, err := session.FormatDoctorJSON(report)
 
 	// then
 	if err != nil {
@@ -192,7 +193,7 @@ func TestFormatDoctorJSON_OmitsEmptyHint(t *testing.T) {
 	}
 
 	// when
-	data, err := FormatDoctorJSON(report)
+	data, err := session.FormatDoctorJSON(report)
 
 	// then
 	if err != nil {

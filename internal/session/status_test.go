@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestStatus_DaemonStopped(t *testing.T) {
@@ -34,7 +35,7 @@ func TestStatus_DaemonStopped(t *testing.T) {
 	}
 
 	// when
-	status := Status(cfg, stateDir)
+	status := session.Status(cfg, stateDir)
 
 	// then
 	if status.DaemonRunning {
@@ -62,7 +63,7 @@ func TestStatus_PendingErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	eq, err := NewErrorQueueStore(stateDir)
+	eq, err := session.NewErrorQueueStore(stateDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +80,7 @@ func TestStatus_PendingErrors(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	status := Status(cfg, stateDir)
+	status := session.Status(cfg, stateDir)
 
 	// then
 	if status.PendingErrors != 2 {
@@ -107,7 +108,7 @@ func TestParseDeliveryStats_CountsLast24Hours(t *testing.T) {
 	}
 
 	// when
-	stats := ParseDeliveryStats(stateDir)
+	stats := session.ParseDeliveryStats(stateDir)
 
 	// then — only recent entries should count
 	if stats.Delivered != 1 {
@@ -126,7 +127,7 @@ func TestParseDeliveryStats_EmptyLog(t *testing.T) {
 	stateDir := t.TempDir()
 
 	// when
-	stats := ParseDeliveryStats(stateDir)
+	stats := session.ParseDeliveryStats(stateDir)
 
 	// then
 	if stats.Delivered != 0 || stats.Failed != 0 || stats.Retried != 0 {
@@ -153,7 +154,7 @@ func TestStatus_Uptime(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	status := Status(cfg, stateDir)
+	status := session.Status(cfg, stateDir)
 
 	// then — uptime should be approximately 2 hours
 	if status.Uptime < 1*time.Hour || status.Uptime > 3*time.Hour {
@@ -183,7 +184,7 @@ func TestStatus_DeliveryStats(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	status := Status(cfg, stateDir)
+	status := session.Status(cfg, stateDir)
 
 	// then
 	if status.DeliveredCount24h != 2 {
@@ -207,7 +208,7 @@ func TestStatus_SuccessRate_NoDeliveries(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	status := Status(cfg, stateDir)
+	status := session.Status(cfg, stateDir)
 
 	// then — 0 deliveries → 0.0 success rate
 	if status.SuccessRate24h != 0.0 {

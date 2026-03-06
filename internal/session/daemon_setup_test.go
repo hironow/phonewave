@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"os"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestResolveRoutes(t *testing.T) {
@@ -48,7 +49,7 @@ func TestResolveRoutes(t *testing.T) {
 	}
 
 	// when
-	resolved, err := ResolveRoutes(cfg)
+	resolved, err := session.ResolveRoutes(cfg)
 
 	// then
 	if err != nil {
@@ -131,7 +132,7 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 	cfg.UpdateRoutes()
 
 	// when
-	resolved, err := ResolveRoutes(cfg)
+	resolved, err := session.ResolveRoutes(cfg)
 
 	// then
 	if err != nil {
@@ -205,7 +206,7 @@ func TestResolveRoutes_CollectsOutboxDirs(t *testing.T) {
 	}
 
 	// when
-	resolved, err := ResolveRoutes(cfg)
+	resolved, err := session.ResolveRoutes(cfg)
 
 	// then
 	if err != nil {
@@ -213,7 +214,7 @@ func TestResolveRoutes_CollectsOutboxDirs(t *testing.T) {
 	}
 
 	// OutboxDirs should contain all outbox directories from endpoints that produce
-	outboxDirs := CollectOutboxDirs(cfg)
+	outboxDirs := session.CollectOutboxDirs(cfg)
 	if len(outboxDirs) != 3 {
 		t.Errorf("outbox dirs = %d, want 3", len(outboxDirs))
 	}

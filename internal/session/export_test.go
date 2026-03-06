@@ -14,3 +14,6 @@ func NewLocalNotifierForTest(osName string, factory func(ctx context.Context, na
 func NewCmdNotifierForTest(cmdTemplate string, factory func(ctx context.Context, name string, args ...string) *exec.Cmd) *CmdNotifier {
 	return &CmdNotifier{cmdTemplate: cmdTemplate, cmdFactory: factory}
 }
+
+// ExportSkillsRefAvailable exposes skillsRefAvailable for external tests.
+var ExportSkillsRefAvailable = skillsRefAvailable
