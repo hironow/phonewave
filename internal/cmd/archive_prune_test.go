@@ -1,5 +1,7 @@
 package cmd
 
+// white-box-reason: cobra command construction: NewRootCommand and CLI routing are unexported
+
 import (
 	"bytes"
 	"encoding/json"
@@ -9,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestArchivePruneCmd_DryRunDefault(t *testing.T) {
 	// given — expired event file exists
 	dir := t.TempDir()
-	stateDir := filepath.Join(dir, phonewave.StateDir)
+	stateDir := filepath.Join(dir, domain.StateDir)
 	eventsDir := filepath.Join(stateDir, "events")
 	os.MkdirAll(eventsDir, 0o755)
 
@@ -29,7 +31,7 @@ func TestArchivePruneCmd_DryRunDefault(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, phonewave.ConfigFile), "archive-prune"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "archive-prune"})
 
 	// when
 	err := rootCmd.Execute()
@@ -50,7 +52,7 @@ func TestArchivePruneCmd_DryRunDefault(t *testing.T) {
 func TestArchivePruneCmd_ExecuteDeletesExpired(t *testing.T) {
 	// given — expired event file exists
 	dir := t.TempDir()
-	stateDir := filepath.Join(dir, phonewave.StateDir)
+	stateDir := filepath.Join(dir, domain.StateDir)
 	eventsDir := filepath.Join(stateDir, "events")
 	os.MkdirAll(eventsDir, 0o755)
 
@@ -68,7 +70,7 @@ func TestArchivePruneCmd_ExecuteDeletesExpired(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, phonewave.ConfigFile), "archive-prune", "--execute"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "archive-prune", "--execute", "--yes"})
 
 	// when
 	err := rootCmd.Execute()
@@ -92,7 +94,7 @@ func TestArchivePruneCmd_ExecuteDeletesExpired(t *testing.T) {
 func TestArchivePruneCmd_JSONOutput_DryRun(t *testing.T) {
 	// given — expired event file exists
 	dir := t.TempDir()
-	stateDir := filepath.Join(dir, phonewave.StateDir)
+	stateDir := filepath.Join(dir, domain.StateDir)
 	eventsDir := filepath.Join(stateDir, "events")
 	os.MkdirAll(eventsDir, 0o755)
 
@@ -106,7 +108,7 @@ func TestArchivePruneCmd_JSONOutput_DryRun(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, phonewave.ConfigFile), "--output", "json", "archive-prune"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "--output", "json", "archive-prune"})
 
 	// when
 	err := rootCmd.Execute()
@@ -138,7 +140,7 @@ func TestArchivePruneCmd_JSONOutput_DryRun(t *testing.T) {
 func TestArchivePruneCmd_JSONOutput_Execute(t *testing.T) {
 	// given — expired event file exists
 	dir := t.TempDir()
-	stateDir := filepath.Join(dir, phonewave.StateDir)
+	stateDir := filepath.Join(dir, domain.StateDir)
 	eventsDir := filepath.Join(stateDir, "events")
 	os.MkdirAll(eventsDir, 0o755)
 
@@ -152,7 +154,7 @@ func TestArchivePruneCmd_JSONOutput_Execute(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, phonewave.ConfigFile), "--output", "json", "archive-prune", "--execute"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "--output", "json", "archive-prune", "--execute"})
 
 	// when
 	err := rootCmd.Execute()

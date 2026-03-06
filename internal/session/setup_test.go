@@ -1,12 +1,14 @@
 package session
 
+// white-box-reason: session internals: tests unexported multi-tool repository setup helpers
+
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 // setupTestRepo creates a temporary repository with the given tool endpoints.
@@ -192,8 +194,8 @@ func TestRemove_ExistingRepository(t *testing.T) {
 
 func TestDiffEndpoints_DetectsAdded(t *testing.T) {
 	// given
-	old := map[string]phonewave.EndpointConfig{}
-	new_ := map[string]phonewave.EndpointConfig{
+	old := map[string]domain.EndpointConfig{}
+	new_ := map[string]domain.EndpointConfig{
 		"repo-a/.siren": {Dir: ".siren", Produces: []string{"specification"}},
 	}
 
@@ -211,10 +213,10 @@ func TestDiffEndpoints_DetectsAdded(t *testing.T) {
 
 func TestDiffEndpoints_DetectsRemoved(t *testing.T) {
 	// given
-	old := map[string]phonewave.EndpointConfig{
+	old := map[string]domain.EndpointConfig{
 		"repo-a/.siren": {Dir: ".siren", Produces: []string{"specification"}},
 	}
-	new_ := map[string]phonewave.EndpointConfig{}
+	new_ := map[string]domain.EndpointConfig{}
 
 	// when
 	diffs := diffEndpoints(old, new_)
@@ -230,10 +232,10 @@ func TestDiffEndpoints_DetectsRemoved(t *testing.T) {
 
 func TestDiffEndpoints_DetectsChanged(t *testing.T) {
 	// given
-	old := map[string]phonewave.EndpointConfig{
+	old := map[string]domain.EndpointConfig{
 		"repo-a/.expedition": {Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 	}
-	new_ := map[string]phonewave.EndpointConfig{
+	new_ := map[string]domain.EndpointConfig{
 		"repo-a/.expedition": {Dir: ".expedition", Produces: []string{"report", "analysis"}, Consumes: []string{"specification"}},
 	}
 
@@ -251,10 +253,10 @@ func TestDiffEndpoints_DetectsChanged(t *testing.T) {
 
 func TestDiffRoutes_DetectsAddedAndRemoved(t *testing.T) {
 	// given
-	old := map[string]phonewave.RouteConfig{
+	old := map[string]domain.RouteConfig{
 		"specification:.siren/outbox": {Kind: "specification", From: ".siren/outbox"},
 	}
-	new_ := map[string]phonewave.RouteConfig{
+	new_ := map[string]domain.RouteConfig{
 		"report:.expedition/outbox": {Kind: "report", From: ".expedition/outbox"},
 	}
 
@@ -378,5 +380,12 @@ func TestSync_SkillsRefWarnings(t *testing.T) {
 	}
 	if !hasSkillsRefWarn {
 		t.Errorf("expected skills-ref warning from Sync, got warnings: %v", report.Warnings)
+	}
+}
+
+func writeSkillFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
 	}
 }

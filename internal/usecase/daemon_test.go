@@ -1,5 +1,7 @@
 package usecase
 
+// white-box-reason: usecase internals: tests unexported session adapter wiring for daemon
+
 import (
 	"context"
 	"io"
@@ -9,37 +11,37 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
-func TestSetupAndRunDaemon_InvalidCommand(t *testing.T) {
-	// given: RetryInterval <= 0
-	cmd := phonewave.RunDaemonCommand{
-		RetryInterval: 0,
-		MaxRetries:    10,
-	}
-	logger := phonewave.NewLogger(io.Discard, false)
+func TestSetupAndRunDaemon_EmptyOutbox(t *testing.T) {
+	// given: valid command but no outbox directories
+	ri, _ := domain.NewRetryInterval(60 * time.Second)
+	mr, _ := domain.NewMaxRetries(10)
+	cmd := domain.NewRunDaemonCommand(false, false, ri, mr)
+	logger := platform.NewLogger(io.Discard, false)
 
-	// when
-	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger)
+	// when: NopDaemonRunner has 0 outbox count
+	err := SetupAndRunDaemon(context.Background(), cmd, logger, nil, port.NopDaemonRunner{})
 
-	// then
-	if err == nil {
-		t.Fatal("expected validation error for zero RetryInterval")
+	// then: returns nil (no outboxes to watch)
+	if err != nil {
+		t.Fatalf("expected nil error for empty outbox, got %v", err)
 	}
 }
 
 func TestSetupAndRunDaemon_MissingConfig(t *testing.T) {
 	// given: valid command but nonexistent config
-	cmd := phonewave.RunDaemonCommand{
-		RetryInterval: 60 * time.Second,
-		MaxRetries:    10,
-	}
-	logger := phonewave.NewLogger(io.Discard, false)
+	ri, _ := domain.NewRetryInterval(60 * time.Second)
+	mr, _ := domain.NewMaxRetries(10)
+	cmd := domain.NewRunDaemonCommand(false, false, ri, mr)
+	logger := platform.NewLogger(io.Discard, false)
 
-	// when
-	err := SetupAndRunDaemon(context.Background(), cmd, "/nonexistent/config.yaml", "/tmp", logger)
+	// when: factory should fail with missing config
+	_, err := session.NewDaemonRunner(cmd, "/nonexistent/config.yaml", "/tmp", logger)
 
 	// then
 	if err == nil {
@@ -54,11 +56,11 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 
 	// Build a minimal config with one producing endpoint so CollectOutboxDirs
 	// returns a non-empty slice (otherwise SetupAndRunDaemon returns nil early).
-	cfg := &phonewave.Config{
-		Repositories: []phonewave.RepoConfig{
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []phonewave.EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{
 						Dir:      ".siren",
 						Produces: []string{"specification"},
@@ -67,7 +69,7 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 				},
 			},
 		},
-		Routes: []phonewave.RouteConfig{
+		Routes: []domain.RouteConfig{
 			{
 				Kind:     "specification",
 				From:     ".siren/outbox",
@@ -78,31 +80,30 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 		},
 	}
 
-	stateDirPath := filepath.Join(baseDir, phonewave.StateDir)
+	stateDirPath := filepath.Join(baseDir, domain.StateDir)
 	if err := os.MkdirAll(stateDirPath, 0o755); err != nil {
 		t.Fatalf("MkdirAll stateDir: %v", err)
 	}
-	configPath := filepath.Join(stateDirPath, phonewave.ConfigFile)
+	configPath := filepath.Join(stateDirPath, domain.ConfigFile)
 	if err := session.WriteConfig(configPath, cfg); err != nil {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
 	// Pre-acquire the daemon lock (simulating an already-running daemon)
 	runDir := filepath.Join(stateDirPath, ".run")
-	unlock, err := phonewave.TryLockDaemon(runDir)
+	unlock, err := session.TryLockDaemon(runDir)
 	if err != nil {
 		t.Fatalf("pre-acquire lock: %v", err)
 	}
 	defer unlock()
 
-	cmd := phonewave.RunDaemonCommand{
-		RetryInterval: 60 * time.Second,
-		MaxRetries:    10,
-	}
-	logger := phonewave.NewLogger(io.Discard, false)
+	ri, _ := domain.NewRetryInterval(60 * time.Second)
+	mr, _ := domain.NewMaxRetries(10)
+	daemonCmd := domain.NewRunDaemonCommand(false, false, ri, mr)
+	logger := platform.NewLogger(io.Discard, false)
 
-	// when
-	err = SetupAndRunDaemon(context.Background(), cmd, configPath, baseDir, logger)
+	// when: factory should fail with lock already held
+	_, err = session.NewDaemonRunner(daemonCmd, configPath, baseDir, logger)
 
 	// then: must fail with "already running"
 	if err == nil {

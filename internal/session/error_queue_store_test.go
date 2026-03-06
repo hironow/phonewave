@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 func testErrorQueueStore(t *testing.T) *session.SQLiteErrorQueueStore {
@@ -19,8 +20,8 @@ func testErrorQueueStore(t *testing.T) *session.SQLiteErrorQueueStore {
 	return store
 }
 
-func testMeta(name string) phonewave.ErrorMetadata {
-	return phonewave.ErrorMetadata{
+func testMeta(name string) domain.ErrorMetadata {
+	return domain.ErrorMetadata{
 		SourceOutbox: "/tmp/outbox",
 		Kind:         "report",
 		OriginalName: name,
@@ -137,9 +138,9 @@ func TestErrorQueueStore_IncrementRetry(t *testing.T) {
 		t.Fatalf("ClaimPendingRetries: %v", err)
 	}
 
-	// then
-	if entries[0].RetryCount != 1 {
-		t.Errorf("retry_count: got %d, want 1", entries[0].RetryCount)
+	// then: Enqueue sets retry_count=1 (from meta.Attempts), IncrementRetry adds 1 → 2
+	if entries[0].RetryCount != 2 {
+		t.Errorf("retry_count: got %d, want 2", entries[0].RetryCount)
 	}
 	if entries[0].ErrorMessage != "retry error" {
 		t.Errorf("error_message: got %q, want %q", entries[0].ErrorMessage, "retry error")
@@ -168,7 +169,54 @@ func TestErrorQueueStore_MarkResolved(t *testing.T) {
 }
 
 func TestErrorQueueStore_ImplementsInterface(t *testing.T) {
-	var _ phonewave.ErrorQueueStore = testErrorQueueStore(t)
+	var _ port.ErrorQueueStore = testErrorQueueStore(t)
+}
+
+func TestEnqueue_SetsRetryCountFromAttempts(t *testing.T) {
+	// given
+	store := testErrorQueueStore(t)
+	meta := testMeta("retry.md")
+	meta.Attempts = 3
+
+	// when
+	if err := store.Enqueue("retry.md", []byte("data"), meta); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+	entries, err := store.ClaimPendingRetries("daemon-1", 10)
+	if err != nil {
+		t.Fatalf("ClaimPendingRetries: %v", err)
+	}
+
+	// then
+	if len(entries) != 1 {
+		t.Fatalf("claimed count: got %d, want 1", len(entries))
+	}
+	if entries[0].RetryCount != 3 {
+		t.Errorf("retry_count: got %d, want 3 (matching meta.Attempts)", entries[0].RetryCount)
+	}
+}
+
+func TestClaimPendingRetries_ReturnsOriginalName(t *testing.T) {
+	// given
+	store := testErrorQueueStore(t)
+	meta := testMeta("original-file.md")
+
+	// when
+	if err := store.Enqueue("queued.md", []byte("data"), meta); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+	entries, err := store.ClaimPendingRetries("daemon-1", 10)
+	if err != nil {
+		t.Fatalf("ClaimPendingRetries: %v", err)
+	}
+
+	// then
+	if len(entries) != 1 {
+		t.Fatalf("claimed count: got %d, want 1", len(entries))
+	}
+	if entries[0].OriginalName != "original-file.md" {
+		t.Errorf("OriginalName: got %q, want %q", entries[0].OriginalName, "original-file.md")
+	}
 }
 
 func TestErrorQueueStore_ConcurrentAccess(t *testing.T) {

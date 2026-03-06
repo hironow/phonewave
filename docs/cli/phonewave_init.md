@@ -15,18 +15,24 @@ phonewave init <repo-path> [repo-path...] [flags]
 ```
   phonewave init ./sightjack-repo ./paintress-repo ./amadeus-repo
   phonewave init /absolute/path/to/repo
+  phonewave init --force ./repo  # overwrite existing config
 ```
 
 ### Options
 
 ```
-  -h, --help   help for init
+      --force                 overwrite existing configuration
+  -h, --help                  help for init
+      --otel-backend string   OTel backend: jaeger, weave
+      --otel-entity string    Weave entity/team (required for weave)
+      --otel-project string   Weave project (required for weave)
 ```
 
 ### Options inherited from parent commands
 
 ```
   -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+  -o, --output string   Output format: text, json (default "text")
   -v, --verbose         Log all delivery events to stderr
 ```
 

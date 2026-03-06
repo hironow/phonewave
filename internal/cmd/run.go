@@ -3,7 +3,9 @@ package cmd
 import (
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
 )
@@ -40,12 +42,24 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	retryInterval, _ := cmd.Flags().GetDuration("retry-interval")
 	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+	logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
-	return usecase.SetupAndRunDaemon(cmd.Context(), phonewave.RunDaemonCommand{
-		Verbose:       verbose,
-		DryRun:        dryRun,
-		RetryInterval: retryInterval,
-		MaxRetries:    maxRetries,
-	}, configPath(cmd), configBase(cmd), logger)
+	// Parse raw inputs into domain primitives
+	ri, err := domain.NewRetryInterval(retryInterval)
+	if err != nil {
+		return err
+	}
+	mr, err := domain.NewMaxRetries(maxRetries)
+	if err != nil {
+		return err
+	}
+
+	daemonCmd := domain.NewRunDaemonCommand(verbose, dryRun, ri, mr)
+
+	runner, err := session.NewDaemonRunner(daemonCmd, configPath(cmd), configBase(cmd), logger)
+	if err != nil {
+		return err
+	}
+
+	return usecase.SetupAndRunDaemon(cmd.Context(), daemonCmd, logger, &platform.OTelPolicyMetrics{}, runner)
 }

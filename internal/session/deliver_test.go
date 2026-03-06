@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"context"
@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestDeliver_SingleTarget(t *testing.T) {
@@ -37,14 +38,14 @@ description: "Test spec"
 	}
 
 	// Route table
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then
 	if err != nil {
@@ -95,14 +96,14 @@ description: "Corrective feedback"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then
 	if err != nil {
@@ -144,13 +145,13 @@ kind: unknown_type
 	}
 
 	// Empty routes — no route for "unknown_type"
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
-	_, err := Deliver(context.Background(), dmailPath, routes, ds)
+	_, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 	if err == nil {
 		t.Fatal("expected error for unknown kind")
 	}
@@ -167,14 +168,14 @@ func TestDeliver_FileVanished(t *testing.T) {
 	}
 
 	// Reference a non-existent file
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
 	// when — try to deliver a file that doesn't exist
-	_, err := Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes, ds)
+	_, err := session.Deliver(context.Background(), filepath.Join(outbox, "ghost.md"), routes, ds)
 
 	// then — should return error, not panic
 	if err == nil {
@@ -212,14 +213,14 @@ description: "New version"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes, ds)
+	result, err := session.Deliver(context.Background(), filepath.Join(outbox, "spec-dup.md"), routes, ds)
 
 	// then — should succeed (atomic rename overwrites)
 	if err != nil {
@@ -261,14 +262,14 @@ description: "No inbox target"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{nonExistentInbox}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then — Stage→Flush: flush failure is NOT returned as error.
 	// DeliveryStore retry_count handles re-flush on next delivery.
@@ -312,14 +313,14 @@ description: "Partial failure test"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
 	// when
-	result, err := Deliver(context.Background(), dmailPath, routes, ds)
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
 
 	// then — Stage→Flush: partial flush failure is NOT returned as error.
 	// Successfully flushed targets are kept; failed targets will be retried.

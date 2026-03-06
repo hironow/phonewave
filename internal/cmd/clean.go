@@ -7,24 +7,28 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/spf13/cobra"
 )
 
 func newCleanCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clean",
+		Use:   "clean [path]",
 		Short: "Remove runtime state from .phonewave/",
 		Long: `Remove runtime state files from the .phonewave/ directory.
 
-Removes: delivery.log, errors/, errors.db, watch.pid, watch.started, events/
+Removes: delivery.log, .run/, watch.pid, watch.started, events/
 Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
 		Example: `  phonewave clean
+  phonewave clean /path/to/project
   phonewave clean --yes`,
-		Args: cobra.NoArgs,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			base := configBase(cmd)
-			stateDir := filepath.Join(base, phonewave.StateDir)
+			base, err := resolveBaseDir(cmd, args)
+			if err != nil {
+				return err
+			}
+			stateDir := filepath.Join(base, domain.StateDir)
 
 			info, err := os.Stat(stateDir)
 			if err != nil || !info.IsDir() {
@@ -79,8 +83,7 @@ Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
 func collectCleanTargets(stateDir string) []string {
 	candidates := []string{
 		"delivery.log",
-		"errors",
-		"errors.db",
+		".run",
 		"watch.pid",
 		"watch.started",
 		"events",

@@ -1,0 +1,140 @@
+package session
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/usecase/port"
+)
+
+// daemonRunnerAdapter implements port.DaemonRunner.
+type daemonRunnerAdapter struct {
+	daemon      *Daemon
+	session     *DaemonSession
+	errorQueue  port.ErrorQueueStore
+	dlog        *DeliveryLog
+	eventStore  port.EventStore
+	unlock      func()
+	notifier    port.Notifier
+	routeCount  int
+	outboxCount int
+}
+
+// NewDaemonRunner creates a fully-constructed daemon runner.
+// It performs all infrastructure setup: config loading, route resolution,
+// state directory creation, lock acquisition, store creation, and daemon construction.
+func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logger domain.Logger) (port.DaemonRunner, error) {
+	cfg, err := LoadConfig(cfgPath)
+	if err != nil {
+		logger.Info("Run 'phonewave init' first")
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+
+	routes, err := ResolveRoutes(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("resolve routes: %w", err)
+	}
+
+	outboxDirs := CollectOutboxDirs(cfg)
+
+	stateDir := filepath.Join(baseDir, domain.StateDir)
+	if err := EnsureStateDir(baseDir); err != nil {
+		return nil, fmt.Errorf("create state dir: %w", err)
+	}
+
+	// Acquire daemon singleton lock before any resource allocation.
+	// Prevents two daemon processes from running against the same state directory.
+	// The OS releases the lock automatically if the process crashes.
+	runDir := filepath.Join(stateDir, ".run")
+	unlock, err := TryLockDaemon(runDir)
+	if err != nil {
+		return nil, fmt.Errorf("daemon lock: %w", err)
+	}
+
+	// Initialize session-layer stores via factory (ADR S0008: no direct eventsource import)
+	eventStore := NewEventStore(stateDir, logger)
+
+	errorQueue, err := NewErrorQueueStore(stateDir)
+	if err != nil {
+		unlock()
+		return nil, fmt.Errorf("create error queue store: %w", err)
+	}
+
+	d, err := NewDaemon(domain.DaemonOptions{
+		Routes:        routes,
+		OutboxDirs:    outboxDirs,
+		StateDir:      stateDir,
+		Verbose:       cmd.Verbose(),
+		DryRun:        cmd.DryRun(),
+		RetryInterval: cmd.RetryDuration(),
+		MaxRetries:    cmd.MaxRetriesInt(),
+	}, logger)
+	if err != nil {
+		errorQueue.Close()
+		unlock()
+		return nil, fmt.Errorf("create daemon: %w", err)
+	}
+
+	dlog, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		errorQueue.Close()
+		unlock()
+		return nil, fmt.Errorf("open delivery log: %w", err)
+	}
+
+	ds := NewDaemonSession(errorQueue, dlog, routes, stateDir, logger)
+	d.session = ds
+
+	notifier := BuildNotifier()
+
+	return &daemonRunnerAdapter{
+		daemon:      d,
+		session:     ds,
+		errorQueue:  errorQueue,
+		dlog:        dlog,
+		eventStore:  eventStore,
+		unlock:      unlock,
+		notifier:    notifier,
+		routeCount:  len(routes),
+		outboxCount: len(outboxDirs),
+	}, nil
+}
+
+func (a *daemonRunnerAdapter) SetEmitter(e port.DaemonEventEmitter) {
+	a.session.Emitter = e
+}
+
+func (a *daemonRunnerAdapter) EventStore() port.EventStore {
+	return a.eventStore
+}
+
+func (a *daemonRunnerAdapter) BuildNotifier() port.Notifier {
+	return a.notifier
+}
+
+func (a *daemonRunnerAdapter) RouteCount() int {
+	return a.routeCount
+}
+
+func (a *daemonRunnerAdapter) OutboxCount() int {
+	return a.outboxCount
+}
+
+func (a *daemonRunnerAdapter) Run(ctx context.Context) error {
+	return a.daemon.Run(ctx)
+}
+
+func (a *daemonRunnerAdapter) Close() error {
+	if a.dlog != nil {
+		a.dlog.Close()
+	}
+	if a.errorQueue != nil {
+		a.errorQueue.Close()
+	}
+	if a.unlock != nil {
+		a.unlock()
+	}
+	return nil
+}

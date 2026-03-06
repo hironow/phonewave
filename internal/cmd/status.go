@@ -5,30 +5,37 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "status",
-		Short:   "Show daemon and delivery status",
-		Long:    "Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.",
-		Args:    cobra.NoArgs,
-		Example: `  phonewave status`,
+		Use:   "status [path]",
+		Short: "Show daemon and delivery status",
+		Long:  "Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.",
+		Args:  cobra.MaximumNArgs(1),
+		Example: `  phonewave status
+  phonewave status /path/to/project`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
-			cfgPath := configPath(cmd)
+			base, err := resolveBaseDir(cmd, args)
+			if err != nil {
+				return err
+			}
+			cfgPath := filepath.Join(base, domain.ConfigFile)
+			stateDir := filepath.Join(base, domain.StateDir)
+
 			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			stateDir := filepath.Join(configBase(cmd), phonewave.StateDir)
 			status := session.Status(cfg, stateDir)
 
 			w := cmd.OutOrStdout()
@@ -46,6 +53,9 @@ func newStatusCmd() *cobra.Command {
 			fmt.Fprintf(w, "  Pending:   %d items in error queue\n", status.PendingErrors)
 			fmt.Fprintf(w, "  Last 24h:  %d delivered, %d failed, %d retried\n",
 				status.DeliveredCount24h, status.FailedCount24h, status.RetriedCount24h)
+			fmt.Fprintf(w, "  Success:   %s\n",
+				domain.FormatSuccessRate(status.SuccessRate24h, status.DeliveredCount24h,
+					status.DeliveredCount24h+status.FailedCount24h))
 
 			return nil
 		},

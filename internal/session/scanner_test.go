@@ -1,11 +1,12 @@
-package session
+package session_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestParseFrontmatter_Produces(t *testing.T) {
@@ -24,7 +25,7 @@ metadata:
 
 This skill produces D-Mail messages.
 `
-	skill, err := ParseSkillFrontmatter([]byte(content))
+	skill, err := session.ParseSkillFrontmatter([]byte(content))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -53,7 +54,7 @@ metadata:
       description: "Issue specification"
 ---
 `
-	skill, err := ParseSkillFrontmatter([]byte(content))
+	skill, err := session.ParseSkillFrontmatter([]byte(content))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -76,7 +77,7 @@ produces:
   - kind: specification
 ---
 `
-	_, err := ParseSkillFrontmatter([]byte(content))
+	_, err := session.ParseSkillFrontmatter([]byte(content))
 	if err == nil {
 		t.Fatal("expected error for top-level produces without dmail-schema-version, got nil")
 	}
@@ -96,7 +97,7 @@ metadata:
 
 # Sendable Skill
 `
-	skill, err := ParseSkillFrontmatter([]byte(content))
+	skill, err := session.ParseSkillFrontmatter([]byte(content))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -125,7 +126,7 @@ metadata:
       description: "Issue specification"
 ---
 `
-	skill, err := ParseSkillFrontmatter([]byte(content))
+	skill, err := session.ParseSkillFrontmatter([]byte(content))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -150,7 +151,7 @@ metadata:
     - kind: invalid_kind
 ---
 `
-	_, err := ParseSkillFrontmatter([]byte(content))
+	_, err := session.ParseSkillFrontmatter([]byte(content))
 	if err == nil {
 		t.Fatal("expected error for invalid kind in metadata, got nil")
 	}
@@ -166,7 +167,7 @@ metadata:
     - kind: specification
 ---
 `
-	_, err := ParseSkillFrontmatter([]byte(content))
+	_, err := session.ParseSkillFrontmatter([]byte(content))
 	if err == nil {
 		t.Fatal("expected error for unsupported dmail-schema-version \"2\", got nil")
 	}
@@ -185,7 +186,7 @@ metadata:
 ---
 `
 	// when
-	_, err := ParseSkillFrontmatter([]byte(content))
+	_, err := session.ParseSkillFrontmatter([]byte(content))
 
 	// then — should reject: top-level capabilities must not coexist with metadata
 	if err == nil {
@@ -204,7 +205,7 @@ metadata:
 ---
 `
 	// when
-	_, err := ParseSkillFrontmatter([]byte(content))
+	_, err := session.ParseSkillFrontmatter([]byte(content))
 
 	// then — should fail fast, not silently drop capabilities
 	if err == nil {
@@ -214,7 +215,7 @@ metadata:
 
 func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 	content := `# Just a markdown file without frontmatter`
-	_, err := ParseSkillFrontmatter([]byte(content))
+	_, err := session.ParseSkillFrontmatter([]byte(content))
 	if err == nil {
 		t.Fatal("expected error for missing frontmatter, got nil")
 	}
@@ -303,7 +304,7 @@ metadata:
 	}
 
 	// when
-	endpoints, err := ScanRepository(repoDir)
+	endpoints, err := session.ScanRepository(repoDir)
 
 	// then
 	if err != nil {
@@ -314,7 +315,7 @@ metadata:
 	}
 
 	// Find endpoints by dir name
-	endpointMap := make(map[string]phonewave.Endpoint)
+	endpointMap := make(map[string]domain.Endpoint)
 	for _, ep := range endpoints {
 		endpointMap[ep.Dir] = ep
 	}
@@ -347,7 +348,7 @@ func TestScanRepository_NoDotDirs(t *testing.T) {
 	repoDir := t.TempDir()
 
 	// when
-	endpoints, err := ScanRepository(repoDir)
+	endpoints, err := session.ScanRepository(repoDir)
 
 	// then
 	if err != nil {
@@ -379,7 +380,7 @@ metadata:
 	}
 
 	// when
-	endpoints, err := ScanRepository(repoDir)
+	endpoints, err := session.ScanRepository(repoDir)
 
 	// then
 	if err != nil {

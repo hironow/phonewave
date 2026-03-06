@@ -1,5 +1,7 @@
 package session
 
+// white-box-reason: session internals: tests unexported daemon adapter wiring and state construction
+
 import (
 	"context"
 	"io"
@@ -12,90 +14,9 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 )
-
-func TestRetryBackoff_InitialInterval(t *testing.T) {
-	// given
-	b := NewRetryBackoff(1*time.Second, 60*time.Second)
-
-	// when
-	d := b.Next()
-
-	// then: should be within ±25% of base (1s)
-	if d < 750*time.Millisecond || d > 1250*time.Millisecond {
-		t.Errorf("initial interval: got %v, want ~1s (±25%%)", d)
-	}
-}
-
-func TestRetryBackoff_ExponentialIncrease(t *testing.T) {
-	// given
-	b := NewRetryBackoff(1*time.Second, 60*time.Second)
-
-	// when: record 3 consecutive failures
-	b.RecordFailure()
-	b.RecordFailure()
-	b.RecordFailure()
-
-	// then: base should be 8s (1s * 2^3) — Next with jitter should be ~6-10s
-	d := b.Next()
-	if d < 6*time.Second || d > 10*time.Second {
-		t.Errorf("after 3 failures: got %v, want ~8s (±25%%)", d)
-	}
-}
-
-func TestRetryBackoff_CappedAtMax(t *testing.T) {
-	// given
-	b := NewRetryBackoff(1*time.Second, 10*time.Second)
-
-	// when: record many failures (should cap at max)
-	for range 20 {
-		b.RecordFailure()
-	}
-
-	// then: should be within ±25% of max (10s), never exceed 12.5s
-	d := b.Next()
-	if d > 12500*time.Millisecond {
-		t.Errorf("capped interval: got %v, should not exceed 12.5s (max 10s + 25%% jitter)", d)
-	}
-	if d < 7500*time.Millisecond {
-		t.Errorf("capped interval: got %v, should be at least 7.5s (max 10s - 25%% jitter)", d)
-	}
-}
-
-func TestRetryBackoff_ResetOnSuccess(t *testing.T) {
-	// given
-	b := NewRetryBackoff(1*time.Second, 60*time.Second)
-	b.RecordFailure()
-	b.RecordFailure()
-	b.RecordFailure()
-
-	// when: record success
-	b.RecordSuccess()
-
-	// then: should be back to base interval (~1s)
-	d := b.Next()
-	if d < 750*time.Millisecond || d > 1250*time.Millisecond {
-		t.Errorf("after reset: got %v, want ~1s (±25%%)", d)
-	}
-}
-
-func TestRetryBackoff_ConsecutiveFailures(t *testing.T) {
-	// given
-	b := NewRetryBackoff(100*time.Millisecond, 10*time.Second)
-
-	// when/then: each failure should roughly double the interval
-	b.RecordFailure() // current = 200ms
-	d1 := b.Next()
-
-	b.RecordFailure() // current = 400ms
-	d2 := b.Next()
-
-	// d2 should be roughly 2x d1 (within jitter bounds)
-	if d2 < d1 {
-		t.Errorf("second failure interval %v should be > first %v", d2, d1)
-	}
-}
 
 // waitForFile polls until a file exists at path, or fails after timeout.
 func waitForFile(t *testing.T, path string, timeout time.Duration) {
@@ -140,14 +61,14 @@ description: "Pre-existing spec"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
 	// then
 	if len(errs) != 0 {
@@ -183,16 +104,16 @@ func TestDaemon_WatchAndDeliver(t *testing.T) {
 		}
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -268,16 +189,16 @@ description: "Startup log test"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -325,11 +246,11 @@ func TestDaemon_PIDFile(t *testing.T) {
 		}
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
-		Routes:     []phonewave.ResolvedRoute{},
+	d, err := NewDaemon(domain.DaemonOptions{
+		Routes:     []domain.ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -373,16 +294,16 @@ func TestDaemon_ConcurrentBurstDelivery(t *testing.T) {
 		}
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -432,16 +353,16 @@ func TestDaemon_MalformedDMail(t *testing.T) {
 		}
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
 		Verbose:    true,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -503,18 +424,25 @@ func TestDaemon_UnknownKind(t *testing.T) {
 		}
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
+
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
+	d.session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -549,25 +477,13 @@ description: "Unknown kind"
 		t.Error("source should be removed from outbox on delivery failure (moved to error queue)")
 	}
 
-	errorsDir := filepath.Join(stateDir, "errors")
-	errEntries, readErr := os.ReadDir(errorsDir)
-	if readErr != nil {
-		t.Fatalf("read errors dir: %v", readErr)
+	// Verify error is in SQLite error queue
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	var mdCount int
-	var errCount int
-	for _, e := range errEntries {
-		if strings.HasSuffix(e.Name(), ".err") {
-			errCount++
-		} else {
-			mdCount++
-		}
-	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1", mdCount)
-	}
-	if errCount != 1 {
-		t.Errorf("error queue .err sidecars = %d, want 1", errCount)
+	if pendingCount != 1 {
+		t.Errorf("SQLite error queue pending count = %d, want 1", pendingCount)
 	}
 
 	cancel()
@@ -585,15 +501,15 @@ func TestDaemon_IgnoresNonMdFiles(t *testing.T) {
 		}
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -651,13 +567,13 @@ description: "Valid"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
 	if len(errs) != 0 {
 		t.Errorf("unexpected errors: %v", errs)
@@ -709,13 +625,18 @@ description: "Also valid"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
 	ds := newTestDeliveryStore(t)
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, errorQueue)
 
 	if len(results) != 2 {
 		t.Errorf("results = %d, want 2 (valid D-Mails delivered)", len(results))
@@ -735,29 +656,26 @@ description: "Also valid"
 		t.Error("bad-002.md should be removed from outbox (moved to error queue)")
 	}
 
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	foundInErrorQueue := false
-	for _, e := range errorEntries {
-		if strings.Contains(e.Name(), "bad-002.md") && !strings.HasSuffix(e.Name(), ".err") {
-			foundInErrorQueue = true
-			break
-		}
+	// Verify error is in SQLite error queue
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	if !foundInErrorQueue {
-		t.Error("bad-002.md should be in the error queue")
+	if pendingCount != 1 {
+		t.Errorf("SQLite error queue pending count = %d, want 1", pendingCount)
 	}
 }
 
 func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 	outbox := t.TempDir()
 	stateDir := t.TempDir()
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{"/tmp/nope"}},
 	}
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
 	if len(results) != 0 {
 		t.Errorf("results = %d, want 0", len(results))
@@ -780,16 +698,16 @@ func TestDaemon_MultipleOutboxes(t *testing.T) {
 		}
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox1, ToInboxes: []string{inbox1}},
 		{Kind: "feedback", FromOutbox: outbox2, ToInboxes: []string{inbox2}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox1, outbox2},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -860,15 +778,15 @@ func TestDaemon_BurstDelivery(t *testing.T) {
 		}
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -948,13 +866,8 @@ func TestDaemon_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Sabotage: create "errors" as a regular file so MkdirAll inside SaveToErrorQueue fails
-	errorsBlocker := filepath.Join(stateDir, "errors")
-	if err := os.WriteFile(errorsBlocker, []byte("blocker"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	routes := []phonewave.ResolvedRoute{}
+	// No ErrorQueue injected (Session is nil) — handleEvent leaves file in outbox
+	routes := []domain.ResolvedRoute{}
 
 	dmailContent := `---
 dmail-schema-version: "1"
@@ -968,11 +881,11 @@ description: "Preserve test"
 		t.Fatal(err)
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1006,11 +919,6 @@ func TestScanAndDeliver_PreservesOutboxFileWhenErrorQueueFails(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	errorsBlocker := filepath.Join(stateDir, "errors")
-	if err := os.WriteFile(errorsBlocker, []byte("blocker"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
 	dmailContent := `---
 dmail-schema-version: "1"
 name: spec-scan-preserve
@@ -1023,10 +931,11 @@ description: "Preserve test"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{}
+	routes := []domain.ResolvedRoute{}
 	ds := newTestDeliveryStore(t)
 
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir, phonewave.NewLogger(io.Discard, false), ds)
+	// nil errorQueue — file should be preserved in outbox
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
 	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
 		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
@@ -1058,15 +967,15 @@ description: "Rename event test"
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:     routes,
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1099,11 +1008,11 @@ func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
 		}
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
-		Routes:     []phonewave.ResolvedRoute{},
+	d, err := NewDaemon(domain.DaemonOptions{
+		Routes:     []domain.ResolvedRoute{},
 		OutboxDirs: []string{outbox},
 		StateDir:   stateDir,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
@@ -1133,8 +1042,14 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		}
 	}
 
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
+
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-retry\nkind: specification\ndescription: \"Retry test\"\n---\n\n# Retry Test\n")
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-retry.md",
@@ -1142,25 +1057,34 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Now().UTC(),
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+	if err := errorQueue.Enqueue("spec-retry-err", dmailData, meta); err != nil {
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	dlog, dlErr := NewDeliveryLog(stateDir)
+	if dlErr != nil {
+		t.Fatal(dlErr)
+	}
+	defer dlog.Close()
+
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
 		Verbose:       true,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
+	d.session = &DaemonSession{ErrorQueue: errorQueue}
+	d.dlog = dlog
+	d.deliveryStore = newTestDeliveryStore(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1174,15 +1098,13 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		t.Error("D-Mail not found in inbox after retry")
 	}
 
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
+	// Verify entry marked as resolved in SQLite
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	if mdCount != 0 {
-		t.Errorf("error queue still has %d files, want 0", mdCount)
+	if pendingCount != 0 {
+		t.Errorf("SQLite error queue pending count = %d, want 0", pendingCount)
 	}
 
 	logData, _ := os.ReadFile(filepath.Join(stateDir, "delivery.log"))
@@ -1204,8 +1126,14 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		}
 	}
 
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
+
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-maxed\nkind: specification\ndescription: \"Max retry\"\n---\n")
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-maxed.md",
@@ -1213,20 +1141,21 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Now().UTC(),
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+	if err := errorQueue.Enqueue("spec-maxed-err", dmailData, meta); err != nil {
 		t.Fatal(err)
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
-		Routes:        []phonewave.ResolvedRoute{},
+	d, err := NewDaemon(domain.DaemonOptions{
+		Routes:        []domain.ResolvedRoute{},
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
 		RetryInterval: 100 * time.Millisecond,
 		MaxRetries:    10,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
+	d.session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1236,27 +1165,13 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 
 	time.Sleep(350 * time.Millisecond)
 
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
+	// Verify entry is still pending but not claimed (retry_count >= maxRetries)
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1 (should be skipped)", mdCount)
-	}
-
-	for _, e := range errorEntries {
-		if strings.HasSuffix(e.Name(), ".err") {
-			loaded, err := LoadErrorMetadata(filepath.Join(stateDir, "errors", e.Name()))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if loaded.Attempts != 10 {
-				t.Errorf("attempts = %d, want 10 (should not have been retried)", loaded.Attempts)
-			}
-		}
+	if pendingCount != 0 {
+		t.Errorf("pending count = %d, want 0 (Attempts=10 >= MaxRetries=10, should not be claimable)", pendingCount)
 	}
 
 	cancel()
@@ -1274,8 +1189,14 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		}
 	}
 
+	errorQueue, eqErr := NewSQLiteErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatalf("create error queue store: %v", eqErr)
+	}
+	t.Cleanup(func() { errorQueue.Close() })
+
 	dmailData := []byte("---\ndmail-schema-version: \"1\"\nname: spec-nope\nkind: specification\ndescription: \"No retry\"\n---\n")
-	meta := phonewave.ErrorMetadata{
+	meta := domain.ErrorMetadata{
 		SourceOutbox: outbox,
 		Kind:         "specification",
 		OriginalName: "spec-nope.md",
@@ -1283,23 +1204,24 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		Error:        "no route for kind",
 		Timestamp:    time.Now().UTC(),
 	}
-	if err := SaveToErrorQueue(stateDir, meta, dmailData); err != nil {
+	if err := errorQueue.Enqueue("spec-nope-err", dmailData, meta); err != nil {
 		t.Fatal(err)
 	}
 
-	routes := []phonewave.ResolvedRoute{
+	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
 	}
 
-	d, err := NewDaemon(phonewave.DaemonOptions{
+	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    []string{outbox},
 		StateDir:      stateDir,
 		RetryInterval: 0,
-	}, phonewave.NewLogger(io.Discard, false))
+	}, platform.NewLogger(io.Discard, false))
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
+	d.session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1313,15 +1235,13 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 		t.Error("D-Mail should NOT be in inbox (retry disabled)")
 	}
 
-	errorEntries, _ := os.ReadDir(filepath.Join(stateDir, "errors"))
-	mdCount := 0
-	for _, e := range errorEntries {
-		if !strings.HasSuffix(e.Name(), ".err") {
-			mdCount++
-		}
+	// Entry should still be pending in SQLite (retry not attempted)
+	pendingCount, countErr := errorQueue.PendingCount(10)
+	if countErr != nil {
+		t.Fatalf("PendingCount: %v", countErr)
 	}
-	if mdCount != 1 {
-		t.Errorf("error queue .md files = %d, want 1 (retry disabled)", mdCount)
+	if pendingCount != 1 {
+		t.Errorf("pending count = %d, want 1 (retry disabled)", pendingCount)
 	}
 
 	cancel()

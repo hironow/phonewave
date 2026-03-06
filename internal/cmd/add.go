@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -19,7 +19,7 @@ func newAddCmd() *cobra.Command {
   phonewave add /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
 			cfg, err := session.LoadConfig(cfgPath)
@@ -37,9 +37,11 @@ func newAddCmd() *cobra.Command {
 				return fmt.Errorf("write config: %w", err)
 			}
 
+			result.RouteCount = len(cfg.Routes)
+
 			absPath, _ := filepath.Abs(args[0])
 			logger.OK("Added %s", absPath)
-			logger.OK("%d routes total", len(cfg.Routes))
+			logger.OK("%d routes total", result.RouteCount)
 			printOrphanWarnings(logger, result.Orphans)
 			for _, w := range result.Warnings {
 				logger.Warn("%s", w)

@@ -7,11 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/usecase/port"
 	_ "modernc.org/sqlite"
 )
 
-// SQLiteErrorQueueStore implements phonewave.ErrorQueueStore using SQLite
+// SQLiteErrorQueueStore implements port.ErrorQueueStore using SQLite
 // with atomic claim semantics for concurrent daemon safety.
 // All write operations use BEGIN IMMEDIATE to prevent deadlocks.
 type SQLiteErrorQueueStore struct {
@@ -19,7 +20,7 @@ type SQLiteErrorQueueStore struct {
 }
 
 // Compile-time check that SQLiteErrorQueueStore implements ErrorQueueStore.
-var _ phonewave.ErrorQueueStore = (*SQLiteErrorQueueStore)(nil)
+var _ port.ErrorQueueStore = (*SQLiteErrorQueueStore)(nil)
 
 // NewSQLiteErrorQueueStore opens (or creates) a SQLite error queue store
 // at {stateDir}/error_queue.db and initialises the schema.
@@ -30,7 +31,7 @@ func NewSQLiteErrorQueueStore(stateDir string) (*SQLiteErrorQueueStore, error) {
 	}
 
 	dbPath := filepath.Join(runDir, "error_queue.db")
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close() [permanent]
 	if err != nil {
 		return nil, fmt.Errorf("error queue store: open db: %w", err)
 	}
@@ -78,7 +79,7 @@ func createErrorQueueSchema(db *sql.DB) error {
 
 // Enqueue inserts a failed D-Mail into the error queue.
 // Idempotent: re-enqueuing the same name is silently ignored.
-func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta phonewave.ErrorMetadata) error {
+func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta domain.ErrorMetadata) error {
 	ctx := context.Background()
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
@@ -97,9 +98,9 @@ func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta phonewave
 	}()
 
 	_, err = conn.ExecContext(ctx,
-		`INSERT OR IGNORE INTO error_queue (name, data, source_outbox, kind, original_name, error_message)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		name, data, meta.SourceOutbox, meta.Kind, meta.OriginalName, meta.Error,
+		`INSERT OR IGNORE INTO error_queue (name, data, source_outbox, kind, original_name, error_message, retry_count)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		name, data, meta.SourceOutbox, meta.Kind, meta.OriginalName, meta.Error, meta.Attempts,
 	)
 	if err != nil {
 		return fmt.Errorf("error queue store: enqueue %s: %w", name, err)
@@ -116,7 +117,7 @@ func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta phonewave
 // given claimer. Entries already claimed by another daemon within the last
 // 5 minutes are skipped. This prevents duplicate processing across concurrent
 // daemon instances.
-func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries int) ([]phonewave.ErrorEntry, error) {
+func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries int) ([]domain.ErrorEntry, error) {
 	ctx := context.Background()
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
@@ -148,7 +149,7 @@ func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries
 
 	// Read back claimed rows.
 	rows, err := conn.QueryContext(ctx,
-		`SELECT name, data, source_outbox, kind, error_message, retry_count
+		`SELECT name, data, source_outbox, kind, original_name, error_message, retry_count
 		 FROM error_queue WHERE claimed_by = ? AND resolved = 0`,
 		claimerID,
 	)
@@ -156,10 +157,10 @@ func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries
 		return nil, fmt.Errorf("error queue store: claim select: %w", err)
 	}
 
-	var entries []phonewave.ErrorEntry
+	var entries []domain.ErrorEntry
 	for rows.Next() {
-		var e phonewave.ErrorEntry
-		if err := rows.Scan(&e.Name, &e.Data, &e.SourceOutbox, &e.Kind, &e.ErrorMessage, &e.RetryCount); err != nil {
+		var e domain.ErrorEntry
+		if err := rows.Scan(&e.Name, &e.Data, &e.SourceOutbox, &e.Kind, &e.OriginalName, &e.ErrorMessage, &e.RetryCount); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("error queue store: scan row: %w", err)
 		}

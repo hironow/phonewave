@@ -12,9 +12,10 @@ the working directory (where `phonewave init` is run) and each monitored reposit
     watch.pid                 # daemon PID (ephemeral)
     watch.started             # daemon start timestamp (ephemeral)
     delivery.log              # append-only delivery audit log
-    errors/                   # dead letter queue
-      {ts}-{kind}-{name}.md  # failed D-Mail data
-      {ts}-{kind}-{name}.md.err  # YAML sidecar (metadata)
+    events/
+      {YYYY-MM-DD}.jsonl      # event store (append-only, one file per day)
+    .run/
+      error_queue.db          # SQLite error queue (dead letter)
 ```
 
 ## Repository Endpoint Tree
@@ -49,9 +50,8 @@ in each repository for SKILL.md files.
 | `.phonewave/watch.pid` | Running daemon's PID. Used by `status` and `doctor` to check liveness (signal 0). Removed on shutdown |
 | `.phonewave/watch.started` | RFC3339 timestamp of daemon start. Used by `status` to compute uptime. Removed on shutdown |
 | `.phonewave/delivery.log` | Append-only log of delivery events. Each line: `{RFC3339} {ACTION} {details}`. Actions: `DELIVERED`, `REMOVED`, `FAILED`, `RETRIED`. Parsed by `ParseDeliveryStats` for 24h status |
-| `.phonewave/errors/` | Dead letter queue. Failed D-Mails are moved here from outbox for retry |
-| `.phonewave/errors/{ts}-{kind}-{name}.md` | Copy of the failed D-Mail data. Timestamp format: `2006-01-02T150405.000000000` |
-| `.phonewave/errors/{ts}-{kind}-{name}.md.err` | YAML sidecar containing `ErrorMetadata`: source_outbox, kind, original_name, attempts, error, timestamp |
+| `.phonewave/events/{YYYY-MM-DD}.jsonl` | Event store. Append-only JSONL files, one per day. Each line is a JSON-encoded `domain.Event`. Used by `archive-prune` and `clean` |
+| `.phonewave/.run/error_queue.db` | SQLite error queue. Failed D-Mails are enqueued here for retry. Schema: `error_queue` table with name, data, metadata, retry_count, created_at |
 
 ### Repository Endpoints
 
@@ -81,13 +81,13 @@ Producer                  phonewave daemon               Consumer
    |                           | os.Remove(outbox/file)     |
    |                           | log DELIVERED + REMOVED    |
    |                           |                            |
-   |                  failure: | SaveToErrorQueue()         |
-   |                           |    -> .phonewave/errors/   |
+   |                  failure: | errorQueue.Enqueue()       |
+   |                           |    -> .run/error_queue.db  |
    |                           | os.Remove(outbox/file)     |
    |                           | log FAILED                 |
    |                           |                            |
    |              retry tick:  | retryPending()             |
-   |                           | load .err sidecar          |
+   |                           | errorQueue.Pending()       |
    |                           | DeliverData() again        |
    |                  success: |--------------------------->|
    |                           | RemoveErrorEntry()         |
@@ -100,30 +100,18 @@ Producer                  phonewave daemon               Consumer
 |------|-----------|------|
 | `phonewave.yaml` | `WriteConfig` | `phonewave init`, `phonewave add`, `phonewave remove`, `phonewave sync` |
 | `.phonewave/` | `EnsureStateDir` | `phonewave init`, `phonewave run` |
-| `.phonewave/errors/` | `EnsureStateDir` | `phonewave init`, `phonewave run` |
 | `.phonewave/watch.pid` | `Daemon.Run` | Daemon startup (removed on shutdown) |
 | `.phonewave/watch.started` | `Daemon.Run` | Daemon startup (removed on shutdown) |
 | `.phonewave/delivery.log` | `NewDeliveryLog` | Daemon startup (append-only, persists across restarts) |
-| `.phonewave/errors/*.md` | `SaveToErrorQueue` | Delivery failure (handleEvent or ScanAndDeliver) |
-| `.phonewave/errors/*.md.err` | `SaveToErrorQueue` | Delivery failure (sidecar written alongside data file) |
+| `.phonewave/events/*.jsonl` | `FileEventStore.Append` | Daemon startup (append-only, persists across restarts) |
+| `.phonewave/.run/error_queue.db` | `NewErrorQueueStore` | Daemon startup (SQLite, persists across restarts) |
 | `<endpoint>/outbox/*.md` | External tool (producer) | Before delivery |
 | `<endpoint>/inbox/*.md` | `atomicWrite` | Successful delivery |
 | `.phonewave-tmp-*` | `atomicWrite` (os.CreateTemp) | During delivery (renamed immediately, never persists) |
 
-## Error Queue Sidecar Format
+## Error Queue (SQLite)
 
-`.err` files are YAML with the following structure:
-
-```yaml
-source_outbox: /absolute/path/to/<endpoint>/outbox
-kind: specification
-original_name: my-dmail.md
-attempts: 3
-error: "no route for kind=\"specification\" from /path/to/outbox"
-timestamp: 2026-02-20T12:34:56Z
-```
-
-`attempts` is incremented by `retryPending()` on each failed retry. Entries are skipped when `attempts >= MaxRetries` (default: 10).
+The error queue uses SQLite (`error_queue.db` in `.phonewave/.run/`). The `error_queue` table stores failed D-Mails with their metadata as JSON. `retry_count` is incremented by `retryPending()` on each failed retry. Entries are skipped when `retry_count >= MaxRetries` (default: 10). Successfully retried entries are removed via `PruneFlushed()`.
 
 ## Delivery Log Format
 

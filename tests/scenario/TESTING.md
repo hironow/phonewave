@@ -60,7 +60,19 @@ done
 | L3 | `TestScenario_L3_Middle` | Concurrent burst, convergence routing, fan-out |
 | L4 | `TestScenario_L4_Hard` | Daemon restart, malformed D-Mail, recovery |
 | - | `TestScenario_ClosedLoop_4Tool` | Full 4-tool closed loop (no injection) |
-| - | `TestScenario_ApproveCmdPath` | --approve-cmd / --notify-cmd hooks |
+
+### Human-on-the-loop
+
+phonewave is the D-Mail routing daemon and does not have interactive approval prompts.
+Human-on-the-loop verification (`TestScenario_ApproveCmdPath`) is implemented in each
+downstream tool's own `tests/scenario/approve_test.go`:
+
+- `sightjack`: CmdApprover + go-expect PTY (convergence gate)
+- `paintress`: CmdApprover + CmdNotifier (expedition gate)
+- `amadeus`: CmdApprover + CmdNotifier (check gate)
+
+phonewave's `TestScenario_ClosedLoop_4Tool` verifies that D-Mails route correctly
+through the full 4-tool closed loop, which includes all downstream approval paths.
 
 ## Build tag
 

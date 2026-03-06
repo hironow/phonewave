@@ -30,7 +30,7 @@ This maps to the courier daemon's design:
 | **D-Mail** | `.md` file with YAML frontmatter | A message routed by `kind` |
 | **Worldline** | Repository state | Each delivery changes the target repo's state |
 | **Divergence Meter** | Delivery log | Tracks what was delivered, when, where |
-| **Error Queue** | `.phonewave/errors/` | Failed D-Mails waiting for retry (like unsent D-Mails) |
+| **Error Queue** | `.phonewave/.run/error_queue.db` | Failed D-Mails waiting for retry (SQLite, like unsent D-Mails) |
 
 ## D-Mail Protocol
 
@@ -100,7 +100,7 @@ Repository A                   Repository B
           |  Delivery pipeline   |
           |       |              |
           |  delivery.log        |
-          |  .phonewave/errors/  |
+          |  .run/error_queue.db |
           +----------------------+
 ```
 
@@ -115,6 +115,8 @@ Repository A                   Repository B
 | `phonewave doctor` | Verify ecosystem health (paths, endpoints, SKILL.md spec compliance, PID conflicts) |
 | `phonewave run` | Start the courier daemon (foreground) |
 | `phonewave status` | Show daemon state, uptime, and 24h delivery statistics |
+| `phonewave clean` | Remove runtime state from `.phonewave/` |
+| `phonewave archive-prune` | Prune old archived D-Mail files |
 | `phonewave version` | Print build version information |
 | `phonewave update` | Update phonewave to the latest version |
 
@@ -157,6 +159,7 @@ phonewave sync
 |------|-------|---------|-------------|
 | `--verbose` | `-v` | `false` | Log all delivery events to stderr |
 | `--config` | `-c` | `./phonewave.yaml` | Path to phonewave config file |
+| `--output` | `-o` | `text` | Output format: `text` or `json` |
 
 ### `run` command
 
@@ -276,17 +279,7 @@ just prek-run       # Run all prek hooks
 |   +-- version.go             version subcommand (text/JSON output)
 |   +-- update.go              update subcommand (self-update via GitHub)
 |   +-- helpers.go             Shared CLI helpers (config path resolution)
-+-- Root package (phonewave)    Types, interfaces, pure functions
-|   +-- phonewave.go           Constants + state directory setup
-|   +-- config.go              phonewave.yaml read/write/merge
-|   +-- daemon.go              fsnotify daemon + event loop + retry
-|   +-- delivery.go            D-Mail delivery pipeline (atomic write, kind validation)
-|   +-- deliverylog.go         Append-only delivery log + error queue
-|   +-- event.go               Event envelope, EventType constants
-|   +-- command.go             COMMAND types with Validate()
-|   +-- policy.go              Policy type definitions
-|   +-- logger.go              Structured logger (noop default)
-|   +-- telemetry.go           OTel tracer (noop default)
++-- doc.go                      Package declaration (root-zero: all code in internal/)
 +-- internal/usecase/           Use case layer (PolicyEngine + handlers)
 +-- internal/session/           I/O orchestration layer
 |   +-- init.go                Init/Add/Remove/Sync orchestration
@@ -295,7 +288,7 @@ just prek-run       # Run all prek hooks
 |   +-- status.go              Daemon status + 24h statistics
 |   +-- doctor.go              Ecosystem health checker
 |   +-- validate.go            skills-ref validation
-+-- internal/eventsource/       Event store infrastructure (JSONL)
++-- internal/eventsource/       Event persistence adapter (JSONL append-only, AWS Event Sourcing pattern)
 +-- internal/domain/            Pure domain functions
 +-- internal/tools/docgen/      CLI doc generator
 +-- tests/scenario/             Scenario tests (L1-L4, //go:build scenario)
@@ -309,6 +302,19 @@ just prek-run       # Run all prek hooks
 |   +-- adr/                   Architecture Decision Records
 |   +-- cli/                   Auto-generated CLI reference
 ```
+
+## What / Why / How
+
+See [docs/conformance.md](docs/conformance.md) for the full conformance table (single source).
+
+## Documentation
+
+- [docs/](docs/README.md) — Full documentation index
+- [docs/conformance.md](docs/conformance.md) — What/Why/How conformance table
+- [docs/phonewave-directory.md](docs/phonewave-directory.md) — `.phonewave/` directory structure
+- [docs/policies.md](docs/policies.md) — Event → Policy mapping
+- [docs/otel-backends.md](docs/otel-backends.md) — OTel backend configuration
+- [docs/adr/](docs/adr/README.md) — Architecture Decision Records
 
 ## Prerequisites
 

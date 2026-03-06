@@ -4,24 +4,25 @@ import (
 	"testing"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/eventsource"
 )
 
 func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 	// given
 	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
-	ev, err := phonewave.NewEvent(phonewave.EventDeliveryCompleted, map[string]string{"to": "inbox"}, time.Now())
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
+	ev, err := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{"to": "inbox"}, time.Now())
 	if err != nil {
 		t.Fatalf("new event: %v", err)
 	}
 
 	// when
-	if err := store.Append(ev); err != nil {
+	result, err := store.Append(ev)
+	if err != nil {
 		t.Fatalf("append: %v", err)
 	}
-	events, err := store.LoadAll()
+	events, loadResult, err := store.LoadAll()
 	if err != nil {
 		t.Fatalf("load all: %v", err)
 	}
@@ -33,29 +34,38 @@ func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 	if events[0].ID != ev.ID {
 		t.Errorf("expected ID %s, got %s", ev.ID, events[0].ID)
 	}
-	if events[0].Type != phonewave.EventDeliveryCompleted {
-		t.Errorf("expected type %s, got %s", phonewave.EventDeliveryCompleted, events[0].Type)
+	if events[0].Type != domain.EventDeliveryCompleted {
+		t.Errorf("expected type %s, got %s", domain.EventDeliveryCompleted, events[0].Type)
+	}
+	if result.BytesWritten <= 0 {
+		t.Errorf("expected positive bytes written, got %d", result.BytesWritten)
+	}
+	if loadResult.FileCount != 1 {
+		t.Errorf("expected 1 file, got %d", loadResult.FileCount)
+	}
+	if loadResult.CorruptLineCount != 0 {
+		t.Errorf("expected 0 corrupt lines, got %d", loadResult.CorruptLineCount)
 	}
 }
 
 func TestFileEventStore_LoadSince_FiltersOlderEvents(t *testing.T) {
 	// given
 	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
-	old, err := phonewave.NewEvent(phonewave.EventScanCompleted, nil, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
+	old, err := domain.NewEvent(domain.EventScanCompleted, nil, time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("new event: %v", err)
 	}
-	recent, err := phonewave.NewEvent(phonewave.EventDeliveryCompleted, nil, time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC))
+	recent, err := domain.NewEvent(domain.EventDeliveryCompleted, nil, time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("new event: %v", err)
 	}
-	if err := store.Append(old, recent); err != nil {
+	if _, err := store.Append(old, recent); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 
 	// when
-	events, err := store.LoadSince(time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC))
+	events, loadResult, err := store.LoadSince(time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("load since: %v", err)
 	}
@@ -67,16 +77,19 @@ func TestFileEventStore_LoadSince_FiltersOlderEvents(t *testing.T) {
 	if events[0].ID != recent.ID {
 		t.Errorf("expected recent event, got %s", events[0].ID)
 	}
+	if loadResult.FileCount != 2 {
+		t.Errorf("expected 2 files (2 dates), got %d", loadResult.FileCount)
+	}
 }
 
 func TestFileEventStore_AppendRejectsInvalidEvent(t *testing.T) {
 	// given
 	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
-	invalid := phonewave.Event{} // missing ID, Type, Timestamp
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
+	invalid := domain.Event{} // missing ID, Type, Timestamp
 
 	// when
-	err := store.Append(invalid)
+	_, err := store.Append(invalid)
 
 	// then
 	if err == nil {
@@ -87,10 +100,10 @@ func TestFileEventStore_AppendRejectsInvalidEvent(t *testing.T) {
 func TestFileEventStore_LoadAll_EmptyDir(t *testing.T) {
 	// given
 	dir := t.TempDir()
-	store := eventsource.NewFileEventStore(dir)
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
 
 	// when
-	events, err := store.LoadAll()
+	events, _, err := store.LoadAll()
 
 	// then
 	if err != nil {
@@ -103,10 +116,10 @@ func TestFileEventStore_LoadAll_EmptyDir(t *testing.T) {
 
 func TestFileEventStore_LoadAll_NonexistentDir(t *testing.T) {
 	// given
-	store := eventsource.NewFileEventStore("/nonexistent/path/events")
+	store := eventsource.NewFileEventStore("/nonexistent/path/events", &domain.NopLogger{})
 
 	// when
-	events, err := store.LoadAll()
+	events, _, err := store.LoadAll()
 
 	// then
 	if err != nil {
@@ -118,6 +131,10 @@ func TestFileEventStore_LoadAll_NonexistentDir(t *testing.T) {
 }
 
 func TestFileEventStore_ImplementsInterface(t *testing.T) {
-	// Compile-time check is in store_file.go, but verify at runtime too.
-	var _ phonewave.EventStore = eventsource.NewFileEventStore("")
+	// Duck typing: FileEventStore satisfies port.EventStore via Go structural typing.
+	// Verified by store_factory.go which assigns *FileEventStore to port.EventStore.
+	store := eventsource.NewFileEventStore(t.TempDir(), &domain.NopLogger{})
+	if store == nil {
+		t.Fatal("expected non-nil store")
+	}
 }

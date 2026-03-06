@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 // ResolveRoutes converts Config routes (relative paths) into ResolvedRoutes
 // (absolute paths) that the delivery pipeline can use directly.
-func ResolveRoutes(cfg *phonewave.Config) ([]phonewave.ResolvedRoute, error) {
-	var resolved []phonewave.ResolvedRoute
+func ResolveRoutes(cfg *domain.Config) ([]domain.ResolvedRoute, error) {
+	var resolved []domain.ResolvedRoute
 
 	for _, route := range cfg.Routes {
 		repoPath := route.RepoPath
@@ -30,7 +30,7 @@ func ResolveRoutes(cfg *phonewave.Config) ([]phonewave.ResolvedRoute, error) {
 			toAbs = append(toAbs, filepath.Join(repoPath, to))
 		}
 
-		resolved = append(resolved, phonewave.ResolvedRoute{
+		resolved = append(resolved, domain.ResolvedRoute{
 			Kind:       route.Kind,
 			FromOutbox: fromAbs,
 			ToInboxes:  toAbs,
@@ -42,7 +42,7 @@ func ResolveRoutes(cfg *phonewave.Config) ([]phonewave.ResolvedRoute, error) {
 
 // findRepoForRoute locates the repository that contains the given relative
 // outbox path (e.g. ".siren/outbox").
-func findRepoForRoute(cfg *phonewave.Config, fromPath string) (*phonewave.RepoConfig, error) {
+func findRepoForRoute(cfg *domain.Config, fromPath string) (*domain.RepoConfig, error) {
 	parts := strings.SplitN(fromPath, string(filepath.Separator), 2)
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("invalid from path: %q", fromPath)
@@ -62,7 +62,7 @@ func findRepoForRoute(cfg *phonewave.Config, fromPath string) (*phonewave.RepoCo
 // CollectOutboxDirs returns all absolute outbox directory paths from endpoints
 // that produce at least one kind. Consume-only endpoints are excluded because
 // they may not have an outbox directory.
-func CollectOutboxDirs(cfg *phonewave.Config) []string {
+func CollectOutboxDirs(cfg *domain.Config) []string {
 	var dirs []string
 	for _, repo := range cfg.Repositories {
 		for _, ep := range repo.Endpoints {

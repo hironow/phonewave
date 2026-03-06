@@ -27,6 +27,7 @@ phonewave add <repo-path> [flags]
 
 ```
   -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+  -o, --output string   Output format: text, json (default "text")
   -v, --verbose         Log all delivery events to stderr
 ```
 

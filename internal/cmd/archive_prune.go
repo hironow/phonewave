@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -17,7 +19,7 @@ func newArchivePruneCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "archive-prune",
+		Use:   "archive-prune [path]",
 		Short: "Prune expired event files",
 		Long: `Prune expired event files from the events directory.
 
@@ -30,19 +32,28 @@ Pass --execute to actually remove the files.`,
   # Delete expired files
   phonewave archive-prune --execute
 
+  # Specific project directory
+  phonewave archive-prune /path/to/project --execute
+
   # JSON output for scripting
   phonewave archive-prune -o json
 
   # Custom retention period
   phonewave archive-prune --days 7 --execute`,
-		Args: cobra.NoArgs,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			base := configBase(cmd)
-			stateDir := filepath.Join(base, phonewave.StateDir)
+			if execute && cmd.Flags().Changed("dry-run") {
+				return fmt.Errorf("--execute and --dry-run are mutually exclusive")
+			}
+			base, err := resolveBaseDir(cmd, args)
+			if err != nil {
+				return err
+			}
+			stateDir := filepath.Join(base, domain.StateDir)
 			outputFmt, _ := cmd.Flags().GetString("output")
 			errW := cmd.ErrOrStderr()
 
-			files, err := session.ListExpiredEventFiles(stateDir, days)
+			files, err := session.ListExpiredEventFiles(cmd.Context(), stateDir, days)
 			if err != nil {
 				return fmt.Errorf("failed to list expired events: %w", err)
 			}
@@ -57,7 +68,7 @@ Pass --execute to actually remove the files.`,
 					Files:      files,
 				}
 				if execute && len(files) > 0 {
-					deleted, delErr := session.PruneEventFiles(stateDir, files)
+					deleted, delErr := session.PruneEventFiles(cmd.Context(), stateDir, files)
 					if delErr != nil {
 						return fmt.Errorf("event prune failed: %w", delErr)
 					}
@@ -88,7 +99,25 @@ Pass --execute to actually remove the files.`,
 				return nil
 			}
 
-			deleted, delErr := session.PruneEventFiles(stateDir, files)
+			yes, _ := cmd.Flags().GetBool("yes")
+			if !yes {
+				fmt.Fprintf(errW, "\nDelete these %d file(s)? [y/N] ", len(files))
+				scanner := bufio.NewScanner(cmd.InOrStdin())
+				if !scanner.Scan() {
+					if scanErr := scanner.Err(); scanErr != nil {
+						return fmt.Errorf("read confirmation: %w", scanErr)
+					}
+					fmt.Fprintln(errW, "Cancelled.")
+					return nil
+				}
+				answer := strings.TrimSpace(scanner.Text())
+				if answer != "y" && answer != "Y" {
+					fmt.Fprintln(errW, "Cancelled.")
+					return nil
+				}
+			}
+
+			deleted, delErr := session.PruneEventFiles(cmd.Context(), stateDir, files)
 			if delErr != nil {
 				return fmt.Errorf("event prune failed: %w", delErr)
 			}
@@ -99,6 +128,8 @@ Pass --execute to actually remove the files.`,
 
 	cmd.Flags().BoolVarP(&execute, "execute", "x", false, "Execute pruning (default: dry-run)")
 	cmd.Flags().IntVarP(&days, "days", "d", 30, "Retention days")
+	cmd.Flags().BoolP("dry-run", "n", false, "Dry-run mode (default behavior, explicit for scripting)")
+	cmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	return cmd
 }

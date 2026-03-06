@@ -6,14 +6,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"go.opentelemetry.io/otel/attribute"
+
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	_ "modernc.org/sqlite"
 )
 
 const maxDeliveryRetryCount = 3
 
-// SQLiteDeliveryStore implements phonewave.DeliveryStore using SQLite
+// SQLiteDeliveryStore implements port.DeliveryStore using SQLite
 // with a 2-phase Flush to minimise lock hold time during filesystem I/O.
 type SQLiteDeliveryStore struct {
 	db *sql.DB
@@ -28,7 +32,7 @@ func NewSQLiteDeliveryStore(stateDir string) (*SQLiteDeliveryStore, error) {
 	}
 
 	dbPath := filepath.Join(runDir, "delivery.db")
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close() [permanent]
 	if err != nil {
 		return nil, fmt.Errorf("delivery store: open db: %w", err)
 	}
@@ -78,16 +82,29 @@ func createDeliverySchema(db *sql.DB) error {
 
 // StageDelivery records delivery intents for all targets in a single transaction.
 // Idempotent: re-staging the same (dmailPath, target) pair is silently ignored.
-func (s *SQLiteDeliveryStore) StageDelivery(dmailPath string, data []byte, targets []string) error {
-	ctx := context.Background()
+func (s *SQLiteDeliveryStore) StageDelivery(ctx context.Context, dmailPath string, data []byte, targets []string) (stageErr error) {
+	ctx, span := platform.Tracer.Start(ctx, "outbox.stage.delivery") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
+	defer func() {
+		if stageErr != nil {
+			span.RecordError(stageErr)
+			span.SetAttributes(attribute.String("error.stage", "outbox.stage.delivery"))
+		}
+		span.End()
+	}()
+	span.SetAttributes(attribute.String("db.operation", "stage"))
+
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("delivery store: get conn: %w", err)
 	}
 	defer conn.Close()
 
+	lockStart := time.Now()
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("delivery store: begin immediate: %w", err)
+	}
+	if platform.IsDetailDebug() {
+		span.SetAttributes(attribute.Int64("db.lock_wait_ms", time.Since(lockStart).Milliseconds()))
 	}
 	committed := false
 	defer func() {
@@ -125,7 +142,24 @@ type unflushedItem struct {
 //  1. Short read transaction to collect unflushed items
 //  2. Filesystem I/O (atomicWrite) outside any transaction
 //  3. Short write transaction per item to update status
-func (s *SQLiteDeliveryStore) FlushDeliveries() ([]phonewave.DeliveryFlushed, error) {
+func (s *SQLiteDeliveryStore) FlushDeliveries(ctx context.Context) (results []domain.DeliveryFlushed, flushErr error) {
+	ctx, span := platform.Tracer.Start(ctx, "outbox.flush.deliveries") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
+	retryCount := 0
+	defer func() {
+		if flushErr != nil {
+			span.RecordError(flushErr)
+			span.SetAttributes(attribute.String("error.stage", "outbox.flush.deliveries"))
+		}
+		if platform.IsDetailDebug() {
+			span.SetAttributes(
+				attribute.Int("flush.success.count", len(results)),
+				attribute.Int("flush.retry.count", retryCount),
+			)
+		}
+		span.End()
+	}()
+	span.SetAttributes(attribute.String("db.operation", "flush"))
+
 	// Phase 1: Read unflushed items (short transaction)
 	items, err := s.collectUnflushed()
 	if err != nil {
@@ -136,12 +170,13 @@ func (s *SQLiteDeliveryStore) FlushDeliveries() ([]phonewave.DeliveryFlushed, er
 	}
 
 	// Phase 2: Write files (no transaction held)
-	var flushed []phonewave.DeliveryFlushed
+	var flushed []domain.DeliveryFlushed
 	for _, item := range items {
 		writeErr := atomicWrite(item.target, item.data)
 
 		// Phase 3: Update status (short transaction per item)
 		if writeErr != nil {
+			retryCount++
 			if err := s.incrementRetryCount(item.dmailPath, item.target); err != nil {
 				return flushed, fmt.Errorf("delivery store: increment retry: %w", err)
 			}
@@ -151,7 +186,7 @@ func (s *SQLiteDeliveryStore) FlushDeliveries() ([]phonewave.DeliveryFlushed, er
 		if err := s.markFlushed(item.dmailPath, item.target); err != nil {
 			return flushed, fmt.Errorf("delivery store: mark flushed: %w", err)
 		}
-		flushed = append(flushed, phonewave.DeliveryFlushed{
+		flushed = append(flushed, domain.DeliveryFlushed{
 			DMailPath: item.dmailPath,
 			Target:    item.target,
 		})
@@ -253,7 +288,7 @@ func (s *SQLiteDeliveryStore) incrementRetryCount(dmailPath, target string) erro
 
 // RecoverUnflushed returns all unflushed delivery intents.
 // Used at startup to detect crash-interrupted deliveries.
-func (s *SQLiteDeliveryStore) RecoverUnflushed() ([]phonewave.StagedDelivery, error) {
+func (s *SQLiteDeliveryStore) RecoverUnflushed() ([]domain.StagedDelivery, error) {
 	rows, err := s.db.Query(
 		`SELECT dmail_path, target, data FROM staged_delivery WHERE flushed = 0`,
 	)
@@ -262,9 +297,9 @@ func (s *SQLiteDeliveryStore) RecoverUnflushed() ([]phonewave.StagedDelivery, er
 	}
 	defer rows.Close()
 
-	var items []phonewave.StagedDelivery
+	var items []domain.StagedDelivery
 	for rows.Next() {
-		var item phonewave.StagedDelivery
+		var item domain.StagedDelivery
 		if err := rows.Scan(&item.DMailPath, &item.Target, &item.Data); err != nil {
 			return nil, fmt.Errorf("delivery store: scan unflushed: %w", err)
 		}
@@ -287,7 +322,19 @@ func (s *SQLiteDeliveryStore) AllFlushedFor(dmailPath string) (bool, error) {
 }
 
 // PruneFlushed deletes all flushed rows and runs incremental vacuum.
-func (s *SQLiteDeliveryStore) PruneFlushed() (int, error) {
+func (s *SQLiteDeliveryStore) PruneFlushed(ctx context.Context) (count int, pruneErr error) {
+	_, span := platform.Tracer.Start(ctx, "outbox.prune") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
+	defer func() {
+		if pruneErr != nil {
+			span.RecordError(pruneErr)
+			span.SetAttributes(attribute.String("error.stage", "outbox.prune"))
+		} else if platform.IsDetailDebug() {
+			span.SetAttributes(attribute.Int("prune.count", count))
+		}
+		span.End()
+	}()
+	span.SetAttributes(attribute.String("db.operation", "prune"))
+
 	affected, err := s.deleteFlushedRows()
 	if err != nil {
 		return 0, err

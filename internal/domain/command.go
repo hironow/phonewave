@@ -1,0 +1,68 @@
+package domain
+
+import "time"
+
+// InitCommand represents the intent to initialize phonewave configuration.
+type InitCommand struct {
+	repoPaths  NonEmptyRepoPaths
+	configPath ConfigPath
+}
+
+func NewInitCommand(repoPaths NonEmptyRepoPaths, configPath ConfigPath) InitCommand {
+	return InitCommand{repoPaths: repoPaths, configPath: configPath}
+}
+
+func (c InitCommand) RepoPaths() NonEmptyRepoPaths { return c.repoPaths }
+func (c InitCommand) ConfigPath() ConfigPath       { return c.configPath }
+
+// RunDaemonCommand represents the intent to start the phonewave daemon.
+type RunDaemonCommand struct {
+	verbose       bool
+	dryRun        bool
+	retryInterval RetryInterval
+	maxRetries    MaxRetries
+}
+
+func NewRunDaemonCommand(verbose, dryRun bool, retryInterval RetryInterval, maxRetries MaxRetries) RunDaemonCommand {
+	return RunDaemonCommand{
+		verbose:       verbose,
+		dryRun:        dryRun,
+		retryInterval: retryInterval,
+		maxRetries:    maxRetries,
+	}
+}
+
+func (c RunDaemonCommand) Verbose() bool                { return c.verbose }
+func (c RunDaemonCommand) DryRun() bool                 { return c.dryRun }
+func (c RunDaemonCommand) RetryInterval() RetryInterval { return c.retryInterval }
+func (c RunDaemonCommand) RetryDuration() time.Duration { return c.retryInterval.Duration() }
+func (c RunDaemonCommand) MaxRetries() MaxRetries       { return c.maxRetries }
+func (c RunDaemonCommand) MaxRetriesInt() int           { return c.maxRetries.Int() }
+
+// AddRepoCommand represents the intent to add a repository to phonewave.
+type AddRepoCommand struct {
+	repoPath RepoPath
+}
+
+func NewAddRepoCommand(repoPath RepoPath) AddRepoCommand {
+	return AddRepoCommand{repoPath: repoPath}
+}
+
+func (c AddRepoCommand) RepoPath() RepoPath { return c.repoPath }
+
+// RemoveRepoCommand represents the intent to remove a repository from phonewave.
+type RemoveRepoCommand struct {
+	repoPath RepoPath
+}
+
+func NewRemoveRepoCommand(repoPath RepoPath) RemoveRepoCommand {
+	return RemoveRepoCommand{repoPath: repoPath}
+}
+
+func (c RemoveRepoCommand) RepoPath() RepoPath { return c.repoPath }
+
+// SyncCommand represents the intent to synchronize all watched repositories.
+type SyncCommand struct{}
+
+// StatusCommand represents the intent to display phonewave daemon status.
+type StatusCommand struct{}

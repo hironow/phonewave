@@ -1,22 +1,23 @@
 package session
 
 import (
+	"context"
 	"path/filepath"
 
-	phonewave "github.com/hironow/phonewave"
+	"go.opentelemetry.io/otel/attribute"
+
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/eventsource"
+	"github.com/hironow/phonewave/internal/platform"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 // NewEventStore creates a FileEventStore at the conventional path.
+// eventsource is the event persistence adapter (AWS Event Sourcing pattern).
 // cmd layer should use this instead of importing eventsource directly (ADR S0008).
-func NewEventStore(stateDir string) phonewave.EventStore {
-	return eventsource.NewFileEventStore(filepath.Join(stateDir, "events"))
-}
-
-// NewErrorStore creates a SQLiteErrorStore at {stateDir}/.run/errors.db.
-// cmd layer should use this instead of instantiating directly.
-func NewErrorStore(stateDir string) (*SQLiteErrorStore, error) {
-	return NewSQLiteErrorStore(filepath.Join(stateDir, ".run"))
+func NewEventStore(stateDir string, logger domain.Logger) port.EventStore {
+	raw := eventsource.NewFileEventStore(filepath.Join(stateDir, "events"), logger)
+	return NewSpanEventStore(raw)
 }
 
 // NewErrorQueueStore creates a SQLiteErrorQueueStore at {stateDir}/.run/error_queue.db.
@@ -33,12 +34,31 @@ func NewDeliveryStore(stateDir string) (*SQLiteDeliveryStore, error) {
 
 // ListExpiredEventFiles returns .jsonl files older than the given days.
 // cmd layer should use this instead of importing eventsource directly (ADR S0008).
-func ListExpiredEventFiles(stateDir string, days int) ([]string, error) {
-	return eventsource.ListExpiredEventFiles(stateDir, days)
+func ListExpiredEventFiles(ctx context.Context, stateDir string, days int) ([]string, error) {
+	_, span := platform.Tracer.Start(ctx, "eventsource.list_expired")
+	defer span.End()
+
+	files, err := eventsource.ListExpiredEventFiles(stateDir, days)
+	if err != nil {
+		span.RecordError(err)
+		span.SetAttributes(attribute.String("error.stage", "eventsource.list_expired"))
+	}
+	span.SetAttributes(attribute.Int("event.count.out", len(files)))
+	return files, err
 }
 
 // PruneEventFiles deletes the named .jsonl files from the events directory.
 // cmd layer should use this instead of importing eventsource directly (ADR S0008).
-func PruneEventFiles(stateDir string, files []string) ([]string, error) {
-	return eventsource.PruneEventFiles(stateDir, files)
+func PruneEventFiles(ctx context.Context, stateDir string, files []string) ([]string, error) {
+	_, span := platform.Tracer.Start(ctx, "eventsource.prune")
+	defer span.End()
+
+	span.SetAttributes(attribute.Int("event.count.in", len(files)))
+	deleted, err := eventsource.PruneEventFiles(stateDir, files)
+	if err != nil {
+		span.RecordError(err)
+		span.SetAttributes(attribute.String("error.stage", "eventsource.prune"))
+	}
+	span.SetAttributes(attribute.Int("event.count.out", len(deleted)))
+	return deleted, err
 }

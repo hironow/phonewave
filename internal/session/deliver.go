@@ -11,11 +11,13 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 // Deliver reads a D-Mail file and delivers it to all matching inboxes.
-func Deliver(ctx context.Context, dmailPath string, routes []phonewave.ResolvedRoute, ds phonewave.DeliveryStore) (*phonewave.DeliveryResult, error) {
+func Deliver(ctx context.Context, dmailPath string, routes []domain.ResolvedRoute, ds port.DeliveryStore) (*domain.DeliveryResult, error) {
 	data, err := os.ReadFile(dmailPath)
 	if err != nil {
 		return nil, fmt.Errorf("read D-Mail: %w", err)
@@ -26,13 +28,13 @@ func Deliver(ctx context.Context, dmailPath string, routes []phonewave.ResolvedR
 // DeliverData processes pre-read D-Mail data via Stage→Flush transactional delivery.
 // Returns error only for parse/route/stage failures (error queue eligible).
 // Flush partial failures are handled internally by DeliveryStore retry_count.
-func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []phonewave.ResolvedRoute, ds phonewave.DeliveryStore) (*phonewave.DeliveryResult, error) {
-	kind, err := phonewave.ExtractDMailKind(data)
+func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []domain.ResolvedRoute, ds port.DeliveryStore) (*domain.DeliveryResult, error) {
+	kind, err := domain.ExtractDMailKind(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
 	}
 
-	ctx, span := phonewave.Tracer.Start(ctx, "delivery.deliver",
+	ctx, span := platform.Tracer.Start(ctx, "delivery.deliver",
 		trace.WithAttributes(
 			attribute.String("dmail.path", dmailPath),
 			attribute.String("dmail.kind", kind),
@@ -42,7 +44,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ph
 
 	// Find matching route
 	sourceDir := filepath.Dir(dmailPath)
-	var matchedRoute *phonewave.ResolvedRoute
+	var matchedRoute *domain.ResolvedRoute
 	for i := range routes {
 		if routes[i].Kind == kind && routes[i].FromOutbox == sourceDir {
 			matchedRoute = &routes[i]
@@ -57,7 +59,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ph
 	}
 
 	fileName := filepath.Base(dmailPath)
-	result := &phonewave.DeliveryResult{
+	result := &domain.DeliveryResult{
 		SourcePath: dmailPath,
 		Kind:       kind,
 	}
@@ -67,7 +69,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ph
 	for i, inbox := range matchedRoute.ToInboxes {
 		targetPaths[i] = filepath.Join(inbox, fileName)
 	}
-	if err := ds.StageDelivery(dmailPath, data, targetPaths); err != nil {
+	if err := ds.StageDelivery(ctx, dmailPath, data, targetPaths); err != nil {
 		stageErr := fmt.Errorf("stage delivery %s: %w", dmailPath, err)
 		span.RecordError(stageErr)
 		span.SetStatus(codes.Error, stageErr.Error())
@@ -75,7 +77,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []ph
 	}
 
 	// Flush all staged items (2-phase: SELECT → atomicWrite → UPDATE)
-	flushed, flushErr := ds.FlushDeliveries()
+	flushed, flushErr := ds.FlushDeliveries(ctx)
 	if flushErr != nil {
 		span.RecordError(flushErr)
 		// Non-fatal: partial results may have been flushed

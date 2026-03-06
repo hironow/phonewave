@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +22,28 @@ func configBase(cmd *cobra.Command) string {
 	return filepath.Dir(configPath(cmd))
 }
 
-func printOrphanWarnings(logger *phonewave.Logger, orphans phonewave.OrphanReport) {
+// resolveBaseDir returns the base directory for phonewave state.
+// If args[0] is provided, uses that directory.
+// Otherwise, falls back to the --config flag's parent directory.
+func resolveBaseDir(cmd *cobra.Command, args []string) (string, error) {
+	if len(args) > 0 {
+		abs, err := filepath.Abs(args[0])
+		if err != nil {
+			return "", fmt.Errorf("resolve path: %w", err)
+		}
+		info, err := os.Stat(abs)
+		if err != nil {
+			return "", fmt.Errorf("path not found: %w", err)
+		}
+		if !info.IsDir() {
+			return "", fmt.Errorf("not a directory: %s", abs)
+		}
+		return abs, nil
+	}
+	return filepath.Abs(configBase(cmd))
+}
+
+func printOrphanWarnings(logger domain.Logger, orphans domain.OrphanReport) {
 	for _, kind := range orphans.UnconsumedKinds {
 		logger.Warn("Orphaned: kind=%q is produced but not consumed", kind)
 	}

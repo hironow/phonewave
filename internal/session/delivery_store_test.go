@@ -1,19 +1,21 @@
-package session
+package session_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
-func newTestDeliveryStore(t *testing.T) *SQLiteDeliveryStore {
+func newTestDeliveryStore(t *testing.T) *session.SQLiteDeliveryStore {
 	t.Helper()
 	stateDir := t.TempDir()
-	ds, err := NewSQLiteDeliveryStore(stateDir)
+	ds, err := session.NewSQLiteDeliveryStore(stateDir)
 	if err != nil {
 		t.Fatalf("NewSQLiteDeliveryStore: %v", err)
 	}
@@ -29,10 +31,10 @@ func TestSQLiteDeliveryStore_StageAndFlush(t *testing.T) {
 	data := []byte("test content")
 
 	// when — stage and flush
-	if err := ds.StageDelivery("/outbox/spec-001.md", data, []string{target}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/spec-001.md", data, []string{target}); err != nil {
 		t.Fatalf("StageDelivery: %v", err)
 	}
-	flushed, err := ds.FlushDeliveries()
+	flushed, err := ds.FlushDeliveries(context.Background())
 	if err != nil {
 		t.Fatalf("FlushDeliveries: %v", err)
 	}
@@ -66,10 +68,10 @@ func TestSQLiteDeliveryStore_StageMultipleTargets(t *testing.T) {
 	data := []byte("feedback")
 
 	// when
-	if err := ds.StageDelivery("/outbox/fb-001.md", data, []string{target1, target2}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/fb-001.md", data, []string{target1, target2}); err != nil {
 		t.Fatalf("StageDelivery: %v", err)
 	}
-	flushed, err := ds.FlushDeliveries()
+	flushed, err := ds.FlushDeliveries(context.Background())
 	if err != nil {
 		t.Fatalf("FlushDeliveries: %v", err)
 	}
@@ -93,15 +95,15 @@ func TestSQLiteDeliveryStore_StageIdempotent(t *testing.T) {
 	data := []byte("original")
 
 	// when — stage twice with different data
-	if err := ds.StageDelivery("/outbox/spec-001.md", data, []string{target}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/spec-001.md", data, []string{target}); err != nil {
 		t.Fatalf("StageDelivery 1: %v", err)
 	}
-	if err := ds.StageDelivery("/outbox/spec-001.md", []byte("modified"), []string{target}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/spec-001.md", []byte("modified"), []string{target}); err != nil {
 		t.Fatalf("StageDelivery 2: %v", err)
 	}
 
 	// then — flush should produce 1 item with original data (INSERT OR IGNORE)
-	flushed, err := ds.FlushDeliveries()
+	flushed, err := ds.FlushDeliveries(context.Background())
 	if err != nil {
 		t.Fatalf("FlushDeliveries: %v", err)
 	}
@@ -119,7 +121,7 @@ func TestSQLiteDeliveryStore_FlushEmpty(t *testing.T) {
 	ds := newTestDeliveryStore(t)
 
 	// when
-	flushed, err := ds.FlushDeliveries()
+	flushed, err := ds.FlushDeliveries(context.Background())
 
 	// then
 	if err != nil {
@@ -138,12 +140,12 @@ func TestSQLiteDeliveryStore_FlushPartialFailure(t *testing.T) {
 	badTarget := filepath.Join("/nonexistent-dir-xyz", "spec.md")
 	data := []byte("content")
 
-	if err := ds.StageDelivery("/outbox/spec.md", data, []string{goodTarget, badTarget}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/spec.md", data, []string{goodTarget, badTarget}); err != nil {
 		t.Fatalf("StageDelivery: %v", err)
 	}
 
 	// when
-	flushed, err := ds.FlushDeliveries()
+	flushed, err := ds.FlushDeliveries(context.Background())
 
 	// then — good target flushed, bad target not (retry_count incremented)
 	if err != nil {
@@ -169,17 +171,17 @@ func TestSQLiteDeliveryStore_DeadLetter(t *testing.T) {
 	badTarget := filepath.Join("/nonexistent-dir-xyz", "dead.md")
 	data := []byte("content")
 
-	if err := ds.StageDelivery("/outbox/dead.md", data, []string{badTarget}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/dead.md", data, []string{badTarget}); err != nil {
 		t.Fatalf("StageDelivery: %v", err)
 	}
 
 	// when — flush 3 times (each increments retry_count)
 	for range 3 {
-		ds.FlushDeliveries()
+		ds.FlushDeliveries(context.Background())
 	}
 
 	// then — 4th flush should skip it (dead letter)
-	flushed, err := ds.FlushDeliveries()
+	flushed, err := ds.FlushDeliveries(context.Background())
 	if err != nil {
 		t.Fatalf("FlushDeliveries: %v", err)
 	}
@@ -194,7 +196,7 @@ func TestSQLiteDeliveryStore_RecoverUnflushed(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "spec.md")
 	data := []byte("unflushed data")
 
-	if err := ds.StageDelivery("/outbox/spec.md", data, []string{target}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/spec.md", data, []string{target}); err != nil {
 		t.Fatalf("StageDelivery: %v", err)
 	}
 
@@ -225,12 +227,12 @@ func TestSQLiteDeliveryStore_AllFlushedFor(t *testing.T) {
 	target2 := filepath.Join(dir2, "spec.md")
 	data := []byte("content")
 
-	if err := ds.StageDelivery("/outbox/spec.md", data, []string{target1, target2}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/spec.md", data, []string{target1, target2}); err != nil {
 		t.Fatalf("StageDelivery: %v", err)
 	}
 
 	// when — flush all
-	ds.FlushDeliveries()
+	ds.FlushDeliveries(context.Background())
 
 	// then
 	allDone, err := ds.AllFlushedFor("/outbox/spec.md")
@@ -248,11 +250,11 @@ func TestSQLiteDeliveryStore_PruneFlushed(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "spec.md")
 	data := []byte("content")
 
-	ds.StageDelivery("/outbox/spec.md", data, []string{target})
-	ds.FlushDeliveries()
+	ds.StageDelivery(context.Background(), "/outbox/spec.md", data, []string{target})
+	ds.FlushDeliveries(context.Background())
 
 	// when
-	pruned, err := ds.PruneFlushed()
+	pruned, err := ds.PruneFlushed(context.Background())
 
 	// then
 	if err != nil {
@@ -283,8 +285,8 @@ func TestSQLiteDeliveryStore_ConcurrentStageFlush(t *testing.T) {
 			os.MkdirAll(dir, 0o755)
 			target := filepath.Join(dir, "spec.md")
 			dmailPath := fmt.Sprintf("/outbox/spec-%d.md", i)
-			ds.StageDelivery(dmailPath, []byte("data"), []string{target})
-			ds.FlushDeliveries()
+			ds.StageDelivery(context.Background(), dmailPath, []byte("data"), []string{target})
+			ds.FlushDeliveries(context.Background())
 		}()
 	}
 	wg.Wait()
@@ -295,7 +297,7 @@ func TestSQLiteDeliveryStore_ConcurrentStageFlush(t *testing.T) {
 func TestSQLiteDeliveryStore_FilePermission(t *testing.T) {
 	// given — create a delivery store
 	stateDir := t.TempDir()
-	ds, err := NewSQLiteDeliveryStore(stateDir)
+	ds, err := session.NewSQLiteDeliveryStore(stateDir)
 	if err != nil {
 		t.Fatalf("NewSQLiteDeliveryStore: %v", err)
 	}
@@ -314,4 +316,4 @@ func TestSQLiteDeliveryStore_FilePermission(t *testing.T) {
 }
 
 // Compile-time check
-var _ phonewave.DeliveryStore = (*SQLiteDeliveryStore)(nil)
+var _ port.DeliveryStore = (*session.SQLiteDeliveryStore)(nil)

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 	"gopkg.in/yaml.v3"
 )
 
@@ -77,7 +77,7 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 		}
 	} else {
 		// Read capabilities from metadata when schema version is declared.
-		if skill.Metadata.SchemaVersion != phonewave.SupportedDMailSchemaVersion {
+		if skill.Metadata.SchemaVersion != domain.SupportedDMailSchemaVersion {
 			return nil, fmt.Errorf("unsupported dmail-schema-version %q: only \"1\" is supported", skill.Metadata.SchemaVersion)
 		}
 		skill.Produces = skill.Metadata.Produces
@@ -86,12 +86,12 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 
 	// Validate all declared kinds
 	for _, p := range skill.Produces {
-		if err := phonewave.ValidateKind(p.Kind); err != nil {
+		if err := domain.ValidateKind(p.Kind); err != nil {
 			return nil, fmt.Errorf("produces: %w", err)
 		}
 	}
 	for _, c := range skill.Consumes {
-		if err := phonewave.ValidateKind(c.Kind); err != nil {
+		if err := domain.ValidateKind(c.Kind); err != nil {
 			return nil, fmt.Errorf("consumes: %w", err)
 		}
 	}
@@ -102,13 +102,13 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 // ScanRepository scans a repository path for dot-directories containing
 // D-Mail skill declarations (skills/dmail-sendable/SKILL.md and
 // skills/dmail-readable/SKILL.md).
-func ScanRepository(repoPath string) ([]phonewave.Endpoint, error) {
+func ScanRepository(repoPath string) ([]domain.Endpoint, error) {
 	entries, err := os.ReadDir(repoPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var endpoints []phonewave.Endpoint
+	var endpoints []domain.Endpoint
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -119,7 +119,7 @@ func ScanRepository(repoPath string) ([]phonewave.Endpoint, error) {
 			continue
 		}
 		// Skip common non-tool dot directories
-		if name == ".git" || name == ".github" || name == ".phonewave" {
+		if name == ".git" || name == ".github" || name == domain.StateDir {
 			continue
 		}
 
@@ -136,8 +136,8 @@ func ScanRepository(repoPath string) ([]phonewave.Endpoint, error) {
 }
 
 // scanEndpoint checks a single dot-directory for D-Mail skill declarations.
-func scanEndpoint(repoPath, dirName string) (phonewave.Endpoint, bool, error) {
-	ep := phonewave.Endpoint{Dir: dirName}
+func scanEndpoint(repoPath, dirName string) (domain.Endpoint, bool, error) {
+	ep := domain.Endpoint{Dir: dirName}
 	found := false
 
 	// Check for sendable skill

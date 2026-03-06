@@ -7,13 +7,14 @@ Show daemon and delivery status
 Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.
 
 ```
-phonewave status [flags]
+phonewave status [path] [flags]
 ```
 
 ### Examples
 
 ```
   phonewave status
+  phonewave status /path/to/project
 ```
 
 ### Options
@@ -26,6 +27,7 @@ phonewave status [flags]
 
 ```
   -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+  -o, --output string   Output format: text, json (default "text")
   -v, --verbose         Log all delivery events to stderr
 ```
 

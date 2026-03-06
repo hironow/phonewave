@@ -2,38 +2,36 @@ package session
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	phonewave "github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 // DaemonSession holds session-layer dependencies for the daemon's I/O
 // orchestration. The root Daemon retains fsnotify + worker pool; DaemonSession
 // provides stores and logging for delivery, error recording, and event persistence.
 type DaemonSession struct {
-	ErrorQueue  phonewave.ErrorQueueStore
-	EventStore  phonewave.EventStore
+	Emitter     port.DaemonEventEmitter
+	ErrorQueue  port.ErrorQueueStore
 	DeliveryLog *DeliveryLog
-	Routes      []phonewave.ResolvedRoute
+	Routes      []domain.ResolvedRoute
 	StateDir    string
-	Logger      *phonewave.Logger
-	Dispatcher  phonewave.EventDispatcher
+	Logger      domain.Logger
 }
 
 // NewDaemonSession creates a DaemonSession with the given dependencies.
-// All fields except Dispatcher are required; Dispatcher may be nil.
+// Emitter is injected separately via the DaemonRunner.SetEmitter call.
 func NewDaemonSession(
-	errorQueue phonewave.ErrorQueueStore,
-	eventStore phonewave.EventStore,
+	errorQueue port.ErrorQueueStore,
 	deliveryLog *DeliveryLog,
-	routes []phonewave.ResolvedRoute,
+	routes []domain.ResolvedRoute,
 	stateDir string,
-	logger *phonewave.Logger,
+	logger domain.Logger,
 ) *DaemonSession {
 	return &DaemonSession{
 		ErrorQueue:  errorQueue,
-		EventStore:  eventStore,
 		DeliveryLog: deliveryLog,
 		Routes:      routes,
 		StateDir:    stateDir,
@@ -41,90 +39,79 @@ func NewDaemonSession(
 	}
 }
 
+// EnqueueError delegates to ErrorQueue.Enqueue, encapsulating the error queue dependency.
+func (s *DaemonSession) EnqueueError(name string, data []byte, meta domain.ErrorMetadata) error {
+	return s.ErrorQueue.Enqueue(name, data, meta)
+}
+
+// ClaimPendingRetries delegates to ErrorQueue.ClaimPendingRetries.
+func (s *DaemonSession) ClaimPendingRetries(claimerID string, maxRetries int) ([]domain.ErrorEntry, error) {
+	return s.ErrorQueue.ClaimPendingRetries(claimerID, maxRetries)
+}
+
+// IncrementRetry delegates to ErrorQueue.IncrementRetry.
+func (s *DaemonSession) IncrementRetry(name string, newError string) error {
+	return s.ErrorQueue.IncrementRetry(name, newError)
+}
+
+// MarkResolved delegates to ErrorQueue.MarkResolved.
+func (s *DaemonSession) MarkResolved(name string) error {
+	return s.ErrorQueue.MarkResolved(name)
+}
+
+// HasErrorQueue reports whether an error queue is available.
+func (s *DaemonSession) HasErrorQueue() bool {
+	return s != nil && s.ErrorQueue != nil
+}
+
+// ErrorQueueStore returns the underlying ErrorQueueStore, or nil if unavailable.
+func (s *DaemonSession) ErrorQueueStore() port.ErrorQueueStore {
+	if s == nil {
+		return nil
+	}
+	return s.ErrorQueue
+}
+
 // RecordDeliveryEvent records a delivery.completed event to the event store.
 // Best-effort: errors are logged but do not fail the delivery.
-func (s *DaemonSession) RecordDeliveryEvent(result *phonewave.DeliveryResult) {
-	phonewave.RecordDelivery(context.Background(), "completed", result.Kind)
-	if s.EventStore == nil {
+func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {
+	platform.RecordDelivery(context.Background(), "completed", result.Kind)
+	if s.Emitter == nil {
 		return
 	}
-	ev, err := phonewave.NewEvent(phonewave.EventDeliveryCompleted, map[string]string{
-		"kind":   result.Kind,
-		"source": result.SourcePath,
-	}, time.Now().UTC())
-	if err != nil {
-		s.Logger.Warn("record delivery event: %v", err)
-		return
-	}
-	if err := s.EventStore.Append(ev); err != nil {
-		s.Logger.Warn("append delivery event: %v", err)
-	}
-	if s.Dispatcher != nil {
-		s.Dispatcher.Dispatch(context.Background(), ev) //nolint:errcheck
+	if err := s.Emitter.EmitDelivery(result.SourcePath, result.Kind, time.Now().UTC()); err != nil {
+		s.Logger.Warn("emit delivery event: %v", err)
 	}
 }
 
 // RecordFailureEvent records a delivery.failed event to the event store.
 // Best-effort: errors are logged but do not fail the error recording.
 func (s *DaemonSession) RecordFailureEvent(filePath string, kind string, deliverErr error) {
-	phonewave.RecordDelivery(context.Background(), "failed", kind)
-	if s.EventStore == nil {
+	platform.RecordDelivery(context.Background(), "failed", kind)
+	if s.Emitter == nil {
 		return
 	}
-	ev, err := phonewave.NewEvent(phonewave.EventDeliveryFailed, map[string]string{
-		"file":  filePath,
-		"kind":  kind,
-		"error": deliverErr.Error(),
-	}, time.Now().UTC())
-	if err != nil {
-		s.Logger.Warn("record failure event: %v", err)
-		return
-	}
-	if err := s.EventStore.Append(ev); err != nil {
-		s.Logger.Warn("append failure event: %v", err)
-	}
-	if s.Dispatcher != nil {
-		s.Dispatcher.Dispatch(context.Background(), ev) //nolint:errcheck
+	if err := s.Emitter.EmitFailure(filePath, kind, deliverErr.Error(), time.Now().UTC()); err != nil {
+		s.Logger.Warn("emit failure event: %v", err)
 	}
 }
 
 // RecordScanEvent records a scan.completed event to the event store.
 func (s *DaemonSession) RecordScanEvent(outboxDir string, deliveredCount int, errorCount int) {
-	if s.EventStore == nil {
+	if s.Emitter == nil {
 		return
 	}
-	ev, err := phonewave.NewEvent(phonewave.EventScanCompleted, map[string]string{
-		"outbox":    outboxDir,
-		"delivered": intToStr(deliveredCount),
-		"errors":    intToStr(errorCount),
-	}, time.Now().UTC())
-	if err != nil {
-		s.Logger.Warn("record scan event: %v", err)
-		return
-	}
-	if err := s.EventStore.Append(ev); err != nil {
-		s.Logger.Warn("append scan event: %v", err)
+	if err := s.Emitter.EmitScan(outboxDir, deliveredCount, errorCount, time.Now().UTC()); err != nil {
+		s.Logger.Warn("emit scan event: %v", err)
 	}
 }
 
 // RecordRetryEvent records an error.retried event to the event store.
 func (s *DaemonSession) RecordRetryEvent(name string, kind string) {
-	if s.EventStore == nil {
+	if s.Emitter == nil {
 		return
 	}
-	ev, err := phonewave.NewEvent(phonewave.EventErrorRetried, map[string]string{
-		"name": name,
-		"kind": kind,
-	}, time.Now().UTC())
-	if err != nil {
-		s.Logger.Warn("record retry event: %v", err)
-		return
+	if err := s.Emitter.EmitRetry(name, kind, time.Now().UTC()); err != nil {
+		s.Logger.Warn("emit retry event: %v", err)
 	}
-	if err := s.EventStore.Append(ev); err != nil {
-		s.Logger.Warn("append retry event: %v", err)
-	}
-}
-
-func intToStr(n int) string {
-	return fmt.Sprintf("%d", n)
 }

@@ -1,11 +1,12 @@
-package session
+package session_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 )
 
 func TestResolveRoutes(t *testing.T) {
@@ -29,18 +30,18 @@ func TestResolveRoutes(t *testing.T) {
 		}
 	}
 
-	cfg := &phonewave.Config{
-		Repositories: []phonewave.RepoConfig{
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []phonewave.EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
 					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},
-		Routes: []phonewave.RouteConfig{
+		Routes: []domain.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository"},
 			{Kind: "report", From: ".expedition/outbox", To: []string{".gate/inbox"}, Scope: "same_repository"},
 			{Kind: "feedback", From: ".gate/outbox", To: []string{".siren/inbox", ".expedition/inbox"}, Scope: "same_repository"},
@@ -48,7 +49,7 @@ func TestResolveRoutes(t *testing.T) {
 	}
 
 	// when
-	resolved, err := ResolveRoutes(cfg)
+	resolved, err := session.ResolveRoutes(cfg)
 
 	// then
 	if err != nil {
@@ -110,18 +111,18 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 		}
 	}
 
-	cfg := &phonewave.Config{
-		Repositories: []phonewave.RepoConfig{
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: repoA,
-				Endpoints: []phonewave.EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: nil},
 					{Dir: ".expedition", Produces: nil, Consumes: []string{"specification"}},
 				},
 			},
 			{
 				Path: repoB,
-				Endpoints: []phonewave.EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"alert"}, Consumes: nil},
 					{Dir: ".gate", Produces: nil, Consumes: []string{"alert"}},
 				},
@@ -131,7 +132,7 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 	cfg.UpdateRoutes()
 
 	// when
-	resolved, err := ResolveRoutes(cfg)
+	resolved, err := session.ResolveRoutes(cfg)
 
 	// then
 	if err != nil {
@@ -166,7 +167,7 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 	}
 }
 
-func findResolvedRoute(routes []phonewave.ResolvedRoute, kind string) *phonewave.ResolvedRoute {
+func findResolvedRoute(routes []domain.ResolvedRoute, kind string) *domain.ResolvedRoute {
 	for i := range routes {
 		if routes[i].Kind == kind {
 			return &routes[i]
@@ -188,24 +189,24 @@ func TestResolveRoutes_CollectsOutboxDirs(t *testing.T) {
 		}
 	}
 
-	cfg := &phonewave.Config{
-		Repositories: []phonewave.RepoConfig{
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: repoDir,
-				Endpoints: []phonewave.EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},
-		Routes: []phonewave.RouteConfig{
+		Routes: []domain.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository"},
 		},
 	}
 
 	// when
-	resolved, err := ResolveRoutes(cfg)
+	resolved, err := session.ResolveRoutes(cfg)
 
 	// then
 	if err != nil {
@@ -213,7 +214,7 @@ func TestResolveRoutes_CollectsOutboxDirs(t *testing.T) {
 	}
 
 	// OutboxDirs should contain all outbox directories from endpoints that produce
-	outboxDirs := CollectOutboxDirs(cfg)
+	outboxDirs := session.CollectOutboxDirs(cfg)
 	if len(outboxDirs) != 3 {
 		t.Errorf("outbox dirs = %d, want 3", len(outboxDirs))
 	}

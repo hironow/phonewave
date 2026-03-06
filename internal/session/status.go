@@ -7,22 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
 )
-
-// StatusReport holds daemon and ecosystem status information.
-type StatusReport struct {
-	DaemonRunning     bool
-	DaemonPID         int
-	OutboxCount       int
-	RouteCount        int
-	RepoCount         int
-	PendingErrors     int
-	Uptime            time.Duration
-	DeliveredCount24h int
-	FailedCount24h    int
-	RetriedCount24h   int
-}
 
 // DeliveryStats24h holds delivery statistics from the last 24 hours.
 type DeliveryStats24h struct {
@@ -87,8 +73,8 @@ func ParseDeliveryStats(stateDir string) DeliveryStats24h {
 }
 
 // Status collects current daemon and ecosystem status.
-func Status(cfg *phonewave.Config, stateDir string) StatusReport {
-	report := StatusReport{
+func Status(cfg *domain.Config, stateDir string) domain.StatusReport {
+	report := domain.StatusReport{
 		RouteCount: len(cfg.Routes),
 		RepoCount:  len(cfg.Repositories),
 	}
@@ -120,15 +106,16 @@ func Status(cfg *phonewave.Config, stateDir string) StatusReport {
 	report.DeliveredCount24h = stats.Delivered
 	report.FailedCount24h = stats.Failed
 	report.RetriedCount24h = stats.Retried
+	report.SuccessRate24h = domain.DeliveryMetrics{
+		Delivered: stats.Delivered,
+		Failed:    stats.Failed,
+	}.SuccessRate()
 
-	// Count pending error files (exclude .err sidecars to avoid 2x count)
-	errorsDir := filepath.Join(stateDir, "errors")
-	entries, err := os.ReadDir(errorsDir)
-	if err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() && !strings.HasSuffix(entry.Name(), ".err") {
-				report.PendingErrors++
-			}
+	// Count pending errors from SQLite error queue
+	if eq, eqErr := NewErrorQueueStore(stateDir); eqErr == nil {
+		defer eq.Close()
+		if count, cErr := eq.PendingCount(1<<31 - 1); cErr == nil {
+			report.PendingErrors = count
 		}
 	}
 

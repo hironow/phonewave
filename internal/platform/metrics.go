@@ -1,0 +1,23 @@
+package platform
+
+import (
+	"context"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+)
+
+// RecordDelivery increments the phonewave.delivery.total OTel counter.
+// The counter is lazily created from the package-level Meter on each call;
+// the OTel SDK deduplicates instruments internally, so this is safe and cheap.
+func RecordDelivery(ctx context.Context, status, kind string) {
+	c, _ := Meter.Int64Counter("phonewave.delivery.total",
+		metric.WithDescription("Total delivery attempts"),
+	)
+	c.Add(ctx, 1,
+		metric.WithAttributes(
+			attribute.String("status", status),
+			attribute.String("kind", kind),
+		),
+	)
+}

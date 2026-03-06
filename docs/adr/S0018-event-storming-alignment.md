@@ -57,6 +57,7 @@ Each tool has varying applicability of these elements due to different domain co
 ### POLICY Dispatch Design
 
 PolicyEngine follows best-effort dispatch:
+
 - Handler failures are logged but do not stop the primary operation
 - Handlers are registered at startup via `PolicyEngine.Register(eventType, handler)`
 - Multiple handlers per event type are supported
@@ -71,15 +72,18 @@ See ADR S0013 for naming convention details.
 ## Consequences
 
 ### Positive
+
 - Clear documentation of which Event Storming elements apply to each tool
 - Explicit acceptance of variance rather than forcing uniform application
 - PolicyEngine provides extensible WHEN-THEN mechanism
 - COMMAND types enable type-safe validation and testing
 
 ### Negative
+
 - Anemic domain model limits compile-time invariant checking (deferred R4)
 - Per-tool EVENT scope variance may complicate future cross-tool event correlation (deferred A2)
 
 ### Neutral
+
 - phonewave's N/A for READ MODEL/AGGREGATE is architectural, not a gap to fill
 - PolicyEngine handlers are best-effort; critical paths use direct calls

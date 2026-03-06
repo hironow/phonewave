@@ -44,6 +44,7 @@ directory to maintain independence between repositories.
 ## Consequences
 
 ### Positive
+
 - Schema drift is caught at test time, not runtime
 - Each tool's parser compatibility is verified against all producers
 - JSON Schema validation ensures tool output matches the formal schema
@@ -52,10 +53,12 @@ directory to maintain independence between repositories.
   in test comments rather than silently ignored
 
 ### Negative
+
 - Golden files are duplicated across 4 repos (maintenance cost)
 - Adding a new golden file requires updating all 4 repos
 - `//go:build contract` tests don't run by default (`-tags=contract` required)
 
 ### Neutral
+
 - The central contract suite lives in phonewave (canonical ADR/schema source)
 - Per-tool mirror tests use `//go:build contract` to avoid slowing regular test runs

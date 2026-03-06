@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/hironow/phonewave"
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -20,16 +21,17 @@ func newDoctorCmd() *cobra.Command {
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			outputFmt, _ := cmd.Flags().GetString("output")
 			jsonOut := outputFmt == "json"
-			logger := phonewave.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
+			stateDir := filepath.Join(configBase(cmd), domain.StateDir)
+
 			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
 				logger.Info("Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			stateDir := filepath.Join(configBase(cmd), phonewave.StateDir)
 			report := session.Doctor(cfg, stateDir)
 
 			if jsonOut {
@@ -55,6 +57,9 @@ func newDoctorCmd() *cobra.Command {
 				case "error":
 					logger.Error("%s  %s", issue.Endpoint, issue.Message)
 				}
+				if issue.Hint != "" {
+					logger.Info("         hint: %s", issue.Hint)
+				}
 			}
 
 			if report.DaemonStatus.Running {
@@ -70,7 +75,6 @@ func newDoctorCmd() *cobra.Command {
 			return nil
 		},
 	}
-
 
 	return cmd
 }

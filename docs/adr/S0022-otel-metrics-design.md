@@ -12,6 +12,7 @@ lacked real-time counters for continuous monitoring. Self-improvement
 feedback loops depended on CLI output rather than durable telemetry.
 
 Key constraints:
+
 - Jaeger v2 stores traces only, not metrics
 - Existing `OTEL_EXPORTER_OTLP_ENDPOINT` targets Jaeger — sending metrics
   there causes silent drops
@@ -61,6 +62,7 @@ Add OTel Int64Counter metrics to all four tools following these principles:
 ### Lifecycle
 
 `initMeter()` in each tool's `internal/cmd/telemetry.go`:
+
 - Called from `PersistentPreRunE` (same as `initTracer`)
 - Returns a shutdown function stored in `shutdownMeter`
 - Shutdown called from `cobra.OnFinalize` with 5-second timeout
@@ -69,17 +71,20 @@ Add OTel Int64Counter metrics to all four tools following these principles:
 ## Consequences
 
 ### Positive
+
 - Metrics collection is opt-in and zero-overhead when disabled
 - Independent endpoint guard prevents silent metric loss in Jaeger-only setups
 - Consistent pattern across all four tools (same as Tracer)
 - Test-friendly: `sdkmetric.NewManualReader` enables deterministic assertions
 
 ### Negative
+
 - Two environment variables for OTel (`ENDPOINT` for traces,
   `METRICS_ENDPOINT` for metrics) — slightly more configuration surface
 - Metrics backend (Prometheus, Grafana, etc.) must be provisioned separately
   from Jaeger
 
 ### Neutral
+
 - `SuccessRate()` and OTel counters coexist — the former for CLI output,
   the latter for external monitoring systems
