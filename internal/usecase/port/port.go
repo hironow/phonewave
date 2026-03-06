@@ -62,11 +62,11 @@ type ErrorQueueStore interface {
 // DeliveryStore manages staged delivery intents with transactional guarantees.
 // Stage records the intent; Flush writes files and marks them done.
 type DeliveryStore interface {
-	StageDelivery(dmailPath string, data []byte, targets []string) error
-	FlushDeliveries() ([]domain.DeliveryFlushed, error)
+	StageDelivery(ctx context.Context, dmailPath string, data []byte, targets []string) error
+	FlushDeliveries(ctx context.Context) ([]domain.DeliveryFlushed, error)
 	RecoverUnflushed() ([]domain.StagedDelivery, error)
 	AllFlushedFor(dmailPath string) (bool, error)
-	PruneFlushed() (int, error)
+	PruneFlushed(ctx context.Context) (int, error)
 	Close() error
 }
 

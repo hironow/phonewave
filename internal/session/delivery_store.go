@@ -7,7 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	_ "modernc.org/sqlite"
 )
 
@@ -78,8 +81,17 @@ func createDeliverySchema(db *sql.DB) error {
 
 // StageDelivery records delivery intents for all targets in a single transaction.
 // Idempotent: re-staging the same (dmailPath, target) pair is silently ignored.
-func (s *SQLiteDeliveryStore) StageDelivery(dmailPath string, data []byte, targets []string) error {
-	ctx := context.Background()
+func (s *SQLiteDeliveryStore) StageDelivery(ctx context.Context, dmailPath string, data []byte, targets []string) (stageErr error) {
+	ctx, span := platform.Tracer.Start(ctx, "outbox.stage.delivery")
+	defer func() {
+		if stageErr != nil {
+			span.RecordError(stageErr)
+			span.SetAttributes(attribute.String("error.stage", "outbox.stage.delivery"))
+		}
+		span.End()
+	}()
+	span.SetAttributes(attribute.String("db.operation", "stage"))
+
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("delivery store: get conn: %w", err)
@@ -125,7 +137,19 @@ type unflushedItem struct {
 //  1. Short read transaction to collect unflushed items
 //  2. Filesystem I/O (atomicWrite) outside any transaction
 //  3. Short write transaction per item to update status
-func (s *SQLiteDeliveryStore) FlushDeliveries() ([]domain.DeliveryFlushed, error) {
+func (s *SQLiteDeliveryStore) FlushDeliveries(ctx context.Context) (results []domain.DeliveryFlushed, flushErr error) {
+	ctx, span := platform.Tracer.Start(ctx, "outbox.flush.deliveries")
+	defer func() {
+		if flushErr != nil {
+			span.RecordError(flushErr)
+			span.SetAttributes(attribute.String("error.stage", "outbox.flush.deliveries"))
+		} else {
+			span.SetAttributes(attribute.Int("flush.success.count", len(results)))
+		}
+		span.End()
+	}()
+	span.SetAttributes(attribute.String("db.operation", "flush"))
+
 	// Phase 1: Read unflushed items (short transaction)
 	items, err := s.collectUnflushed()
 	if err != nil {
@@ -287,7 +311,19 @@ func (s *SQLiteDeliveryStore) AllFlushedFor(dmailPath string) (bool, error) {
 }
 
 // PruneFlushed deletes all flushed rows and runs incremental vacuum.
-func (s *SQLiteDeliveryStore) PruneFlushed() (int, error) {
+func (s *SQLiteDeliveryStore) PruneFlushed(ctx context.Context) (count int, pruneErr error) {
+	_, span := platform.Tracer.Start(ctx, "outbox.prune")
+	defer func() {
+		if pruneErr != nil {
+			span.RecordError(pruneErr)
+			span.SetAttributes(attribute.String("error.stage", "outbox.prune"))
+		} else {
+			span.SetAttributes(attribute.Int("prune.count", count))
+		}
+		span.End()
+	}()
+	span.SetAttributes(attribute.String("db.operation", "prune"))
+
 	affected, err := s.deleteFlushedRows()
 	if err != nil {
 		return 0, err

@@ -69,7 +69,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	for i, inbox := range matchedRoute.ToInboxes {
 		targetPaths[i] = filepath.Join(inbox, fileName)
 	}
-	if err := ds.StageDelivery(dmailPath, data, targetPaths); err != nil {
+	if err := ds.StageDelivery(ctx, dmailPath, data, targetPaths); err != nil {
 		stageErr := fmt.Errorf("stage delivery %s: %w", dmailPath, err)
 		span.RecordError(stageErr)
 		span.SetStatus(codes.Error, stageErr.Error())
@@ -77,7 +77,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	}
 
 	// Flush all staged items (2-phase: SELECT → atomicWrite → UPDATE)
-	flushed, flushErr := ds.FlushDeliveries()
+	flushed, flushErr := ds.FlushDeliveries(ctx)
 	if flushErr != nil {
 		span.RecordError(flushErr)
 		// Non-fatal: partial results may have been flushed

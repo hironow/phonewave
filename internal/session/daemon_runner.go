@@ -79,7 +79,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.logger.Warn("Recover unflushed: %v", recoverErr)
 	} else if len(unflushed) > 0 {
 		d.logger.Info("Recovering %d unflushed deliveries from previous session", len(unflushed))
-		flushed, flushErr := ds.FlushDeliveries()
+		flushed, flushErr := ds.FlushDeliveries(ctx)
 		if flushErr != nil {
 			d.logger.Warn("Flush recovered deliveries: %v", flushErr)
 		}
