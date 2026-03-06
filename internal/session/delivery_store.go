@@ -144,10 +144,13 @@ func (s *SQLiteDeliveryStore) FlushDeliveries(ctx context.Context) (results []do
 		if flushErr != nil {
 			span.RecordError(flushErr)
 			span.SetAttributes(attribute.String("error.stage", "outbox.flush.deliveries"))
-		} else {
-			span.SetAttributes(attribute.Int("flush.success.count", len(results)))
 		}
-		span.SetAttributes(attribute.Int("flush.retry.count", retryCount))
+		if platform.IsDetailDebug() {
+			span.SetAttributes(
+				attribute.Int("flush.success.count", len(results)),
+				attribute.Int("flush.retry.count", retryCount),
+			)
+		}
 		span.End()
 	}()
 	span.SetAttributes(attribute.String("db.operation", "flush"))
@@ -320,7 +323,7 @@ func (s *SQLiteDeliveryStore) PruneFlushed(ctx context.Context) (count int, prun
 		if pruneErr != nil {
 			span.RecordError(pruneErr)
 			span.SetAttributes(attribute.String("error.stage", "outbox.prune"))
-		} else {
+		} else if platform.IsDetailDebug() {
 			span.SetAttributes(attribute.Int("prune.count", count))
 		}
 		span.End()
