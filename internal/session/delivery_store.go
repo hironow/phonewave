@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 
@@ -98,8 +99,12 @@ func (s *SQLiteDeliveryStore) StageDelivery(ctx context.Context, dmailPath strin
 	}
 	defer conn.Close()
 
+	lockStart := time.Now()
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("delivery store: begin immediate: %w", err)
+	}
+	if platform.IsDetailDebug() {
+		span.SetAttributes(attribute.Int64("db.lock_wait_ms", time.Since(lockStart).Milliseconds()))
 	}
 	committed := false
 	defer func() {

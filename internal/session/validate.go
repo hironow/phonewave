@@ -159,6 +159,7 @@ func collectSkillWarnings(cfg *domain.Config, filterRepoPath string) []string {
 	ctx, span := platform.Tracer.Start(context.Background(), "phonewave.validate")
 	defer span.End()
 	_ = ctx // span-only; no child spans needed
+	start := time.Now()
 
 	var targets []validationTarget
 	for _, repo := range cfg.Repositories {
@@ -172,6 +173,9 @@ func collectSkillWarnings(cfg *domain.Config, filterRepoPath string) []string {
 
 	if len(targets) == 0 {
 		span.SetAttributes(attribute.Int("skills_ref.problem.count", 0))
+		if platform.IsDetailDebug() {
+			span.SetAttributes(attribute.Int64("skills_ref.exec_ms", time.Since(start).Milliseconds()))
+		}
 		return nil
 	}
 
@@ -195,6 +199,9 @@ func collectSkillWarnings(cfg *domain.Config, filterRepoPath string) []string {
 	}
 
 	span.SetAttributes(attribute.Int("skills_ref.problem.count", len(warnings)))
+	if platform.IsDetailDebug() {
+		span.SetAttributes(attribute.Int64("skills_ref.exec_ms", time.Since(start).Milliseconds()))
+	}
 	return warnings
 }
 
