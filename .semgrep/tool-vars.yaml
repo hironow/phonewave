@@ -1,0 +1,14 @@
+# tool-vars.yaml — phonewave tool-specific values for layers.yaml
+#
+# semgrep does not support external variable includes.
+# This file documents the tool-specific values embedded in layers.yaml
+# so that the shared rule body can be verified via normalized hash.
+#
+# Ref: refs/opsx/semgrep-layer-contract.md
+
+module: github.com/hironow/phonewave
+state_dir: .phonewave
+session_aggregate_guard:
+  rule_id: daemon-session-direct-access
+  pattern: '\bd\.session\.\w+'
+  exclude: "**/internal/session/daemon_runner.go"
