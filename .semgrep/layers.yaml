@@ -537,7 +537,7 @@ rules:
         - "/internal/session/"
       exclude:
         - "*_test.go"
-        - "store_factory.go"
+        - "**/store_factory.go"
     message: |
       session 層で .jsonl ファイル操作は禁止です。
       event persistence は internal/eventsource に限定してください (AWS Event Sourcing pattern)。
@@ -591,7 +591,7 @@ rules:
         - "/internal/session/**"
       exclude:
         - "*_test.go"
-        - "internal/session/daemon_runner.go"
+        - "**/internal/session/daemon_runner.go"
     message: |
       session 層で d.session.Method() の 2-level アクセスが検出されました。
       禁止: d.session.<Method>() — DaemonSession への直接アクセス
