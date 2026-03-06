@@ -1,19 +1,21 @@
-package domain
+package domain_test
 
 import (
 	"testing"
+
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestConfigAddRepository(t *testing.T) {
 	// given — existing config with one repo
-	cfg := &Config{
-		Repositories: []RepoConfig{
-			{Path: "/repo-a", Endpoints: []EndpointConfig{{Dir: ".siren"}}},
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
+			{Path: "/repo-a", Endpoints: []domain.EndpointConfig{{Dir: ".siren"}}},
 		},
 	}
 
 	// when — add a new repo
-	newEndpoints := []Endpoint{
+	newEndpoints := []domain.Endpoint{
 		{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 	}
 	cfg.AddRepository("/repo-b", newEndpoints)
@@ -29,8 +31,8 @@ func TestConfigAddRepository(t *testing.T) {
 
 func TestConfigRemoveRepository(t *testing.T) {
 	// given
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
 			{Path: "/repo-a"},
 			{Path: "/repo-b"},
 		},
@@ -52,8 +54,8 @@ func TestConfigRemoveRepository(t *testing.T) {
 }
 
 func TestConfigRemoveRepository_NotFound(t *testing.T) {
-	cfg := &Config{
-		Repositories: []RepoConfig{{Path: "/repo-a"}},
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{{Path: "/repo-a"}},
 	}
 	removed := cfg.RemoveRepository("/repo-not-exist")
 	if removed {

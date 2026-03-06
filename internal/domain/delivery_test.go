@@ -1,7 +1,9 @@
-package domain
+package domain_test
 
 import (
 	"testing"
+
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestExtractDMailKind(t *testing.T) {
@@ -139,7 +141,7 @@ description: "Unsupported schema version"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ExtractDMailKind([]byte(tt.content))
+			got, err := domain.ExtractDMailKind([]byte(tt.content))
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -161,11 +163,11 @@ func TestValidateKind_CIResult(t *testing.T) {
 	kind := "ci-result"
 
 	// when
-	err := ValidateKind(kind)
+	err := domain.ValidateKind(kind)
 
 	// then
 	if err != nil {
-		t.Errorf("ValidateKind(%q) = %v, want nil", kind, err)
+		t.Errorf("domain.ValidateKind(%q) = %v, want nil", kind, err)
 	}
 }
 
@@ -184,7 +186,7 @@ Implementation needs revision.
 `
 
 	// when
-	got, err := ExtractDMailKind([]byte(content))
+	got, err := domain.ExtractDMailKind([]byte(content))
 
 	// then
 	if err != nil {
@@ -213,12 +215,12 @@ func TestValidateKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.kind, func(t *testing.T) {
-			err := ValidateKind(tt.kind)
+			err := domain.ValidateKind(tt.kind)
 			if tt.wantErr && err == nil {
-				t.Errorf("ValidateKind(%q) = nil, want error", tt.kind)
+				t.Errorf("domain.ValidateKind(%q) = nil, want error", tt.kind)
 			}
 			if !tt.wantErr && err != nil {
-				t.Errorf("ValidateKind(%q) = %v, want nil", tt.kind, err)
+				t.Errorf("domain.ValidateKind(%q) = %v, want nil", tt.kind, err)
 			}
 		})
 	}

@@ -1,13 +1,15 @@
-package domain
+package domain_test
 
 import (
 	"testing"
 	"time"
+
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestRetryBackoff_InitialInterval(t *testing.T) {
 	// given
-	b := NewRetryBackoff(1*time.Second, 60*time.Second)
+	b := domain.NewRetryBackoff(1*time.Second, 60*time.Second)
 
 	// when
 	d := b.Next()
@@ -20,7 +22,7 @@ func TestRetryBackoff_InitialInterval(t *testing.T) {
 
 func TestRetryBackoff_ExponentialIncrease(t *testing.T) {
 	// given
-	b := NewRetryBackoff(1*time.Second, 60*time.Second)
+	b := domain.NewRetryBackoff(1*time.Second, 60*time.Second)
 
 	// when: record 3 consecutive failures
 	b.RecordFailure()
@@ -36,7 +38,7 @@ func TestRetryBackoff_ExponentialIncrease(t *testing.T) {
 
 func TestRetryBackoff_CappedAtMax(t *testing.T) {
 	// given
-	b := NewRetryBackoff(1*time.Second, 10*time.Second)
+	b := domain.NewRetryBackoff(1*time.Second, 10*time.Second)
 
 	// when: record many failures (should cap at max)
 	for range 20 {
@@ -55,7 +57,7 @@ func TestRetryBackoff_CappedAtMax(t *testing.T) {
 
 func TestRetryBackoff_ResetOnSuccess(t *testing.T) {
 	// given
-	b := NewRetryBackoff(1*time.Second, 60*time.Second)
+	b := domain.NewRetryBackoff(1*time.Second, 60*time.Second)
 	b.RecordFailure()
 	b.RecordFailure()
 	b.RecordFailure()
@@ -72,7 +74,7 @@ func TestRetryBackoff_ResetOnSuccess(t *testing.T) {
 
 func TestRetryBackoff_ConsecutiveFailures(t *testing.T) {
 	// given
-	b := NewRetryBackoff(100*time.Millisecond, 10*time.Second)
+	b := domain.NewRetryBackoff(100*time.Millisecond, 10*time.Second)
 
 	// when/then: each failure should roughly double the interval
 	b.RecordFailure() // current = 200ms

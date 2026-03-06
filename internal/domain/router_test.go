@@ -1,27 +1,29 @@
-package domain
+package domain_test
 
 import (
 	"sort"
 	"testing"
+
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestDeriveRoutes_ThreeToolEcosystem(t *testing.T) {
 	// given — the canonical Sightjack/Paintress/Amadeus setup
-	endpoints := []Endpoint{
+	endpoints := []domain.Endpoint{
 		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 		{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
 		{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
 	}
 
 	// when
-	routes := DeriveRoutes(endpoints)
+	routes := domain.DeriveRoutes(endpoints)
 
 	// then — 3 routes: specification, report, feedback
 	if len(routes) != 3 {
 		t.Fatalf("want 3 routes, got %d: %+v", len(routes), routes)
 	}
 
-	routeMap := make(map[string]Route)
+	routeMap := make(map[string]domain.Route)
 	for _, r := range routes {
 		routeMap[r.Kind] = r
 	}
@@ -68,7 +70,7 @@ func TestDeriveRoutes_ThreeToolEcosystem(t *testing.T) {
 }
 
 func TestDeriveRoutes_NoEndpoints(t *testing.T) {
-	routes := DeriveRoutes(nil)
+	routes := domain.DeriveRoutes(nil)
 	if len(routes) != 0 {
 		t.Errorf("want 0 routes, got %d", len(routes))
 	}
@@ -76,10 +78,10 @@ func TestDeriveRoutes_NoEndpoints(t *testing.T) {
 
 func TestDeriveRoutes_OrphanedProducer(t *testing.T) {
 	// A kind is produced but nobody consumes it
-	endpoints := []Endpoint{
+	endpoints := []domain.Endpoint{
 		{Dir: ".siren", Produces: []string{"specification"}, Consumes: nil},
 	}
-	routes := DeriveRoutes(endpoints)
+	routes := domain.DeriveRoutes(endpoints)
 	// No routes should be derived (no consumer)
 	if len(routes) != 0 {
 		t.Errorf("want 0 routes for orphaned producer, got %d", len(routes))
@@ -87,14 +89,14 @@ func TestDeriveRoutes_OrphanedProducer(t *testing.T) {
 }
 
 func TestDetectOrphans(t *testing.T) {
-	endpoints := []Endpoint{
+	endpoints := []domain.Endpoint{
 		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 		{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 		// feedback is consumed by .siren but nobody produces it
 		// report is produced by .expedition but nobody consumes it
 	}
 
-	orphaned := DetectOrphans(endpoints)
+	orphaned := domain.DetectOrphans(endpoints)
 
 	if len(orphaned.UnconsumedKinds) != 1 || orphaned.UnconsumedKinds[0] != "report" {
 		t.Errorf("unconsumed = %v, want [report]", orphaned.UnconsumedKinds)
@@ -109,17 +111,17 @@ func TestDetectOrphans_PerRepoScope(t *testing.T) {
 	// Since routing is same_repository, no route can connect them.
 	// DetectOrphans should report "specification" as BOTH unconsumed (in A)
 	// and unproduced (in B), not silently suppress the warning.
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: "/repo-a",
-				Endpoints: []EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: nil},
 				},
 			},
 			{
 				Path: "/repo-b",
-				Endpoints: []EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".expedition", Produces: nil, Consumes: []string{"specification"}},
 				},
 			},
@@ -127,7 +129,7 @@ func TestDetectOrphans_PerRepoScope(t *testing.T) {
 	}
 
 	// when — detect orphans respecting per-repo scope
-	orphans := DetectOrphansPerRepo(cfg)
+	orphans := domain.DetectOrphansPerRepo(cfg)
 
 	// then — specification should be flagged in BOTH directions
 	if len(orphans.UnconsumedKinds) != 1 || orphans.UnconsumedKinds[0] != "specification" {
@@ -140,11 +142,11 @@ func TestDetectOrphans_PerRepoScope(t *testing.T) {
 
 func TestDetectOrphans_PerRepo_NoFalsePositivesSingleRepo(t *testing.T) {
 	// given — single repo where produces/consumes match perfectly
-	cfg := &Config{
-		Repositories: []RepoConfig{
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
 			{
 				Path: "/repo",
-				Endpoints: []EndpointConfig{
+				Endpoints: []domain.EndpointConfig{
 					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
 					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
@@ -154,7 +156,7 @@ func TestDetectOrphans_PerRepo_NoFalsePositivesSingleRepo(t *testing.T) {
 	}
 
 	// when
-	orphans := DetectOrphansPerRepo(cfg)
+	orphans := domain.DetectOrphansPerRepo(cfg)
 
 	// then — no orphans
 	if len(orphans.UnconsumedKinds) != 0 {
@@ -169,12 +171,12 @@ func TestDetectOrphans_SelfOnlyConsumer(t *testing.T) {
 	// given — an endpoint that both produces and consumes the same kind,
 	// and no other endpoint consumes it. DeriveRoutes will filter out
 	// self-delivery, so this kind has no route. DetectOrphans must flag it.
-	endpoints := []Endpoint{
+	endpoints := []domain.Endpoint{
 		{Dir: ".siren", Produces: []string{"internal"}, Consumes: []string{"internal"}},
 	}
 
 	// when
-	orphans := DetectOrphans(endpoints)
+	orphans := domain.DetectOrphans(endpoints)
 
 	// then — "internal" should be unconsumed (self-only consumer is effectively no consumer)
 	if len(orphans.UnconsumedKinds) != 1 || orphans.UnconsumedKinds[0] != "internal" {
@@ -185,13 +187,13 @@ func TestDetectOrphans_SelfOnlyConsumer(t *testing.T) {
 func TestDetectOrphans_SelfConsumerWithExternalConsumer(t *testing.T) {
 	// given — endpoint produces and consumes the same kind, but another endpoint
 	// also consumes it. A route exists (producer → other consumer). NOT orphaned.
-	endpoints := []Endpoint{
+	endpoints := []domain.Endpoint{
 		{Dir: ".siren", Produces: []string{"data"}, Consumes: []string{"data"}},
 		{Dir: ".expedition", Produces: nil, Consumes: []string{"data"}},
 	}
 
 	// when
-	orphans := DetectOrphans(endpoints)
+	orphans := domain.DetectOrphans(endpoints)
 
 	// then — "data" should NOT be unconsumed (external consumer .expedition exists)
 	if len(orphans.UnconsumedKinds) != 0 {
@@ -201,13 +203,13 @@ func TestDetectOrphans_SelfConsumerWithExternalConsumer(t *testing.T) {
 
 func TestDeriveRoutes_SameKindMultipleProducers(t *testing.T) {
 	// Two endpoints produce the same kind — each gets its own route
-	endpoints := []Endpoint{
+	endpoints := []domain.Endpoint{
 		{Dir: ".siren", Produces: []string{"notification"}, Consumes: nil},
 		{Dir: ".expedition", Produces: []string{"notification"}, Consumes: nil},
 		{Dir: ".gate", Produces: nil, Consumes: []string{"notification"}},
 	}
 
-	routes := DeriveRoutes(endpoints)
+	routes := domain.DeriveRoutes(endpoints)
 	if len(routes) != 2 {
 		t.Fatalf("want 2 routes (one per producer), got %d: %+v", len(routes), routes)
 	}
