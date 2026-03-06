@@ -44,12 +44,17 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	maxRetries, _ := cmd.Flags().GetInt("max-retries")
 	logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
-	daemonCmd := domain.RunDaemonCommand{
-		Verbose:       verbose,
-		DryRun:        dryRun,
-		RetryInterval: retryInterval,
-		MaxRetries:    maxRetries,
+	// Parse raw inputs into domain primitives
+	ri, err := domain.NewRetryInterval(retryInterval)
+	if err != nil {
+		return err
 	}
+	mr, err := domain.NewMaxRetries(maxRetries)
+	if err != nil {
+		return err
+	}
+
+	daemonCmd := domain.NewRunDaemonCommand(verbose, dryRun, ri, mr)
 
 	runner, err := session.NewDaemonRunner(daemonCmd, configPath(cmd), configBase(cmd), logger)
 	if err != nil {

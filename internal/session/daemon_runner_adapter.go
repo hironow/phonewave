@@ -66,10 +66,10 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
 		StateDir:      stateDir,
-		Verbose:       cmd.Verbose,
-		DryRun:        cmd.DryRun,
-		RetryInterval: cmd.RetryInterval,
-		MaxRetries:    cmd.MaxRetries,
+		Verbose:       cmd.Verbose(),
+		DryRun:        cmd.DryRun(),
+		RetryInterval: cmd.RetryDuration(),
+		MaxRetries:    cmd.MaxRetriesInt(),
 	}, logger)
 	if err != nil {
 		errorQueue.Close()

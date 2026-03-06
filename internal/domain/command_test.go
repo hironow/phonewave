@@ -7,132 +7,55 @@ import (
 	"github.com/hironow/phonewave/internal/domain"
 )
 
-func TestRunDaemonCommand_Validate_Valid(t *testing.T) {
-	// given
-	cmd := domain.RunDaemonCommand{
-		RetryInterval: 60 * time.Second,
-		MaxRetries:    10,
+func TestNewInitCommand(t *testing.T) {
+	rp, _ := domain.NewRepoPath("/tmp/repo")
+	paths, _ := domain.NewNonEmptyRepoPaths([]domain.RepoPath{rp})
+	cp, _ := domain.NewConfigPath("/tmp/config.yaml")
+
+	cmd := domain.NewInitCommand(paths, cp)
+
+	if len(cmd.RepoPaths().Strings()) != 1 {
+		t.Errorf("expected 1 repo path, got %d", len(cmd.RepoPaths().Strings()))
 	}
-
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) > 0 {
-		t.Errorf("expected no errors, got %v", errs)
-	}
-}
-
-func TestRunDaemonCommand_Validate_InvalidRetryInterval(t *testing.T) {
-	// given
-	cmd := domain.RunDaemonCommand{
-		RetryInterval: 0,
-		MaxRetries:    10,
-	}
-
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) == 0 {
-		t.Fatal("expected validation error for non-positive RetryInterval")
+	if cmd.ConfigPath().String() != "/tmp/config.yaml" {
+		t.Errorf("expected /tmp/config.yaml, got %q", cmd.ConfigPath().String())
 	}
 }
 
-func TestRunDaemonCommand_Validate_InvalidMaxRetries(t *testing.T) {
-	// given
-	cmd := domain.RunDaemonCommand{
-		RetryInterval: 60 * time.Second,
-		MaxRetries:    -1,
+func TestNewRunDaemonCommand(t *testing.T) {
+	ri, _ := domain.NewRetryInterval(60 * time.Second)
+	mr, _ := domain.NewMaxRetries(10)
+
+	cmd := domain.NewRunDaemonCommand(true, false, ri, mr)
+
+	if !cmd.Verbose() {
+		t.Error("expected Verbose to be true")
 	}
-
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) == 0 {
-		t.Fatal("expected validation error for negative MaxRetries")
+	if cmd.DryRun() {
+		t.Error("expected DryRun to be false")
 	}
-}
-
-func TestAddRepoCommand_Validate_Valid(t *testing.T) {
-	// given
-	cmd := domain.AddRepoCommand{
-		RepoPath: "/tmp/repo",
+	if cmd.RetryDuration() != 60*time.Second {
+		t.Errorf("expected 60s, got %v", cmd.RetryDuration())
 	}
-
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) > 0 {
-		t.Errorf("expected no errors, got %v", errs)
+	if cmd.MaxRetriesInt() != 10 {
+		t.Errorf("expected 10, got %d", cmd.MaxRetriesInt())
 	}
 }
 
-func TestAddRepoCommand_Validate_MissingRepoPath(t *testing.T) {
-	// given
-	cmd := domain.AddRepoCommand{}
+func TestNewAddRepoCommand(t *testing.T) {
+	rp, _ := domain.NewRepoPath("/tmp/repo")
+	cmd := domain.NewAddRepoCommand(rp)
 
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) == 0 {
-		t.Fatal("expected validation error for missing RepoPath")
+	if cmd.RepoPath().String() != "/tmp/repo" {
+		t.Errorf("expected /tmp/repo, got %q", cmd.RepoPath().String())
 	}
 }
 
-func TestRemoveRepoCommand_Validate_Valid(t *testing.T) {
-	// given
-	cmd := domain.RemoveRepoCommand{
-		RepoPath: "/tmp/repo",
-	}
+func TestNewRemoveRepoCommand(t *testing.T) {
+	rp, _ := domain.NewRepoPath("/tmp/repo")
+	cmd := domain.NewRemoveRepoCommand(rp)
 
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) > 0 {
-		t.Errorf("expected no errors, got %v", errs)
-	}
-}
-
-func TestRemoveRepoCommand_Validate_MissingRepoPath(t *testing.T) {
-	// given
-	cmd := domain.RemoveRepoCommand{}
-
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) == 0 {
-		t.Fatal("expected validation error for missing RepoPath")
-	}
-}
-
-func TestSyncCommand_Validate(t *testing.T) {
-	// given — SyncCommand has no required fields
-	cmd := domain.SyncCommand{}
-
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) > 0 {
-		t.Errorf("expected no errors, got %v", errs)
-	}
-}
-
-func TestStatusCommand_Validate(t *testing.T) {
-	// given — StatusCommand has no required fields
-	cmd := domain.StatusCommand{}
-
-	// when
-	errs := cmd.Validate()
-
-	// then
-	if len(errs) > 0 {
-		t.Errorf("expected no errors, got %v", errs)
+	if cmd.RepoPath().String() != "/tmp/repo" {
+		t.Errorf("expected /tmp/repo, got %q", cmd.RepoPath().String())
 	}
 }

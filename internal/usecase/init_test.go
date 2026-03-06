@@ -25,10 +25,11 @@ func (s *stubInitRunner) ScanAndInit(repoPaths []string, cfgPath string) (*domai
 
 func TestRunInit_ValidCommand(t *testing.T) {
 	runner := &stubInitRunner{result: &domain.InitResult{RepoCount: 2}}
-	cmd := domain.InitCommand{
-		RepoPaths:  []string{"/tmp/repo1", "/tmp/repo2"},
-		ConfigPath: "/tmp/phonewave.yaml",
-	}
+	rp1, _ := domain.NewRepoPath("/tmp/repo1")
+	rp2, _ := domain.NewRepoPath("/tmp/repo2")
+	paths, _ := domain.NewNonEmptyRepoPaths([]domain.RepoPath{rp1, rp2})
+	cp, _ := domain.NewConfigPath("/tmp/phonewave.yaml")
+	cmd := domain.NewInitCommand(paths, cp)
 
 	result, err := usecase.RunInit(cmd, runner)
 
@@ -52,40 +53,12 @@ func TestRunInit_ValidCommand(t *testing.T) {
 	}
 }
 
-func TestRunInit_EmptyRepoPaths(t *testing.T) {
-	runner := &stubInitRunner{}
-	cmd := domain.InitCommand{RepoPaths: nil, ConfigPath: "/tmp/phonewave.yaml"}
-
-	_, err := usecase.RunInit(cmd, runner)
-
-	if err == nil {
-		t.Fatal("expected error for empty RepoPaths")
-	}
-	if runner.called {
-		t.Fatal("expected ScanAndInit not to be called")
-	}
-}
-
-func TestRunInit_EmptyConfigPath(t *testing.T) {
-	runner := &stubInitRunner{}
-	cmd := domain.InitCommand{RepoPaths: []string{"/tmp/repo"}, ConfigPath: ""}
-
-	_, err := usecase.RunInit(cmd, runner)
-
-	if err == nil {
-		t.Fatal("expected error for empty ConfigPath")
-	}
-	if runner.called {
-		t.Fatal("expected ScanAndInit not to be called")
-	}
-}
-
 func TestRunInit_RunnerError(t *testing.T) {
 	runner := &stubInitRunner{err: fmt.Errorf("scan failed")}
-	cmd := domain.InitCommand{
-		RepoPaths:  []string{"/tmp/repo"},
-		ConfigPath: "/tmp/phonewave.yaml",
-	}
+	rp, _ := domain.NewRepoPath("/tmp/repo")
+	paths, _ := domain.NewNonEmptyRepoPaths([]domain.RepoPath{rp})
+	cp, _ := domain.NewConfigPath("/tmp/phonewave.yaml")
+	cmd := domain.NewInitCommand(paths, cp)
 
 	_, err := usecase.RunInit(cmd, runner)
 
@@ -93,3 +66,7 @@ func TestRunInit_RunnerError(t *testing.T) {
 		t.Fatal("expected error from runner")
 	}
 }
+
+// Validation tests (empty RepoPaths, empty ConfigPath) are now in
+// domain/primitives_test.go — the parse-don't-validate approach ensures
+// invalid commands cannot be constructed.

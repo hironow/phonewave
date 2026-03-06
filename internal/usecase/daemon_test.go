@@ -15,29 +15,27 @@ import (
 	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
-func TestSetupAndRunDaemon_InvalidCommand(t *testing.T) {
-	// given: RetryInterval <= 0
-	cmd := domain.RunDaemonCommand{
-		RetryInterval: 0,
-		MaxRetries:    10,
-	}
+func TestSetupAndRunDaemon_EmptyOutbox(t *testing.T) {
+	// given: valid command but no outbox directories
+	ri, _ := domain.NewRetryInterval(60 * time.Second)
+	mr, _ := domain.NewMaxRetries(10)
+	cmd := domain.NewRunDaemonCommand(false, false, ri, mr)
 	logger := platform.NewLogger(io.Discard, false)
 
-	// when
+	// when: NopDaemonRunner has 0 outbox count
 	err := SetupAndRunDaemon(context.Background(), cmd, logger, nil, port.NopDaemonRunner{})
 
-	// then
-	if err == nil {
-		t.Fatal("expected validation error for zero RetryInterval")
+	// then: returns nil (no outboxes to watch)
+	if err != nil {
+		t.Fatalf("expected nil error for empty outbox, got %v", err)
 	}
 }
 
 func TestSetupAndRunDaemon_MissingConfig(t *testing.T) {
 	// given: valid command but nonexistent config
-	cmd := domain.RunDaemonCommand{
-		RetryInterval: 60 * time.Second,
-		MaxRetries:    10,
-	}
+	ri, _ := domain.NewRetryInterval(60 * time.Second)
+	mr, _ := domain.NewMaxRetries(10)
+	cmd := domain.NewRunDaemonCommand(false, false, ri, mr)
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when: factory should fail with missing config
@@ -97,10 +95,9 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 	}
 	defer unlock()
 
-	daemonCmd := domain.RunDaemonCommand{
-		RetryInterval: 60 * time.Second,
-		MaxRetries:    10,
-	}
+	ri, _ := domain.NewRetryInterval(60 * time.Second)
+	mr, _ := domain.NewMaxRetries(10)
+	daemonCmd := domain.NewRunDaemonCommand(false, false, ri, mr)
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when: factory should fail with lock already held

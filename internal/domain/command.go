@@ -1,89 +1,68 @@
 package domain
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
 // InitCommand represents the intent to initialize phonewave configuration.
 type InitCommand struct {
-	RepoPaths  []string
-	ConfigPath string
+	repoPaths  NonEmptyRepoPaths
+	configPath ConfigPath
 }
 
-// Validate checks that the command has valid required fields.
-func (c *InitCommand) Validate() []error {
-	var errs []error
-	if len(c.RepoPaths) == 0 {
-		errs = append(errs, fmt.Errorf("at least one RepoPaths is required"))
-	}
-	if c.ConfigPath == "" {
-		errs = append(errs, fmt.Errorf("ConfigPath is required"))
-	}
-	return errs
+func NewInitCommand(repoPaths NonEmptyRepoPaths, configPath ConfigPath) InitCommand {
+	return InitCommand{repoPaths: repoPaths, configPath: configPath}
 }
+
+func (c InitCommand) RepoPaths() NonEmptyRepoPaths { return c.repoPaths }
+func (c InitCommand) ConfigPath() ConfigPath       { return c.configPath }
 
 // RunDaemonCommand represents the intent to start the phonewave daemon.
-// Independent of cobra — framework concerns are separated at the cmd layer.
 type RunDaemonCommand struct {
-	Verbose       bool
-	DryRun        bool
-	RetryInterval time.Duration
-	MaxRetries    int
+	verbose       bool
+	dryRun        bool
+	retryInterval RetryInterval
+	maxRetries    MaxRetries
 }
 
-// Validate checks that the command has valid required fields.
-func (c *RunDaemonCommand) Validate() []error {
-	var errs []error
-	if c.RetryInterval <= 0 {
-		errs = append(errs, fmt.Errorf("RetryInterval must be positive"))
+func NewRunDaemonCommand(verbose, dryRun bool, retryInterval RetryInterval, maxRetries MaxRetries) RunDaemonCommand {
+	return RunDaemonCommand{
+		verbose:       verbose,
+		dryRun:        dryRun,
+		retryInterval: retryInterval,
+		maxRetries:    maxRetries,
 	}
-	if c.MaxRetries < 0 {
-		errs = append(errs, fmt.Errorf("MaxRetries must be non-negative"))
-	}
-	return errs
 }
+
+func (c RunDaemonCommand) Verbose() bool                  { return c.verbose }
+func (c RunDaemonCommand) DryRun() bool                   { return c.dryRun }
+func (c RunDaemonCommand) RetryInterval() RetryInterval    { return c.retryInterval }
+func (c RunDaemonCommand) RetryDuration() time.Duration    { return c.retryInterval.Duration() }
+func (c RunDaemonCommand) MaxRetries() MaxRetries          { return c.maxRetries }
+func (c RunDaemonCommand) MaxRetriesInt() int              { return c.maxRetries.Int() }
 
 // AddRepoCommand represents the intent to add a repository to phonewave.
 type AddRepoCommand struct {
-	RepoPath string
+	repoPath RepoPath
 }
 
-// Validate checks that the command has valid required fields.
-func (c *AddRepoCommand) Validate() []error {
-	var errs []error
-	if c.RepoPath == "" {
-		errs = append(errs, fmt.Errorf("RepoPath is required"))
-	}
-	return errs
+func NewAddRepoCommand(repoPath RepoPath) AddRepoCommand {
+	return AddRepoCommand{repoPath: repoPath}
 }
+
+func (c AddRepoCommand) RepoPath() RepoPath { return c.repoPath }
 
 // RemoveRepoCommand represents the intent to remove a repository from phonewave.
 type RemoveRepoCommand struct {
-	RepoPath string
+	repoPath RepoPath
 }
 
-// Validate checks that the command has valid required fields.
-func (c *RemoveRepoCommand) Validate() []error {
-	var errs []error
-	if c.RepoPath == "" {
-		errs = append(errs, fmt.Errorf("RepoPath is required"))
-	}
-	return errs
+func NewRemoveRepoCommand(repoPath RepoPath) RemoveRepoCommand {
+	return RemoveRepoCommand{repoPath: repoPath}
 }
+
+func (c RemoveRepoCommand) RepoPath() RepoPath { return c.repoPath }
 
 // SyncCommand represents the intent to synchronize all watched repositories.
 type SyncCommand struct{}
 
-// Validate checks that the command has valid required fields.
-func (c *SyncCommand) Validate() []error {
-	return nil
-}
-
 // StatusCommand represents the intent to display phonewave daemon status.
 type StatusCommand struct{}
-
-// Validate checks that the command has valid required fields.
-func (c *StatusCommand) Validate() []error {
-	return nil
-}

@@ -33,10 +33,25 @@ func newInitCmd() *cobra.Command {
 				}
 			}
 
-			initCmd := domain.InitCommand{
-				RepoPaths:  args,
-				ConfigPath: cfgPath,
+			// Parse raw inputs into domain primitives
+			repoPaths := make([]domain.RepoPath, 0, len(args))
+			for _, arg := range args {
+				rp, err := domain.NewRepoPath(arg)
+				if err != nil {
+					return err
+				}
+				repoPaths = append(repoPaths, rp)
 			}
+			paths, err := domain.NewNonEmptyRepoPaths(repoPaths)
+			if err != nil {
+				return err
+			}
+			cp, err := domain.NewConfigPath(cfgPath)
+			if err != nil {
+				return err
+			}
+
+			initCmd := domain.NewInitCommand(paths, cp)
 			result, err := usecase.RunInit(initCmd, &session.InitAdapter{})
 			if err != nil {
 				return err

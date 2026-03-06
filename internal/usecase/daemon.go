@@ -8,13 +8,10 @@ import (
 	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
-// SetupAndRunDaemon validates the RunDaemonCommand, constructs the aggregate
-// and EventEmitter, injects them into the runner, and runs the daemon event loop
-// until ctx is cancelled.
+// SetupAndRunDaemon constructs the aggregate and EventEmitter, injects them
+// into the runner, and runs the daemon event loop until ctx is cancelled.
+// The command is always-valid by construction — no validation needed.
 func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, logger domain.Logger, metrics port.PolicyMetrics, runner port.DaemonRunner) error {
-	if errs := cmd.Validate(); len(errs) > 0 {
-		return fmt.Errorf("command validation: %w", errs[0])
-	}
 	defer runner.Close()
 
 	if runner.OutboxCount() == 0 {
