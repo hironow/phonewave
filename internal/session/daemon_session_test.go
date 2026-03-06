@@ -24,7 +24,8 @@ func (e *testDaemonEventEmitter) EmitDelivery(sourcePath string, kind string, no
 	if err != nil {
 		return err
 	}
-	return e.store.Append(ev)
+	_, appendErr := e.store.Append(ev)
+	return appendErr
 }
 
 func (e *testDaemonEventEmitter) EmitFailure(filePath string, kind string, errMsg string, now time.Time) error {
@@ -32,7 +33,8 @@ func (e *testDaemonEventEmitter) EmitFailure(filePath string, kind string, errMs
 	if err != nil {
 		return err
 	}
-	return e.store.Append(ev)
+	_, appendErr := e.store.Append(ev)
+	return appendErr
 }
 
 func (e *testDaemonEventEmitter) EmitScan(outboxDir string, delivered, errors int, now time.Time) error {
@@ -40,7 +42,8 @@ func (e *testDaemonEventEmitter) EmitScan(outboxDir string, delivered, errors in
 	if err != nil {
 		return err
 	}
-	return e.store.Append(ev)
+	_, appendErr := e.store.Append(ev)
+	return appendErr
 }
 
 func (e *testDaemonEventEmitter) EmitRetry(name string, kind string, now time.Time) error {
@@ -48,7 +51,8 @@ func (e *testDaemonEventEmitter) EmitRetry(name string, kind string, now time.Ti
 	if err != nil {
 		return err
 	}
-	return e.store.Append(ev)
+	_, appendErr := e.store.Append(ev)
+	return appendErr
 }
 
 func newTestDaemonSession(t *testing.T) (*session.DaemonSession, port.EventStore) {
@@ -107,7 +111,7 @@ func TestDaemonSession_RecordDeliveryEvent(t *testing.T) {
 	ds.RecordDeliveryEvent(result)
 
 	// then
-	events, err := eventStore.LoadAll()
+	events, _, err := eventStore.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -127,7 +131,7 @@ func TestDaemonSession_RecordFailureEvent(t *testing.T) {
 	ds.RecordFailureEvent("/tmp/outbox/bad.md", "specification", fmt.Errorf("no route"))
 
 	// then
-	events, err := eventStore.LoadAll()
+	events, _, err := eventStore.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -147,7 +151,7 @@ func TestDaemonSession_RecordScanEvent(t *testing.T) {
 	ds.RecordScanEvent("/tmp/outbox", 3, 1)
 
 	// then
-	events, err := eventStore.LoadAll()
+	events, _, err := eventStore.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -167,7 +171,7 @@ func TestDaemonSession_RecordRetryEvent(t *testing.T) {
 	ds.RecordRetryEvent("retry-spec.md", "specification")
 
 	// then
-	events, err := eventStore.LoadAll()
+	events, _, err := eventStore.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}

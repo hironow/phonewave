@@ -32,7 +32,7 @@ func NewDeliveryEventEmitter(
 // emit persists the event and dispatches it (best-effort).
 func (e *deliveryEventEmitter) emit(ev domain.Event) error {
 	if e.store != nil {
-		if err := e.store.Append(ev); err != nil {
+		if _, err := e.store.Append(ev); err != nil {
 			return err
 		}
 	}

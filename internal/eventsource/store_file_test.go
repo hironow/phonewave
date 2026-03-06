@@ -18,10 +18,11 @@ func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 	}
 
 	// when
-	if err := store.Append(ev); err != nil {
+	result, err := store.Append(ev)
+	if err != nil {
 		t.Fatalf("append: %v", err)
 	}
-	events, err := store.LoadAll()
+	events, loadResult, err := store.LoadAll()
 	if err != nil {
 		t.Fatalf("load all: %v", err)
 	}
@@ -35,6 +36,15 @@ func TestFileEventStore_AppendAndLoadAll(t *testing.T) {
 	}
 	if events[0].Type != domain.EventDeliveryCompleted {
 		t.Errorf("expected type %s, got %s", domain.EventDeliveryCompleted, events[0].Type)
+	}
+	if result.BytesWritten <= 0 {
+		t.Errorf("expected positive bytes written, got %d", result.BytesWritten)
+	}
+	if loadResult.FileCount != 1 {
+		t.Errorf("expected 1 file, got %d", loadResult.FileCount)
+	}
+	if loadResult.CorruptLineCount != 0 {
+		t.Errorf("expected 0 corrupt lines, got %d", loadResult.CorruptLineCount)
 	}
 }
 
@@ -50,12 +60,12 @@ func TestFileEventStore_LoadSince_FiltersOlderEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new event: %v", err)
 	}
-	if err := store.Append(old, recent); err != nil {
+	if _, err := store.Append(old, recent); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 
 	// when
-	events, err := store.LoadSince(time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC))
+	events, loadResult, err := store.LoadSince(time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("load since: %v", err)
 	}
@@ -67,6 +77,9 @@ func TestFileEventStore_LoadSince_FiltersOlderEvents(t *testing.T) {
 	if events[0].ID != recent.ID {
 		t.Errorf("expected recent event, got %s", events[0].ID)
 	}
+	if loadResult.FileCount != 2 {
+		t.Errorf("expected 2 files (2 dates), got %d", loadResult.FileCount)
+	}
 }
 
 func TestFileEventStore_AppendRejectsInvalidEvent(t *testing.T) {
@@ -76,7 +89,7 @@ func TestFileEventStore_AppendRejectsInvalidEvent(t *testing.T) {
 	invalid := domain.Event{} // missing ID, Type, Timestamp
 
 	// when
-	err := store.Append(invalid)
+	_, err := store.Append(invalid)
 
 	// then
 	if err == nil {
@@ -90,7 +103,7 @@ func TestFileEventStore_LoadAll_EmptyDir(t *testing.T) {
 	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
 
 	// when
-	events, err := store.LoadAll()
+	events, _, err := store.LoadAll()
 
 	// then
 	if err != nil {
@@ -106,7 +119,7 @@ func TestFileEventStore_LoadAll_NonexistentDir(t *testing.T) {
 	store := eventsource.NewFileEventStore("/nonexistent/path/events", &domain.NopLogger{})
 
 	// when
-	events, err := store.LoadAll()
+	events, _, err := store.LoadAll()
 
 	// then
 	if err != nil {

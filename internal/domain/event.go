@@ -55,6 +55,17 @@ type ErrorEntry struct {
 	RetryCount   int
 }
 
+// AppendResult captures metrics from an event store Append operation.
+type AppendResult struct {
+	BytesWritten int // total bytes written to event files
+}
+
+// LoadResult captures metrics from an event store Load operation.
+type LoadResult struct {
+	FileCount        int // number of .jsonl files scanned
+	CorruptLineCount int // number of lines skipped due to parse errors
+}
+
 // ValidateEvent checks structural validity of an Event before persistence.
 func ValidateEvent(e Event) error {
 	var errs []string

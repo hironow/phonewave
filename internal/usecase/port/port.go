@@ -43,9 +43,9 @@ func (NopPolicyMetrics) RecordPolicyEvent(context.Context, string, string) {}
 
 // EventStore is the interface for an append-only event log.
 type EventStore interface {
-	Append(events ...domain.Event) error
-	LoadAll() ([]domain.Event, error)
-	LoadSince(after time.Time) ([]domain.Event, error)
+	Append(events ...domain.Event) (domain.AppendResult, error)
+	LoadAll() ([]domain.Event, domain.LoadResult, error)
+	LoadSince(after time.Time) ([]domain.Event, domain.LoadResult, error)
 }
 
 // ErrorQueueStore manages failed D-Mail delivery records with atomic claim
