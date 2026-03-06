@@ -11,7 +11,10 @@ import (
 	"time"
 
 	pond "github.com/alitto/pond/v2"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 )
 
 // skillsRefTimeout is the maximum time allowed for a single skills-ref invocation.
@@ -153,6 +156,10 @@ type validationTarget struct {
 // repositories in cfg. Each endpoint is validated in a separate worker.
 // If filterRepoPath is non-empty, only that repository's endpoints are checked.
 func collectSkillWarnings(cfg *domain.Config, filterRepoPath string) []string {
+	ctx, span := platform.Tracer.Start(context.Background(), "phonewave.validate")
+	defer span.End()
+	_ = ctx // span-only; no child spans needed
+
 	var targets []validationTarget
 	for _, repo := range cfg.Repositories {
 		if filterRepoPath != "" && repo.Path != filterRepoPath {
@@ -164,6 +171,7 @@ func collectSkillWarnings(cfg *domain.Config, filterRepoPath string) []string {
 	}
 
 	if len(targets) == 0 {
+		span.SetAttributes(attribute.Int("skills_ref.problem.count", 0))
 		return nil
 	}
 
@@ -185,6 +193,8 @@ func collectSkillWarnings(cfg *domain.Config, filterRepoPath string) []string {
 	for _, ws := range results {
 		warnings = append(warnings, ws...)
 	}
+
+	span.SetAttributes(attribute.Int("skills_ref.problem.count", len(warnings)))
 	return warnings
 }
 

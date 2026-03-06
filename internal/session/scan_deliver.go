@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
@@ -16,12 +19,18 @@ import (
 // sequentially. Failed deliveries are enqueued via errorQueue (SQLite).
 // If errorQueue is nil, failed files remain in the outbox for next startup.
 func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds port.DeliveryStore, errorQueue port.ErrorQueueStore) ([]*domain.DeliveryResult, []error) {
+	ctx, span := platform.Tracer.Start(ctx, "phonewave.deliver")
+	defer span.End()
+
 	if logger == nil {
 		logger = &domain.NopLogger{}
 	}
 	entries, err := os.ReadDir(outboxDir)
 	if err != nil {
-		return nil, []error{fmt.Errorf("scan outbox %s: %w", outboxDir, err)}
+		readDirErr := fmt.Errorf("scan outbox %s: %w", outboxDir, err)
+		span.RecordError(readDirErr)
+		span.SetAttributes(attribute.String("error.stage", "phonewave.deliver"))
+		return nil, []error{readDirErr}
 	}
 
 	// Filter eligible entries using domain.IsDMailFile
@@ -36,7 +45,13 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 		filtered = append(filtered, entry)
 	}
 
+	span.SetAttributes(attribute.Int("dmail.file.count", len(filtered)))
+
 	if len(filtered) == 0 {
+		span.SetAttributes(
+			attribute.Int("deliver.success.count", 0),
+			attribute.Int("deliver.error.count", 0),
+		)
 		return nil, nil
 	}
 
@@ -85,5 +100,9 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 		results = append(results, result)
 	}
 
+	span.SetAttributes(
+		attribute.Int("deliver.success.count", len(results)),
+		attribute.Int("deliver.error.count", len(errs)),
+	)
 	return results, errs
 }
