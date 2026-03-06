@@ -288,7 +288,7 @@ just prek-run       # Run all prek hooks
 |   +-- status.go              Daemon status + 24h statistics
 |   +-- doctor.go              Ecosystem health checker
 |   +-- validate.go            skills-ref validation
-+-- internal/eventsource/       Event store infrastructure (JSONL)
++-- internal/eventsource/       Event persistence adapter (JSONL append-only, AWS Event Sourcing pattern)
 +-- internal/domain/            Pure domain functions
 +-- internal/tools/docgen/      CLI doc generator
 +-- tests/scenario/             Scenario tests (L1-L4, //go:build scenario)
