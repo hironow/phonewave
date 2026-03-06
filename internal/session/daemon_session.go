@@ -39,6 +39,31 @@ func NewDaemonSession(
 	}
 }
 
+// EnqueueError delegates to ErrorQueue.Enqueue, encapsulating the error queue dependency.
+func (s *DaemonSession) EnqueueError(name string, data []byte, meta domain.ErrorMetadata) error {
+	return s.ErrorQueue.Enqueue(name, data, meta)
+}
+
+// ClaimPendingRetries delegates to ErrorQueue.ClaimPendingRetries.
+func (s *DaemonSession) ClaimPendingRetries(claimerID string, maxRetries int) ([]domain.ErrorEntry, error) {
+	return s.ErrorQueue.ClaimPendingRetries(claimerID, maxRetries)
+}
+
+// IncrementRetry delegates to ErrorQueue.IncrementRetry.
+func (s *DaemonSession) IncrementRetry(name string, newError string) error {
+	return s.ErrorQueue.IncrementRetry(name, newError)
+}
+
+// MarkResolved delegates to ErrorQueue.MarkResolved.
+func (s *DaemonSession) MarkResolved(name string) error {
+	return s.ErrorQueue.MarkResolved(name)
+}
+
+// HasErrorQueue reports whether an error queue is available.
+func (s *DaemonSession) HasErrorQueue() bool {
+	return s != nil && s.ErrorQueue != nil
+}
+
 // RecordDeliveryEvent records a delivery.completed event to the event store.
 // Best-effort: errors are logged but do not fail the delivery.
 func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {

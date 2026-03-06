@@ -101,12 +101,12 @@ func (d *Daemon) enqueueDeliveryFailure(path string, data []byte, kind string, d
 		Error:        deliverErr.Error(),
 		Timestamp:    time.Now().UTC(),
 	}
-	if d.Session == nil || d.Session.ErrorQueue == nil {
+	if !d.Session.HasErrorQueue() {
 		d.logger.Error("Error queue unavailable, leaving in outbox for next startup")
 		return
 	}
 	name := fmt.Sprintf("%s-%s-%s", meta.Timestamp.Format("2006-01-02T150405.000000000"), meta.Kind, meta.OriginalName)
-	if saveErr := d.Session.ErrorQueue.Enqueue(name, data, meta); saveErr != nil {
+	if saveErr := d.Session.EnqueueError(name, data, meta); saveErr != nil {
 		d.logger.Error("Error queue enqueue: %v", saveErr)
 		return
 	}
@@ -117,7 +117,7 @@ func (d *Daemon) enqueueDeliveryFailure(path string, data []byte, kind string, d
 // retryPending claims pending error queue entries via SQLite and attempts
 // to re-deliver them. Returns the number of successful retries.
 func (d *Daemon) retryPending() int {
-	if d.Session == nil || d.Session.ErrorQueue == nil {
+	if !d.Session.HasErrorQueue() {
 		return 0
 	}
 
@@ -130,7 +130,7 @@ func (d *Daemon) retryPending() int {
 	}
 
 	claimerID := fmt.Sprintf("daemon-%d", os.Getpid())
-	entries, err := d.Session.ErrorQueue.ClaimPendingRetries(claimerID, maxRetries)
+	entries, err := d.Session.ClaimPendingRetries(claimerID, maxRetries)
 	if err != nil {
 		d.logger.Error("Retry: claim pending: %v", err)
 		return 0
@@ -148,7 +148,7 @@ func (d *Daemon) retryPending() int {
 			originalPath := filepath.Join(e.SourceOutbox, e.OriginalName)
 			result, deliverErr := DeliverData(ctx, originalPath, e.Data, d.opts.Routes, d.deliveryStore)
 			if deliverErr != nil {
-				if incErr := d.Session.ErrorQueue.IncrementRetry(e.Name, deliverErr.Error()); incErr != nil {
+				if incErr := d.Session.IncrementRetry(e.Name, deliverErr.Error()); incErr != nil {
 					d.logger.Warn("Retry: increment retry: %v", incErr)
 				}
 				if d.opts.Verbose {
@@ -157,7 +157,7 @@ func (d *Daemon) retryPending() int {
 				return
 			}
 
-			if markErr := d.Session.ErrorQueue.MarkResolved(e.Name); markErr != nil {
+			if markErr := d.Session.MarkResolved(e.Name); markErr != nil {
 				d.logger.Warn("Retry: mark resolved: %v", markErr)
 			}
 
