@@ -1,4 +1,5 @@
 package platform
+
 // white-box-reason: platform internals: tests unexported tracer setup and InMemoryExporter wiring
 
 import (
@@ -47,7 +48,7 @@ func TestMultiExporter_BothReceive(t *testing.T) {
 		Tracer = oldTracer
 	})
 
-	_, span := Tracer.Start(context.Background(), "multi-span") // nosemgrep: adr0003-otel-span-without-defer-end — test span, immediately ended
+	_, span := Tracer.Start(context.Background(), "multi-span") // nosemgrep: adr0003-otel-span-without-defer-end — test span, immediately ended [permanent]
 	span.End()
 
 	if len(exp1.GetSpans()) == 0 {
@@ -63,7 +64,7 @@ func TestSetupTestTracer_SpansAvailableImmediately(t *testing.T) {
 	exp := setupTestTracer(t)
 
 	// when — create and end a span
-	_, span := Tracer.Start(context.Background(), "sync-span") // nosemgrep: adr0003-otel-span-without-defer-end — test span, immediately ended
+	_, span := Tracer.Start(context.Background(), "sync-span") // nosemgrep: adr0003-otel-span-without-defer-end — test span, immediately ended [permanent]
 	span.End()
 
 	// then — span should appear in exporter immediately (sync processor)

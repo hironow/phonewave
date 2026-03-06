@@ -32,7 +32,7 @@ func NewSQLiteDeliveryStore(stateDir string) (*SQLiteDeliveryStore, error) {
 	}
 
 	dbPath := filepath.Join(runDir, "delivery.db")
-	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close()
+	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close() [permanent]
 	if err != nil {
 		return nil, fmt.Errorf("delivery store: open db: %w", err)
 	}
@@ -83,7 +83,7 @@ func createDeliverySchema(db *sql.DB) error {
 // StageDelivery records delivery intents for all targets in a single transaction.
 // Idempotent: re-staging the same (dmailPath, target) pair is silently ignored.
 func (s *SQLiteDeliveryStore) StageDelivery(ctx context.Context, dmailPath string, data []byte, targets []string) (stageErr error) {
-	ctx, span := platform.Tracer.Start(ctx, "outbox.stage.delivery")
+	ctx, span := platform.Tracer.Start(ctx, "outbox.stage.delivery") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
 	defer func() {
 		if stageErr != nil {
 			span.RecordError(stageErr)
@@ -143,7 +143,7 @@ type unflushedItem struct {
 //  2. Filesystem I/O (atomicWrite) outside any transaction
 //  3. Short write transaction per item to update status
 func (s *SQLiteDeliveryStore) FlushDeliveries(ctx context.Context) (results []domain.DeliveryFlushed, flushErr error) {
-	ctx, span := platform.Tracer.Start(ctx, "outbox.flush.deliveries")
+	ctx, span := platform.Tracer.Start(ctx, "outbox.flush.deliveries") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
 	retryCount := 0
 	defer func() {
 		if flushErr != nil {
@@ -323,7 +323,7 @@ func (s *SQLiteDeliveryStore) AllFlushedFor(dmailPath string) (bool, error) {
 
 // PruneFlushed deletes all flushed rows and runs incremental vacuum.
 func (s *SQLiteDeliveryStore) PruneFlushed(ctx context.Context) (count int, pruneErr error) {
-	_, span := platform.Tracer.Start(ctx, "outbox.prune")
+	_, span := platform.Tracer.Start(ctx, "outbox.prune") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
 	defer func() {
 		if pruneErr != nil {
 			span.RecordError(pruneErr)

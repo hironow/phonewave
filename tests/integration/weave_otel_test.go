@@ -35,7 +35,7 @@ func TestWeaveOTLP_HeadersAndResourceAttributes(t *testing.T) {
 	received := make(chan struct{}, 10)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock() // nosemgrep: adr0005-mutex-lock-without-defer-unlock — explicit unlock before channel send to minimize critical section
+		mu.Lock() // nosemgrep: adr0005-mutex-lock-without-defer-unlock — explicit unlock before channel send to minimize critical section [permanent]
 		capturedHeaders = r.Header.Clone()
 		requestCount++
 		mu.Unlock()
@@ -76,7 +76,7 @@ func TestWeaveOTLP_HeadersAndResourceAttributes(t *testing.T) {
 	)
 
 	tracer := tp.Tracer("phonewave")
-	_, span := tracer.Start(ctx, "test-weave-verification") // nosemgrep: adr0003-otel-span-without-defer-end — test span, immediately ended
+	_, span := tracer.Start(ctx, "test-weave-verification") // nosemgrep: adr0003-otel-span-without-defer-end — test span, immediately ended [permanent]
 	span.End()
 
 	if err := tp.Shutdown(ctx); err != nil {

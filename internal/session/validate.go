@@ -124,7 +124,7 @@ func walkUpForSkillsRef(startDir string) string {
 // the endpoint config declares produces/consumes.
 func validateEndpointSkills(repoPath string, ep domain.EndpointConfig) []string {
 	var warnings []string
-	epLabel := filepath.Base(repoPath) + "/" + ep.Dir // nosemgrep: adr0005-string-concat-file-path — display label, not file path
+	epLabel := filepath.Base(repoPath) + "/" + ep.Dir // nosemgrep: adr0005-string-concat-file-path — display label, not file path [permanent]
 
 	for _, skillName := range []string{SkillSendable, SkillReadable} {
 		skillDir := filepath.Join(repoPath, ep.Dir, "skills", skillName)

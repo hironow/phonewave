@@ -31,7 +31,7 @@ func NewSQLiteErrorQueueStore(stateDir string) (*SQLiteErrorQueueStore, error) {
 	}
 
 	dbPath := filepath.Join(runDir, "error_queue.db")
-	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close()
+	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close() [permanent]
 	if err != nil {
 		return nil, fmt.Errorf("error queue store: open db: %w", err)
 	}

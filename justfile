@@ -109,11 +109,11 @@ root-guard:
     fi
 
 # Lint (fmt check + vet + markdown lint)
-lint: vet semgrep root-guard lint-md
+lint: vet semgrep root-guard nosemgrep-audit lint-md
     @gofmt -l . | grep . && echo "gofmt: files need formatting" && exit 1 || true
 
 # Format, vet, test — full check before commit
-check: fmt vet semgrep root-guard test
+check: fmt vet semgrep root-guard nosemgrep-audit test docs-check
 
 # Run E2E tests in Docker
 test-e2e:
@@ -206,6 +206,32 @@ docgen:
 # Snapshot GoReleaser build (no publish)
 release-snapshot:
     goreleaser release --snapshot --clean
+
+# Audit nosemgrep annotations for proper tagging
+nosemgrep-audit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rc=0
+    today=$(date +%Y-%m-%d)
+    while IFS= read -r line; do
+        file=$(echo "$line" | cut -d: -f1)
+        lineno=$(echo "$line" | cut -d: -f2)
+        if echo "$line" | grep -q '\[permanent\]'; then
+            continue
+        fi
+        if echo "$line" | grep -qoE '\[expires: [0-9]{4}-[0-9]{2}-[0-9]{2}\]'; then
+            expiry=$(echo "$line" | grep -oE '\[expires: [0-9]{4}-[0-9]{2}-[0-9]{2}\]' | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+            if [[ "$expiry" < "$today" || "$expiry" == "$today" ]]; then
+                echo "EXPIRED: $file:$lineno (expired $expiry)" >&2
+                rc=1
+            fi
+        else
+            echo "MISSING TAG: $file:$lineno — add [permanent] or [expires: YYYY-MM-DD]" >&2
+            rc=1
+        fi
+    done < <(grep -rn "nosemgrep:" --include="*.go" . || true)
+    if [ $rc -eq 0 ]; then echo "nosemgrep-audit: all annotations tagged"; fi
+    exit $rc
 
 # Check docs for stale references (e.g. deprecated internal/port path)
 docs-check:

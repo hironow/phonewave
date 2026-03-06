@@ -38,7 +38,7 @@ func NewDaemon(opts domain.DaemonOptions, logger domain.Logger) (*Daemon, error)
 	if logger == nil {
 		logger = &domain.NopLogger{}
 	}
-	watcher, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close — stored in Daemon struct, closed in Run()
+	watcher, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close — stored in Daemon struct, closed in Run() [permanent]
 	if err != nil {
 		return nil, fmt.Errorf("create watcher: %w", err)
 	}
@@ -245,7 +245,7 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 	scanGroup := d.pool.NewGroup()
 	for _, dir := range d.opts.OutboxDirs {
 		scanGroup.Submit(func() {
-			scanCtx, scanSpan := platform.Tracer.Start(ctx, "daemon.startup_scan", // nosemgrep: adr0003-otel-span-without-defer-end — span.End() called explicitly after SetAttributes
+			scanCtx, scanSpan := platform.Tracer.Start(ctx, "daemon.startup_scan", // nosemgrep: adr0003-otel-span-without-defer-end — span.End() called explicitly after SetAttributes [permanent]
 				trace.WithNewRoot(),
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
@@ -277,4 +277,3 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 	}
 	scanGroup.Wait()
 }
-
