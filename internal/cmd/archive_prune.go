@@ -53,7 +53,7 @@ Pass --execute to actually remove the files.`,
 			outputFmt, _ := cmd.Flags().GetString("output")
 			errW := cmd.ErrOrStderr()
 
-			files, err := session.ListExpiredEventFiles(stateDir, days)
+			files, err := session.ListExpiredEventFiles(cmd.Context(), stateDir, days)
 			if err != nil {
 				return fmt.Errorf("failed to list expired events: %w", err)
 			}
@@ -68,7 +68,7 @@ Pass --execute to actually remove the files.`,
 					Files:      files,
 				}
 				if execute && len(files) > 0 {
-					deleted, delErr := session.PruneEventFiles(stateDir, files)
+					deleted, delErr := session.PruneEventFiles(cmd.Context(), stateDir, files)
 					if delErr != nil {
 						return fmt.Errorf("event prune failed: %w", delErr)
 					}
@@ -117,7 +117,7 @@ Pass --execute to actually remove the files.`,
 				}
 			}
 
-			deleted, delErr := session.PruneEventFiles(stateDir, files)
+			deleted, delErr := session.PruneEventFiles(cmd.Context(), stateDir, files)
 			if delErr != nil {
 				return fmt.Errorf("event prune failed: %w", delErr)
 			}
