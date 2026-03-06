@@ -1,4 +1,5 @@
 package session
+// white-box-reason: OTel instrumentation: tests unexported span recording and attribute verification
 
 import (
 	"context"

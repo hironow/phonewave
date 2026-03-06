@@ -1,4 +1,5 @@
 package usecase
+// white-box-reason: usecase internals: tests unexported session adapter wiring for daemon
 
 import (
 	"context"

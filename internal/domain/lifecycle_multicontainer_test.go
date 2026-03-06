@@ -1,6 +1,7 @@
 //go:build docker
 
 package domain
+// white-box-reason: lifecycle internals: tests unexported multi-container orchestration logic
 
 import (
 	"context"

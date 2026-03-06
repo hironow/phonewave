@@ -1,4 +1,5 @@
 package session
+// white-box-reason: session internals: tests unexported multi-tool repository setup helpers
 
 import (
 	"os"

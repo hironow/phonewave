@@ -1,4 +1,5 @@
 package platform
+// white-box-reason: platform internals: tests unexported tracer setup and InMemoryExporter wiring
 
 import (
 	"context"
