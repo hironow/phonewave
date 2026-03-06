@@ -64,6 +64,14 @@ func (s *DaemonSession) HasErrorQueue() bool {
 	return s != nil && s.ErrorQueue != nil
 }
 
+// ErrorQueueStore returns the underlying ErrorQueueStore, or nil if unavailable.
+func (s *DaemonSession) ErrorQueueStore() port.ErrorQueueStore {
+	if s == nil {
+		return nil
+	}
+	return s.ErrorQueue
+}
+
 // RecordDeliveryEvent records a delivery.completed event to the event store.
 // Best-effort: errors are logged but do not fail the delivery.
 func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {
