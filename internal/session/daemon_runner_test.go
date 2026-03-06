@@ -441,7 +441,7 @@ func TestDaemon_UnknownKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
-	d.Session = &DaemonSession{ErrorQueue: errorQueue}
+	d.session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1081,7 +1081,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
-	d.Session = &DaemonSession{ErrorQueue: errorQueue}
+	d.session = &DaemonSession{ErrorQueue: errorQueue}
 	d.dlog = dlog
 	d.deliveryStore = newTestDeliveryStore(t)
 
@@ -1154,7 +1154,7 @@ func TestDaemon_RetryExceedsMaxAttempts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
-	d.Session = &DaemonSession{ErrorQueue: errorQueue}
+	d.session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1220,7 +1220,7 @@ func TestDaemon_RetryDisabledWhenZeroInterval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDaemon: %v", err)
 	}
-	d.Session = &DaemonSession{ErrorQueue: errorQueue}
+	d.session = &DaemonSession{ErrorQueue: errorQueue}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

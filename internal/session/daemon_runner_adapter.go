@@ -85,7 +85,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 	}
 
 	ds := NewDaemonSession(errorQueue, dlog, routes, stateDir, logger)
-	d.Session = ds
+	d.session = ds
 
 	notifier := BuildNotifier()
 

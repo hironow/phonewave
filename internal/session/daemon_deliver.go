@@ -63,9 +63,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		if d.dlog != nil {
 			d.dlog.Failed(kind, event.Name, err.Error())
 		}
-		if d.Session != nil {
-			d.Session.RecordFailureEvent(event.Name, kind, err)
-		}
+		d.recordFailureEvent(event.Name, kind, err)
 
 		d.enqueueDeliveryFailure(event.Name, data, kind, err)
 		return
@@ -80,9 +78,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 			d.dlog.Removed(result.SourcePath)
 		}
 	}
-	if d.Session != nil {
-		d.Session.RecordDeliveryEvent(result)
-	}
+	d.recordDeliveryEvent(result)
 
 	if d.opts.Verbose {
 		d.logger.OK("Delivered %s (kind=%s) to %v", result.SourcePath, result.Kind, result.DeliveredTo)
@@ -101,12 +97,12 @@ func (d *Daemon) enqueueDeliveryFailure(path string, data []byte, kind string, d
 		Error:        deliverErr.Error(),
 		Timestamp:    time.Now().UTC(),
 	}
-	if !d.Session.HasErrorQueue() {
+	if !d.hasErrorQueue() {
 		d.logger.Error("Error queue unavailable, leaving in outbox for next startup")
 		return
 	}
 	name := fmt.Sprintf("%s-%s-%s", meta.Timestamp.Format("2006-01-02T150405.000000000"), meta.Kind, meta.OriginalName)
-	if saveErr := d.Session.EnqueueError(name, data, meta); saveErr != nil {
+	if saveErr := d.enqueueError(name, data, meta); saveErr != nil {
 		d.logger.Error("Error queue enqueue: %v", saveErr)
 		return
 	}
@@ -117,7 +113,7 @@ func (d *Daemon) enqueueDeliveryFailure(path string, data []byte, kind string, d
 // retryPending claims pending error queue entries via SQLite and attempts
 // to re-deliver them. Returns the number of successful retries.
 func (d *Daemon) retryPending() int {
-	if !d.Session.HasErrorQueue() {
+	if !d.hasErrorQueue() {
 		return 0
 	}
 
@@ -130,7 +126,7 @@ func (d *Daemon) retryPending() int {
 	}
 
 	claimerID := fmt.Sprintf("daemon-%d", os.Getpid())
-	entries, err := d.Session.ClaimPendingRetries(claimerID, maxRetries)
+	entries, err := d.claimPendingRetries(claimerID, maxRetries)
 	if err != nil {
 		d.logger.Error("Retry: claim pending: %v", err)
 		return 0
@@ -148,7 +144,7 @@ func (d *Daemon) retryPending() int {
 			originalPath := filepath.Join(e.SourceOutbox, e.OriginalName)
 			result, deliverErr := DeliverData(ctx, originalPath, e.Data, d.opts.Routes, d.deliveryStore)
 			if deliverErr != nil {
-				if incErr := d.Session.IncrementRetry(e.Name, deliverErr.Error()); incErr != nil {
+				if incErr := d.incrementRetry(e.Name, deliverErr.Error()); incErr != nil {
 					d.logger.Warn("Retry: increment retry: %v", incErr)
 				}
 				if d.opts.Verbose {
@@ -157,7 +153,7 @@ func (d *Daemon) retryPending() int {
 				return
 			}
 
-			if markErr := d.Session.MarkResolved(e.Name); markErr != nil {
+			if markErr := d.markResolved(e.Name); markErr != nil {
 				d.logger.Warn("Retry: mark resolved: %v", markErr)
 			}
 
@@ -166,9 +162,7 @@ func (d *Daemon) retryPending() int {
 					d.dlog.Retried(result.Kind, originalPath, target)
 				}
 			}
-			if d.Session != nil {
-				d.Session.RecordRetryEvent(e.OriginalName, result.Kind)
-			}
+			d.recordRetryEvent(e.OriginalName, result.Kind)
 
 			if d.opts.Verbose {
 				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.OriginalName, result.Kind, result.DeliveredTo)

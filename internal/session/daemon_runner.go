@@ -29,7 +29,7 @@ type Daemon struct {
 	deliveryStore port.DeliveryStore
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
-	Session       *DaemonSession
+	session       *DaemonSession
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -180,6 +180,56 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 }
 
+// --- Forwarding methods: eliminate 2-level d.session.Method() access ---
+
+func (d *Daemon) hasErrorQueue() bool {
+	return d.session.HasErrorQueue()
+}
+
+func (d *Daemon) errorQueueStore() port.ErrorQueueStore {
+	if d.session == nil {
+		return nil
+	}
+	return d.session.ErrorQueueStore()
+}
+
+func (d *Daemon) enqueueError(name string, data []byte, meta domain.ErrorMetadata) error {
+	return d.session.EnqueueError(name, data, meta)
+}
+
+func (d *Daemon) claimPendingRetries(claimerID string, maxRetries int) ([]domain.ErrorEntry, error) {
+	return d.session.ClaimPendingRetries(claimerID, maxRetries)
+}
+
+func (d *Daemon) incrementRetry(name string, newError string) error {
+	return d.session.IncrementRetry(name, newError)
+}
+
+func (d *Daemon) markResolved(name string) error {
+	return d.session.MarkResolved(name)
+}
+
+func (d *Daemon) recordDeliveryEvent(result *domain.DeliveryResult) {
+	if d.session == nil {
+		return
+	}
+	d.session.RecordDeliveryEvent(result)
+}
+
+func (d *Daemon) recordFailureEvent(filePath string, kind string, deliverErr error) {
+	if d.session == nil {
+		return
+	}
+	d.session.RecordFailureEvent(filePath, kind, deliverErr)
+}
+
+func (d *Daemon) recordRetryEvent(name string, kind string) {
+	if d.session == nil {
+		return
+	}
+	d.session.RecordRetryEvent(name, kind)
+}
+
 // shouldProcessEvent returns true if the fsnotify event should be processed.
 // It filters for Create/Rename events of deliverable D-Mail files.
 func shouldProcessEvent(event fsnotify.Event) bool {
@@ -200,8 +250,8 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 				trace.WithAttributes(attribute.String("outbox.dir", dir)),
 			)
 			var eq port.ErrorQueueStore
-			if d.Session != nil {
-				eq = d.Session.ErrorQueueStore()
+			if d.session != nil {
+				eq = d.errorQueueStore()
 			}
 			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore, eq)
 			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
