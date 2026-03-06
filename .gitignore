@@ -1,11 +1,10 @@
 # OS
 .DS_Store
-# build files
-/phonewave
+# build artifacts
 /dist/
 # test
 coverage.out
-# paintress runtime state on target repository
+# phonewave runtime state on target repository
 .phonewave/
 # environment-specific local files (must not contain full paths)
 *.local.*
@@ -17,4 +16,5 @@ coverage.out
 docs/plans/
 # golang
 .gocache/
-*.exe
+# firebase local debug log
+firebase-debug.log

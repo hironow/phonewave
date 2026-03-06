@@ -36,11 +36,12 @@ lint-md:
 
 # Build the binary with version info
 build:
-    go build -ldflags "-s -w -X github.com/hironow/{{TOOL}}/internal/cmd.Version={{VERSION}}" -o {{TOOL}} ./cmd/{{TOOL}}/
+    @mkdir -p dist
+    go build -ldflags "-s -w -X github.com/hironow/{{TOOL}}/internal/cmd.Version={{VERSION}}" -o dist/{{TOOL}} ./cmd/{{TOOL}}/
 
 # Build and install to /usr/local/bin
 install: build
-    mv {{TOOL}} /usr/local/bin/
+    mv dist/{{TOOL}} /usr/local/bin/
 
 # Run all tests
 test:
@@ -107,6 +108,7 @@ root-guard:
         ls *.go | grep -v '^doc\.go$' >&2; \
         exit 1; \
     fi
+    @bash scripts/check-root-layout.sh
 
 # Lint (fmt check + vet + markdown lint)
 lint: vet semgrep root-guard nosemgrep-audit lint-md
@@ -260,6 +262,7 @@ test-package-rationale-audit:
 
 # Clean build artifacts
 clean:
-    rm -f {{TOOL}} coverage.out
+    rm -rf dist/ coverage.out
+    go clean
     rm -rf dist/
     go clean
