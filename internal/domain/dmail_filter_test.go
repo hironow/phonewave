@@ -21,7 +21,7 @@ func TestIsDMailFile(t *testing.T) {
 		{"regular.md", true},
 		{".hidden.md", true},
 		{"", false},
-		{"dir/report.md", true},      // basename extraction
+		{"dir/report.md", true}, // basename extraction
 		{"path/to/.phonewave-tmp-x.md", false},
 	}
 

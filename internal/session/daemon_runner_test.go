@@ -1,4 +1,5 @@
 package session
+
 // white-box-reason: session internals: tests unexported daemon adapter wiring and state construction
 
 import (
@@ -16,7 +17,6 @@ import (
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 )
-
 
 // waitForFile polls until a file exists at path, or fails after timeout.
 func waitForFile(t *testing.T, path string, timeout time.Duration) {

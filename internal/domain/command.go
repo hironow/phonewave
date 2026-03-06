@@ -32,12 +32,12 @@ func NewRunDaemonCommand(verbose, dryRun bool, retryInterval RetryInterval, maxR
 	}
 }
 
-func (c RunDaemonCommand) Verbose() bool                  { return c.verbose }
-func (c RunDaemonCommand) DryRun() bool                   { return c.dryRun }
-func (c RunDaemonCommand) RetryInterval() RetryInterval    { return c.retryInterval }
-func (c RunDaemonCommand) RetryDuration() time.Duration    { return c.retryInterval.Duration() }
-func (c RunDaemonCommand) MaxRetries() MaxRetries          { return c.maxRetries }
-func (c RunDaemonCommand) MaxRetriesInt() int              { return c.maxRetries.Int() }
+func (c RunDaemonCommand) Verbose() bool                { return c.verbose }
+func (c RunDaemonCommand) DryRun() bool                 { return c.dryRun }
+func (c RunDaemonCommand) RetryInterval() RetryInterval { return c.retryInterval }
+func (c RunDaemonCommand) RetryDuration() time.Duration { return c.retryInterval.Duration() }
+func (c RunDaemonCommand) MaxRetries() MaxRetries       { return c.maxRetries }
+func (c RunDaemonCommand) MaxRetriesInt() int           { return c.maxRetries.Int() }
 
 // AddRepoCommand represents the intent to add a repository to phonewave.
 type AddRepoCommand struct {

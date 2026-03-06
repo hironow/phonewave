@@ -106,10 +106,10 @@ type DaemonRunner interface {
 // NopDaemonRunner is a no-op DaemonRunner for tests.
 type NopDaemonRunner struct{}
 
-func (NopDaemonRunner) SetEmitter(DaemonEventEmitter)       {}
-func (NopDaemonRunner) EventStore() EventStore              { return nil }
-func (NopDaemonRunner) BuildNotifier() Notifier             { return NopNotifier{} }
-func (NopDaemonRunner) RouteCount() int                     { return 0 }
-func (NopDaemonRunner) OutboxCount() int                    { return 0 }
-func (NopDaemonRunner) Run(context.Context) error           { return nil }
-func (NopDaemonRunner) Close() error                        { return nil }
+func (NopDaemonRunner) SetEmitter(DaemonEventEmitter) {}
+func (NopDaemonRunner) EventStore() EventStore        { return nil }
+func (NopDaemonRunner) BuildNotifier() Notifier       { return NopNotifier{} }
+func (NopDaemonRunner) RouteCount() int               { return 0 }
+func (NopDaemonRunner) OutboxCount() int              { return 0 }
+func (NopDaemonRunner) Run(context.Context) error     { return nil }
+func (NopDaemonRunner) Close() error                  { return nil }

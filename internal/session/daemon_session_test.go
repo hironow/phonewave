@@ -194,4 +194,3 @@ func TestDaemonSession_RecordDeliveryEvent_NilEmitter(t *testing.T) {
 		SourcePath: "/tmp/outbox/spec.md",
 	})
 }
-

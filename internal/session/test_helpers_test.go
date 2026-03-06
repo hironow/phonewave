@@ -1,4 +1,5 @@
 package session
+
 // white-box-reason: test infrastructure: shared helpers constructing unexported types for sibling tests
 
 import "testing"

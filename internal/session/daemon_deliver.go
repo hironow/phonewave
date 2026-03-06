@@ -56,7 +56,9 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore)
 	if err != nil {
 		kind, _ := domain.ExtractDMailKind(data)
-		if kind == "" { kind = "unknown" }
+		if kind == "" {
+			kind = "unknown"
+		}
 		d.logger.Error("Deliver %s: %v", event.Name, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())

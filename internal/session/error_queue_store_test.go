@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
-	"github.com/hironow/phonewave/internal/usecase/port"
 	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 func testErrorQueueStore(t *testing.T) *session.SQLiteErrorQueueStore {

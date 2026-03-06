@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hironow/phonewave/internal/usecase/port"
 	"github.com/hironow/phonewave/internal/session"
+	"github.com/hironow/phonewave/internal/usecase/port"
 )
 
 func TestNopNotifier_NoError(t *testing.T) {

@@ -247,7 +247,9 @@ func goodEmitterCall(e port.DaemonEventEmitter) {}
 
 // --- Rule 22: daemon-session-direct-access ---
 
-func badDaemonSessionAccess(d struct{ session struct{ HasErrorQueue func() bool } }) {
+func badDaemonSessionAccess(d struct {
+	session struct{ HasErrorQueue func() bool }
+}) {
 	// ruleid: daemon-session-direct-access
 	d.session.HasErrorQueue()
 }
@@ -259,7 +261,9 @@ func goodDaemonForwarding(d struct{ hasErrorQueue func() bool }) {
 
 // --- Rule 23: lod-excessive-dot-chain ---
 
-func badLodChain(a struct{ B struct{ C struct{ D func() } } }) {
+func badLodChain(a struct {
+	B struct{ C struct{ D func() } }
+}) {
 	// ruleid: lod-excessive-dot-chain
 	a.B.C.D()
 }

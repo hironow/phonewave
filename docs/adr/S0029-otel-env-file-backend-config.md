@@ -15,6 +15,7 @@ We needed a mechanism for `init --otel-backend` to persist backend configuration
 export traces without requiring the user to set environment variables manually.
 
 Alternatives considered:
+
 1. **YAML config section** — requires changes to `initTracer()` and config
    loading order; breaks the current clean env-var-driven init.
 2. **Direct env var injection in init** — ephemeral; lost after shell exit.
@@ -37,6 +38,7 @@ a `fromEnv{}` detector that reads `OTEL_RESOURCE_ATTRIBUTES` automatically.
 ## Consequences
 
 ### Positive
+
 - Zero changes to `initTracer()` — env vars are the native SDK interface
 - `resource.Default()` picks up `OTEL_RESOURCE_ATTRIBUTES` (Weave entity/project) automatically
 - Environment variables always override file values (predictable precedence)
@@ -44,11 +46,13 @@ a `fromEnv{}` detector that reads `OTEL_RESOURCE_ATTRIBUTES` automatically.
 - State-dir-local scope — multiple projects can have different backends
 
 ### Negative
+
 - `os.Setenv` in `PersistentPreRunE` — safe for single-threaded CLI init but
   would be a concern in concurrent server scenarios
 - paintress resolves state dir from cwd (no `--config` flag on root) — if cwd
   differs from project root, `.otel.env` won't be found
 
 ### Neutral
+
 - `.otel.env` is gitignored by default (state directories are gitignored)
 - Users can always bypass the file by setting env vars directly

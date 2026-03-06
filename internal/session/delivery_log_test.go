@@ -74,7 +74,6 @@ func TestDeliveryLog_Failed(t *testing.T) {
 	}
 }
 
-
 func TestDeliveryLog_Retried(t *testing.T) {
 	// given
 	stateDir := t.TempDir()
@@ -101,7 +100,6 @@ func TestDeliveryLog_Retried(t *testing.T) {
 		t.Error("log should contain kind=specification")
 	}
 }
-
 
 func TestDeliveryLog_CloseIsConcurrencySafe(t *testing.T) {
 	// given — a delivery log with concurrent writers

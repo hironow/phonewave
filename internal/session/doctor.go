@@ -31,7 +31,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 		// 1. Verify repository path exists
 		if _, err := os.Stat(repo.Path); os.IsNotExist(err) {
 			report.AddErrorWithHint("", fmt.Sprintf("Repository path does not exist: %s", repo.Path),
-			`check config.yaml repositories.path or run "phonewave remove <path>"`)
+				`check config.yaml repositories.path or run "phonewave remove <path>"`)
 			continue
 		}
 
@@ -50,7 +50,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 			epDir := filepath.Join(repo.Path, ep.Dir)
 			if _, err := os.Stat(epDir); os.IsNotExist(err) {
 				report.AddErrorWithHint(epLabel, fmt.Sprintf("Endpoint directory missing: %s", epDir),
-				`create the directory or run "phonewave sync" to reconcile`)
+					`create the directory or run "phonewave sync" to reconcile`)
 				epHealth.OK = false
 				report.Endpoints = append(report.Endpoints, epHealth)
 				continue
@@ -62,7 +62,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 				if _, err := os.Stat(subDir); os.IsNotExist(err) {
 					if err := os.MkdirAll(subDir, 0755); err != nil {
 						report.AddErrorWithHint(epLabel, fmt.Sprintf("Failed to create %s/: %v", sub, err),
-						"check file permissions on the endpoint directory")
+							"check file permissions on the endpoint directory")
 						epHealth.OK = false
 					} else {
 						report.AddFixed(epLabel, fmt.Sprintf("Created missing %s/ directory", sub))
@@ -80,17 +80,17 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 						continue // SKILL.md does not exist; skip
 					}
 					report.AddWarnWithHint(epLabel, fmt.Sprintf("Failed to read %s SKILL.md: %v", skillName, err),
-					"check file permissions on the skills directory")
+						"check file permissions on the skills directory")
 					continue
 				}
 				if _, err := ParseSkillFrontmatter(data); err != nil {
 					report.AddWarnWithHint(epLabel, fmt.Sprintf("%s SKILL.md parse error: %v", skillName, err),
-					"fix YAML frontmatter in SKILL.md")
+						"fix YAML frontmatter in SKILL.md")
 				}
 				// Run skills-ref spec compliance check (best-effort)
 				if problems, err := ValidateSkillDir(skillDir); err != nil {
 					report.AddWarnWithHint(epLabel, fmt.Sprintf("skills-ref validate %s: %v", skillName, err),
-					"see Agent Skills spec for compliance requirements")
+						"see Agent Skills spec for compliance requirements")
 				} else if len(problems) > 0 {
 					for _, p := range problems {
 						report.AddWarnWithHint(epLabel, fmt.Sprintf("skills-ref: %s", p),
