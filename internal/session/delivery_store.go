@@ -139,6 +139,7 @@ type unflushedItem struct {
 //  3. Short write transaction per item to update status
 func (s *SQLiteDeliveryStore) FlushDeliveries(ctx context.Context) (results []domain.DeliveryFlushed, flushErr error) {
 	ctx, span := platform.Tracer.Start(ctx, "outbox.flush.deliveries")
+	retryCount := 0
 	defer func() {
 		if flushErr != nil {
 			span.RecordError(flushErr)
@@ -146,6 +147,7 @@ func (s *SQLiteDeliveryStore) FlushDeliveries(ctx context.Context) (results []do
 		} else {
 			span.SetAttributes(attribute.Int("flush.success.count", len(results)))
 		}
+		span.SetAttributes(attribute.Int("flush.retry.count", retryCount))
 		span.End()
 	}()
 	span.SetAttributes(attribute.String("db.operation", "flush"))
@@ -166,6 +168,7 @@ func (s *SQLiteDeliveryStore) FlushDeliveries(ctx context.Context) (results []do
 
 		// Phase 3: Update status (short transaction per item)
 		if writeErr != nil {
+			retryCount++
 			if err := s.incrementRetryCount(item.dmailPath, item.target); err != nil {
 				return flushed, fmt.Errorf("delivery store: increment retry: %w", err)
 			}
