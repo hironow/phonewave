@@ -183,6 +183,24 @@ phonewave sync
 | `--retry-interval` | `-r` | `60s` | Error queue retry interval (0 to disable) |
 | `--max-retries` | `-m` | `10` | Maximum retry attempts per failed D-Mail |
 
+### `init` command
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--force` | | `false` | Overwrite existing configuration |
+| `--otel-backend` | | `""` | OTel backend: `jaeger` or `weave` |
+| `--otel-entity` | | `""` | Weave entity/team (required for weave) |
+| `--otel-project` | | `""` | Weave project (required for weave) |
+
+### `archive-prune` command
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--days` | `-d` | `30` | Prune files older than N days |
+| `--execute` | `-x` | `false` | Execute pruning (default: dry-run) |
+| `--dry-run` | `-n` | `false` | Explicit dry-run (default behavior) |
+| `--yes` | `-y` | `false` | Skip confirmation prompt |
+
 ### `version` command
 
 | Flag | Short | Default | Description |
