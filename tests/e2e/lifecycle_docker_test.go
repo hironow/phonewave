@@ -100,14 +100,28 @@ func heredocWrite(t *testing.T, ctx context.Context, c testcontainers.Container,
 // buildTestContainer creates and starts a phonewave test container.
 func buildTestContainer(t *testing.T, ctx context.Context) testcontainers.Container {
 	t.Helper()
-	req := testcontainers.ContainerRequest{
-		FromDockerfile: testcontainers.FromDockerfile{
-			Context:    "../..",
-			Dockerfile: "tests/e2e/testdata/Dockerfile.test",
-		},
-		WaitingFor: wait.ForExec([]string{"phonewave", "--version"}).
-			WithStartupTimeout(120 * time.Second),
+
+	var req testcontainers.ContainerRequest
+	if sharedImage != "" {
+		// Reuse the image built once by TestMain — no rebuild.
+		req = testcontainers.ContainerRequest{
+			Image: sharedImage,
+			Cmd:   []string{"sleep", "infinity"},
+			WaitingFor: wait.ForExec([]string{"phonewave", "--version"}).
+				WithStartupTimeout(30 * time.Second),
+		}
+	} else {
+		// Fallback for direct invocation without TestMain.
+		req = testcontainers.ContainerRequest{
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    repoRoot(),
+				Dockerfile: "tests/e2e/testdata/Dockerfile.test",
+			},
+			WaitingFor: wait.ForExec([]string{"phonewave", "--version"}).
+				WithStartupTimeout(120 * time.Second),
+		}
 	}
+
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
@@ -269,27 +283,7 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 	// =====================================================================
 	// Phase 1: Build and start container
 	// =====================================================================
-	req := testcontainers.ContainerRequest{
-		FromDockerfile: testcontainers.FromDockerfile{
-			Context:    "../..",
-			Dockerfile: "tests/e2e/testdata/Dockerfile.test",
-		},
-		WaitingFor: wait.ForExec([]string{"phonewave", "--version"}).
-			WithStartupTimeout(120 * time.Second),
-	}
-
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	if err != nil {
-		t.Fatalf("start container: %v", err)
-	}
-	defer func() {
-		if err := container.Terminate(ctx); err != nil {
-			t.Errorf("terminate container: %v", err)
-		}
-	}()
+	container := buildTestContainer(t, ctx)
 
 	// Verify phonewave binary works
 	versionOutput := execInContainer(t, ctx, container, []string{"phonewave", "--version"})
