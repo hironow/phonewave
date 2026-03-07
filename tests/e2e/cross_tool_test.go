@@ -57,6 +57,9 @@ func TestCrossTool_AllBinariesExist(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Docker test in short mode")
 	}
+	if os.Getenv("CROSS_TOOL_E2E") == "" {
+		t.Skip("skipping cross-tool test: set CROSS_TOOL_E2E=1 (requires all 4 tool repos)")
+	}
 	ctx := context.Background()
 	c := buildCrossToolContainer(t, ctx)
 
@@ -71,6 +74,9 @@ func TestCrossTool_AllBinariesExist(t *testing.T) {
 func TestCrossTool_RouteAllKinds(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Docker test in short mode")
+	}
+	if os.Getenv("CROSS_TOOL_E2E") == "" {
+		t.Skip("skipping cross-tool test: set CROSS_TOOL_E2E=1")
 	}
 	ctx := context.Background()
 	c := buildCrossToolContainer(t, ctx)
@@ -148,6 +154,9 @@ func TestCrossTool_Idempotency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Docker test in short mode")
 	}
+	if os.Getenv("CROSS_TOOL_E2E") == "" {
+		t.Skip("skipping cross-tool test: set CROSS_TOOL_E2E=1")
+	}
 	ctx := context.Background()
 	c := buildCrossToolContainer(t, ctx)
 	repoPath := "/workspace/repo"
@@ -182,6 +191,9 @@ func TestCrossTool_Idempotency(t *testing.T) {
 func TestCrossTool_DeliveryLog(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Docker test in short mode")
+	}
+	if os.Getenv("CROSS_TOOL_E2E") == "" {
+		t.Skip("skipping cross-tool test: set CROSS_TOOL_E2E=1")
 	}
 	ctx := context.Background()
 	c := buildCrossToolContainer(t, ctx)

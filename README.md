@@ -1,6 +1,6 @@
 # Phonewave
 
-**A file-based message courier daemon that routes D-Mails between AI agent tool repositories.**
+**A D-Mail courier daemon that watches outboxes, routes messages to matching inboxes, and retries failed deliveries across tool repositories.**
 
 Phonewave watches outbox directories via fsnotify, reads YAML frontmatter to determine the `kind` of each D-Mail, routes it to the correct inbox(es) based on an auto-derived routing table, and removes the source file after successful delivery. Failed deliveries are saved to an error queue with automatic retry.
 
@@ -104,6 +104,20 @@ Repository A                   Repository B
           +----------------------+
 ```
 
+## Scope
+
+**What Phonewave does:**
+- Watch outbox directories and route D-Mails by `kind` to matching inboxes
+- Derive routing tables from SKILL.md manifests automatically
+- Retry failed deliveries with exponential backoff (at-least-once delivery)
+- Track all deliveries in an append-only log
+
+**What Phonewave does NOT do:**
+- Transform or inspect message content (routes as-is)
+- Execute tools or manage tool lifecycles
+- Guarantee exactly-once delivery (uses at-least-once + idempotent receivers)
+- Store configuration in databases (uses `phonewave.yaml` only)
+
 ## Subcommands
 
 | Command | Description |
@@ -169,6 +183,24 @@ phonewave sync
 | `--retry-interval` | `-r` | `60s` | Error queue retry interval (0 to disable) |
 | `--max-retries` | `-m` | `10` | Maximum retry attempts per failed D-Mail |
 
+### `init` command
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--force` | | `false` | Overwrite existing configuration |
+| `--otel-backend` | | `""` | OTel backend: `jaeger` or `weave` |
+| `--otel-entity` | | `""` | Weave entity/team (required for weave) |
+| `--otel-project` | | `""` | Weave project (required for weave) |
+
+### `archive-prune` command
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--days` | `-d` | `30` | Prune files older than N days |
+| `--execute` | `-x` | `false` | Execute pruning (default: dry-run) |
+| `--dry-run` | `-n` | `false` | Explicit dry-run (default behavior) |
+| `--yes` | `-y` | `false` | Skip confirmation prompt |
+
 ### `version` command
 
 | Flag | Short | Default | Description |
@@ -229,79 +261,7 @@ phonewave run -v
 
 ## Development
 
-```bash
-# Task runner (just)
-just build          # Build binary
-just install        # Build and install to /usr/local/bin
-just test           # Run all tests
-just test-v         # Verbose test output
-just test-race      # Tests with race detector
-just cover          # Coverage report
-just cover-html     # Open coverage in browser
-just fmt            # Format code (gofmt)
-just vet            # Run go vet
-just semgrep        # Run semgrep rules (.semgrep/)
-just lint           # fmt check + vet + markdown lint
-just lint-md        # Lint markdown files only
-just check          # fmt + vet + test (pre-commit check)
-just clean          # Clean build artifacts
-just test-e2e       # Docker E2E tests (build + run)
-just test-e2e-shell # Interactive shell in E2E container
-just test-e2e-down  # Clean up E2E containers
-just test-cross-e2e # Cross-tool E2E tests (requires Docker)
-just test-all       # All tests (unit + E2E)
-just test-scenario-min  # L1 scenario test (minimal closed loop)
-just test-scenario      # L1+L2 scenario tests (CI default)
-just test-scenario-all  # All scenario tests (L1-L4)
-just jaeger         # Start Jaeger trace viewer
-just jaeger-down    # Stop Jaeger
-just validate-skills <path> # Validate SKILL.md against Agent Skills spec
-just docgen         # Generate CLI docs (Markdown)
-just prek-install   # Install prek hooks
-just prek-run       # Run all prek hooks
-```
-
-## File Structure
-
-```
-+-- cmd/phonewave/
-|   +-- main.go                CLI entry point (signal handling, tracer init)
-|   +-- main_test.go           CLI arg parsing + flag tests
-+-- internal/cmd/
-|   +-- root.go                Root cobra command + global flags
-|   +-- run.go                 run subcommand + daemon startup
-|   +-- init.go                init subcommand
-|   +-- add.go                 add subcommand
-|   +-- remove.go              remove subcommand
-|   +-- sync.go                sync subcommand
-|   +-- doctor.go              doctor subcommand
-|   +-- status.go              status subcommand
-|   +-- version.go             version subcommand (text/JSON output)
-|   +-- update.go              update subcommand (self-update via GitHub)
-|   +-- helpers.go             Shared CLI helpers (config path resolution)
-+-- doc.go                      Package declaration (root-zero: all code in internal/)
-+-- internal/usecase/           Use case layer (PolicyEngine + handlers)
-+-- internal/session/           I/O orchestration layer
-|   +-- init.go                Init/Add/Remove/Sync orchestration
-|   +-- scanner.go             SKILL.md parser + endpoint discovery
-|   +-- router.go              Route derivation engine
-|   +-- status.go              Daemon status + 24h statistics
-|   +-- doctor.go              Ecosystem health checker
-|   +-- validate.go            skills-ref validation
-+-- internal/eventsource/       Event persistence adapter (JSONL append-only, AWS Event Sourcing pattern)
-+-- internal/domain/            Pure domain functions
-+-- internal/tools/docgen/      CLI doc generator
-+-- tests/scenario/             Scenario tests (L1-L4, //go:build scenario)
-+-- tests/e2e/                  Docker E2E tests (//go:build e2e)
-+-- .semgrep/                   Semgrep rules (layer enforcement)
-+-- .goreleaser.yaml            GoReleaser config (cross-platform)
-+-- .github/workflows/          CI (test, vet, lint) + Release
-+-- docker/                     Jaeger v2 for trace viewing
-+-- skills-ref/                 Agent Skills reference validator (submodule)
-+-- docs/
-|   +-- adr/                   Architecture Decision Records
-|   +-- cli/                   Auto-generated CLI reference
-```
+All code lives in `internal/` (Go convention). See [docs/conformance.md](docs/conformance.md) for layer architecture and directory responsibilities. Run `just --list` for available tasks.
 
 ## What / Why / How
 

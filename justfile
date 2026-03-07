@@ -11,6 +11,9 @@ MARKDOWNLINT := "bunx markdownlint-cli2"
 
 # Version from git tags
 VERSION := `git describe --tags --always --dirty 2>/dev/null || echo "dev"`
+COMMIT := `git rev-parse --short HEAD 2>/dev/null || echo "none"`
+DATE := `date -u +%Y-%m-%dT%H:%M:%SZ`
+LDFLAGS := "-s -w -X github.com/hironow/" + TOOL + "/internal/cmd.Version=" + VERSION + " -X github.com/hironow/" + TOOL + "/internal/cmd.Commit=" + COMMIT + " -X github.com/hironow/" + TOOL + "/internal/cmd.Date=" + DATE
 
 # Default: show help
 default: help
@@ -36,11 +39,12 @@ lint-md:
 
 # Build the binary with version info
 build:
-    go build -ldflags "-s -w -X github.com/hironow/{{TOOL}}/internal/cmd.Version={{VERSION}}" -o {{TOOL}} ./cmd/{{TOOL}}/
+    @mkdir -p dist
+    go build -ldflags "{{LDFLAGS}}" -o dist/{{TOOL}} ./cmd/{{TOOL}}/
 
 # Build and install to /usr/local/bin
 install: build
-    mv {{TOOL}} /usr/local/bin/
+    mv dist/{{TOOL}} /usr/local/bin/
 
 # Run all tests
 test:
@@ -107,6 +111,7 @@ root-guard:
         ls *.go | grep -v '^doc\.go$' >&2; \
         exit 1; \
     fi
+    @bash scripts/check-root-layout.sh
 
 # Lint (fmt check + vet + markdown lint)
 lint: vet semgrep root-guard nosemgrep-audit lint-md
@@ -239,6 +244,7 @@ docs-check:
     @! grep -rn 'internal/port[^/]' docs/ internal/domain/doc.go 2>/dev/null || (echo "ERROR: stale internal/port references found" && exit 1)
     @! grep -n 'usecase は session' .semgrep/layers.yaml 2>/dev/null || (echo "ERROR: stale usecase->session allowance in semgrep" && exit 1)
     @! grep -rin 'eventsource.*廃止\|eventsource.*吸収\|eventsource.*session.*移' docs/ 2>/dev/null || (echo "ERROR: stale eventsource terminology — eventsource is retained per todo 73" && exit 1)
+    @bash scripts/check_adr_refs.sh
     @echo "docs-check passed"
 
 # Audit white-box-reason comments on same-package test files
@@ -259,6 +265,5 @@ test-package-rationale-audit:
 
 # Clean build artifacts
 clean:
-    rm -f {{TOOL}} coverage.out
-    rm -rf dist/
+    rm -rf dist/ coverage.out
     go clean
