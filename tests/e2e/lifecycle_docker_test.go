@@ -102,8 +102,8 @@ func buildTestContainer(t *testing.T, ctx context.Context) testcontainers.Contai
 	t.Helper()
 	req := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
-			Context:    ".",
-			Dockerfile: "testdata/Dockerfile.test",
+			Context:    "../..",
+			Dockerfile: "tests/e2e/testdata/Dockerfile.test",
 		},
 		WaitingFor: wait.ForExec([]string{"phonewave", "--version"}).
 			WithStartupTimeout(120 * time.Second),
@@ -271,8 +271,8 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 	// =====================================================================
 	req := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
-			Context:    ".",
-			Dockerfile: "testdata/Dockerfile.test",
+			Context:    "../..",
+			Dockerfile: "tests/e2e/testdata/Dockerfile.test",
 		},
 		WaitingFor: wait.ForExec([]string{"phonewave", "--version"}).
 			WithStartupTimeout(120 * time.Second),

@@ -44,7 +44,7 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 		},
 		Files: []testcontainers.ContainerFile{
 			{
-				HostFilePath:      "docker/jaeger-v2-config.yaml",
+				HostFilePath:      "../../docker/jaeger-v2-config.yaml",
 				ContainerFilePath: "/etc/jaeger/config.yaml",
 				FileMode:          0644,
 			},
@@ -75,8 +75,8 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 	// Start phonewave container on same network
 	phonewaveReq := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
-			Context:    ".",
-			Dockerfile: "testdata/Dockerfile.test",
+			Context:    "../..",
+			Dockerfile: "tests/e2e/testdata/Dockerfile.test",
 		},
 		Env: map[string]string{
 			"OTEL_EXPORTER_OTLP_ENDPOINT": "http://jaeger:4318",
