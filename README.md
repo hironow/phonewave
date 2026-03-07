@@ -104,6 +104,20 @@ Repository A                   Repository B
           +----------------------+
 ```
 
+## Scope
+
+**What Phonewave does:**
+- Watch outbox directories and route D-Mails by `kind` to matching inboxes
+- Derive routing tables from SKILL.md manifests automatically
+- Retry failed deliveries with exponential backoff (at-least-once delivery)
+- Track all deliveries in an append-only log
+
+**What Phonewave does NOT do:**
+- Transform or inspect message content (routes as-is)
+- Execute tools or manage tool lifecycles
+- Guarantee exactly-once delivery (uses at-least-once + idempotent receivers)
+- Store configuration in databases (uses `phonewave.yaml` only)
+
 ## Subcommands
 
 | Command | Description |
@@ -230,78 +244,33 @@ phonewave run -v
 ## Development
 
 ```bash
-# Task runner (just)
-just build          # Build binary
+just --list         # Show all available tasks
+just check          # Pre-commit: fmt + vet + test
 just install        # Build and install to /usr/local/bin
-just test           # Run all tests
-just test-v         # Verbose test output
-just test-race      # Tests with race detector
-just cover          # Coverage report
-just cover-html     # Open coverage in browser
-just fmt            # Format code (gofmt)
-just vet            # Run go vet
-just semgrep        # Run semgrep rules (.semgrep/)
-just lint           # fmt check + vet + markdown lint
-just lint-md        # Lint markdown files only
-just check          # fmt + vet + test (pre-commit check)
-just clean          # Clean build artifacts
-just test-e2e       # Docker E2E tests (build + run)
-just test-e2e-shell # Interactive shell in E2E container
-just test-e2e-down  # Clean up E2E containers
-just test-cross-e2e # Cross-tool E2E tests (requires Docker)
-just test-all       # All tests (unit + E2E)
-just test-scenario-min  # L1 scenario test (minimal closed loop)
-just test-scenario      # L1+L2 scenario tests (CI default)
-just test-scenario-all  # All scenario tests (L1-L4)
+just semgrep        # Run layer enforcement rules
+just test-e2e       # Docker E2E tests
 just jaeger         # Start Jaeger trace viewer
-just jaeger-down    # Stop Jaeger
-just validate-skills <path> # Validate SKILL.md against Agent Skills spec
-just docgen         # Generate CLI docs (Markdown)
-just prek-install   # Install prek hooks
-just prek-run       # Run all prek hooks
 ```
 
-## File Structure
+See `justfile` for the full task list.
+
+## Project Layout
 
 ```
-+-- cmd/phonewave/
-|   +-- main.go                CLI entry point (signal handling, tracer init)
-|   +-- main_test.go           CLI arg parsing + flag tests
-+-- internal/cmd/
-|   +-- root.go                Root cobra command + global flags
-|   +-- run.go                 run subcommand + daemon startup
-|   +-- init.go                init subcommand
-|   +-- add.go                 add subcommand
-|   +-- remove.go              remove subcommand
-|   +-- sync.go                sync subcommand
-|   +-- doctor.go              doctor subcommand
-|   +-- status.go              status subcommand
-|   +-- version.go             version subcommand (text/JSON output)
-|   +-- update.go              update subcommand (self-update via GitHub)
-|   +-- helpers.go             Shared CLI helpers (config path resolution)
-+-- doc.go                      Package declaration (root-zero: all code in internal/)
-+-- internal/usecase/           Use case layer (PolicyEngine + handlers)
-+-- internal/session/           I/O orchestration layer
-|   +-- init.go                Init/Add/Remove/Sync orchestration
-|   +-- scanner.go             SKILL.md parser + endpoint discovery
-|   +-- router.go              Route derivation engine
-|   +-- status.go              Daemon status + 24h statistics
-|   +-- doctor.go              Ecosystem health checker
-|   +-- validate.go            skills-ref validation
-+-- internal/eventsource/       Event persistence adapter (JSONL append-only, AWS Event Sourcing pattern)
-+-- internal/domain/            Pure domain functions
-+-- internal/tools/docgen/      CLI doc generator
-+-- tests/scenario/             Scenario tests (L1-L4, //go:build scenario)
-+-- tests/e2e/                  Docker E2E tests (//go:build e2e)
-+-- .semgrep/                   Semgrep rules (layer enforcement)
-+-- .goreleaser.yaml            GoReleaser config (cross-platform)
-+-- .github/workflows/          CI (test, vet, lint) + Release
-+-- docker/                     Jaeger v2 for trace viewing
-+-- skills-ref/                 Agent Skills reference validator (submodule)
-+-- docs/
-|   +-- adr/                   Architecture Decision Records
-|   +-- cli/                   Auto-generated CLI reference
+cmd/phonewave/          CLI entry point
+internal/
+  cmd/                  Cobra commands (init, run, doctor, status, etc.)
+  usecase/              Business logic (PolicyEngine + handlers)
+  session/              I/O orchestration (scanner, router, delivery)
+  eventsource/          Event persistence (JSONL append-only)
+  domain/               Pure domain types
+  platform/             Platform adapters (OTel, logger)
+docs/                   Documentation, ADRs, CLI reference
+tests/                  Scenario (L1-L4) and Docker E2E tests
+.semgrep/               Layer enforcement rules
 ```
+
+For detailed structure, see [docs/conformance.md](docs/conformance.md).
 
 ## What / Why / How
 
