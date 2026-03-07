@@ -64,10 +64,12 @@ brews:
       owner: hironow
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
     homepage: "https://github.com/hironow/phonewave"
     description: "D-Mail courier daemon"
     license: "Apache-2.0"
     install: |
       bin.install "phonewave"
+      generate_completions_from_executable(bin/"phonewave", "completion")
     test: |
       system "#{bin}/phonewave", "version"
