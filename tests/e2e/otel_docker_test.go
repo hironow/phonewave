@@ -146,7 +146,7 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 
 	// Poll Jaeger API with retries
 	var traceFound bool
-	deadline := time.After(15 * time.Second)
+	deadline := time.After(30 * time.Second)
 	client := &http.Client{Timeout: 5 * time.Second}
 	for !traceFound {
 		select {
