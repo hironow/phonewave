@@ -1,6 +1,13 @@
 ## phonewave version
 
-Print build version information
+Print version, commit, and build information
+
+### Synopsis
+
+Print version, commit hash, build date, Go version, and OS/arch.
+
+By default outputs a human-readable single line. Use --json
+for structured output suitable for scripts and CI.
 
 ```
 phonewave version [flags]

@@ -31,5 +31,5 @@ phonewave [flags]
 * [phonewave status](phonewave_status.md)	 - Show daemon and delivery status
 * [phonewave sync](phonewave_sync.md)	 - Re-scan all repositories, reconcile routing table
 * [phonewave update](phonewave_update.md)	 - Update phonewave to the latest version
-* [phonewave version](phonewave_version.md)	 - Print build version information
+* [phonewave version](phonewave_version.md)	 - Print version, commit, and build information
 

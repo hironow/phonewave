@@ -11,13 +11,15 @@ import (
 func newVersionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
-		Short: "Print build version information",
-		Args:  cobra.NoArgs,
+		Short: "Print version, commit, and build information",
+		Long: `Print version, commit hash, build date, Go version, and OS/arch.
+
+By default outputs a human-readable single line. Use --json
+for structured output suitable for scripts and CI.`,
+		Args: cobra.NoArgs,
 		Example: `  phonewave version
   phonewave version -j`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			jsonFlag, _ := cmd.Flags().GetBool("json")
-
 			info := map[string]string{
 				"version": Version,
 				"commit":  Commit,
@@ -27,17 +29,15 @@ func newVersionCmd() *cobra.Command {
 				"arch":    runtime.GOARCH,
 			}
 
+			jsonFlag, _ := cmd.Flags().GetBool("json")
 			if jsonFlag {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(info)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "phonewave %s\n", Version)
-			fmt.Fprintf(cmd.OutOrStdout(), "  commit: %s\n", Commit)
-			fmt.Fprintf(cmd.OutOrStdout(), "  built:  %s\n", Date)
-			fmt.Fprintf(cmd.OutOrStdout(), "  go:     %s\n", runtime.Version())
-			fmt.Fprintf(cmd.OutOrStdout(), "  os:     %s/%s\n", runtime.GOOS, runtime.GOARCH)
+			fmt.Fprintf(cmd.OutOrStdout(), "phonewave v%s (commit: %s, date: %s, go: %s)\n",
+				Version, Commit, Date, runtime.Version())
 			return nil
 		},
 	}
