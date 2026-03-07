@@ -246,7 +246,7 @@ func setupEcosystemInContainer(t *testing.T, ctx context.Context, c testcontaine
 
 	tools := []toolDef{
 		{".siren", "specification", "feedback"},
-		{".expedition", "report", "specification\n  - kind: feedback"},
+		{".expedition", "report", "specification\n    - kind: feedback"},
 		{".gate", "feedback", "report"},
 	}
 
