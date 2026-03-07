@@ -11,6 +11,9 @@ MARKDOWNLINT := "bunx markdownlint-cli2"
 
 # Version from git tags
 VERSION := `git describe --tags --always --dirty 2>/dev/null || echo "dev"`
+COMMIT := `git rev-parse --short HEAD 2>/dev/null || echo "none"`
+DATE := `date -u +%Y-%m-%dT%H:%M:%SZ`
+LDFLAGS := "-s -w -X github.com/hironow/" + TOOL + "/internal/cmd.Version=" + VERSION + " -X github.com/hironow/" + TOOL + "/internal/cmd.Commit=" + COMMIT + " -X github.com/hironow/" + TOOL + "/internal/cmd.Date=" + DATE
 
 # Default: show help
 default: help
@@ -37,7 +40,7 @@ lint-md:
 # Build the binary with version info
 build:
     @mkdir -p dist
-    go build -ldflags "-s -w -X github.com/hironow/{{TOOL}}/internal/cmd.Version={{VERSION}}" -o dist/{{TOOL}} ./cmd/{{TOOL}}/
+    go build -ldflags "{{LDFLAGS}}" -o dist/{{TOOL}} ./cmd/{{TOOL}}/
 
 # Build and install to /usr/local/bin
 install: build
