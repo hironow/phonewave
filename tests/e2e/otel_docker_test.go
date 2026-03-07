@@ -130,7 +130,7 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 	waitForFileInContainer(t, ctx, pw, repoPath+"/.expedition/inbox/spec-otel.md", 10*time.Second)
 
 	// Wait for batch processor to flush traces to Jaeger
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	// Query Jaeger API for phonewave traces
 	jaegerHost, err := jaeger.Host(ctx)
@@ -146,7 +146,7 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 
 	// Poll Jaeger API with retries
 	var traceFound bool
-	deadline := time.After(30 * time.Second)
+	deadline := time.After(60 * time.Second)
 	client := &http.Client{Timeout: 5 * time.Second}
 	for !traceFound {
 		select {
