@@ -43,14 +43,23 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	// Get the image name from the container for reuse.
+	// Tag the built image for reuse across tests.
+	// inspect.Image returns a sha256 digest which testcontainers cannot pull
+	// as a local image. We tag it with a human-readable name instead.
 	inspect, err := c.Inspect(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: failed to inspect container: %v\n", err)
 		c.Terminate(ctx)
 		os.Exit(1)
 	}
-	sharedImage = inspect.Image
+	tag := "phonewave-e2e:latest"
+	tagCmd := exec.CommandContext(ctx, "docker", "tag", inspect.Image, tag)
+	if err := tagCmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "TestMain: failed to tag image: %v\n", err)
+		c.Terminate(ctx)
+		os.Exit(1)
+	}
+	sharedImage = tag
 
 	// Terminate the bootstrap container — tests create their own.
 	c.Terminate(ctx)
