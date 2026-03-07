@@ -122,15 +122,21 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 
 	// Start daemon with tracing
 	startDaemonInContainer(t, ctx, pw, "/workspace", "--verbose")
-	defer stopDaemonInContainer(t, ctx, pw, "/workspace")
 
 	// Deliver a D-Mail to generate traces
 	dmailContent := "---\ndmail-schema-version: \"1\"\nname: spec-otel\nkind: specification\ndescription: OTel test\n---\n\n# OTel\n"
 	heredocWrite(t, ctx, pw, repoPath+"/.siren/outbox/spec-otel.md", dmailContent)
 	waitForFileInContainer(t, ctx, pw, repoPath+"/.expedition/inbox/spec-otel.md", 10*time.Second)
 
-	// Wait for batch processor to flush traces to Jaeger
-	time.Sleep(15 * time.Second)
+	// Stop daemon gracefully to flush OTel batch processor.
+	// The daemon receives SIGTERM via kill, but Go's default handler
+	// doesn't run defers. However, we rely on the batch processor's
+	// periodic export (every 5s). Stopping the daemon first ensures
+	// all in-flight deliveries complete before we query Jaeger.
+	stopDaemonInContainer(t, ctx, pw, "/workspace")
+
+	// Wait for batch processor periodic export + Jaeger ingestion
+	time.Sleep(10 * time.Second)
 
 	// Query Jaeger API for phonewave traces
 	jaegerHost, err := jaeger.Host(ctx)
@@ -142,15 +148,43 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 		t.Fatalf("get jaeger port: %v", err)
 	}
 
+	// Diagnostic: list known services in Jaeger
+	client := &http.Client{Timeout: 5 * time.Second}
+	servicesURL := fmt.Sprintf("http://%s:%s/api/services", jaegerHost, jaegerPort.Port())
+	if resp, err := client.Get(servicesURL); err == nil {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Logf("Jaeger services: %s", string(body))
+	}
+
+	// Diagnostic: dump daemon log
+	code, output, _ := pw.Exec(ctx, []string{"cat", "/tmp/phonewave.log"})
+	if code == 0 {
+		logBytes, _ := io.ReadAll(output)
+		t.Logf("Daemon log (last 2000 chars):\n%s", tailBytes(logBytes, 2000))
+	}
+
+	// Diagnostic: test network connectivity from phonewave to jaeger
+	code2, output2, _ := pw.Exec(ctx, []string{"sh", "-c", "wget -q -O- http://jaeger:16686/ 2>&1 | head -c 200 || echo 'CONNECTIVITY FAILED'"})
+	if code2 == 0 {
+		connBytes, _ := io.ReadAll(output2)
+		t.Logf("Connectivity test: %s", string(connBytes))
+	}
+
 	apiURL := fmt.Sprintf("http://%s:%s/api/traces?service=phonewave&limit=10", jaegerHost, jaegerPort.Port())
 
 	// Poll Jaeger API with retries
 	var traceFound bool
-	deadline := time.After(60 * time.Second)
-	client := &http.Client{Timeout: 5 * time.Second}
+	deadline := time.After(30 * time.Second)
 	for !traceFound {
 		select {
 		case <-deadline:
+			// Final diagnostic: dump raw API response
+			if resp, err := client.Get(apiURL); err == nil {
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				t.Logf("Final Jaeger API response: %s", string(body))
+			}
 			t.Fatal("timeout waiting for traces in Jaeger")
 		default:
 			resp, err := client.Get(apiURL)
@@ -179,4 +213,12 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 			}
 		}
 	}
+}
+
+// tailBytes returns the last n bytes of b, or all of b if len(b) <= n.
+func tailBytes(b []byte, n int) []byte {
+	if len(b) <= n {
+		return b
+	}
+	return b[len(b)-n:]
 }
