@@ -63,15 +63,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run E2E tests
-        run: |
-          docker compose -f tests/e2e/compose-e2e.yaml build
-          docker compose -f tests/e2e/compose-e2e.yaml run --rm e2e \
-            go test -tags e2e ./tests/e2e/ -count=1 -v -timeout=600s
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
 
-      - name: Cleanup
-        if: always()
-        run: docker compose -f tests/e2e/compose-e2e.yaml down -v
+      - name: Build phonewave
+        run: go build -o phonewave ./cmd/phonewave/ && sudo install phonewave /usr/local/bin/
+
+      - name: Run E2E tests
+        run: go test -tags e2e ./tests/e2e/ -count=1 -v -timeout=600s
 
   package-audit:
     runs-on: ubuntu-latest
