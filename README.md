@@ -1,6 +1,6 @@
 # Phonewave
 
-**A file-based message courier daemon that routes D-Mails between AI agent tool repositories.**
+**A D-Mail courier daemon that watches outboxes, routes messages to matching inboxes, and retries failed deliveries across tool repositories.**
 
 Phonewave watches outbox directories via fsnotify, reads YAML frontmatter to determine the `kind` of each D-Mail, routes it to the correct inbox(es) based on an auto-derived routing table, and removes the source file after successful delivery. Failed deliveries are saved to an error queue with automatic retry.
 
