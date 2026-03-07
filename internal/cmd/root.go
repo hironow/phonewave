@@ -12,11 +12,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Build info variables, set via ldflags.
+// Version, Commit, and Date are set at build time via -ldflags.
 var (
 	Version = "dev"
-	Commit  = "none"
-	Date    = "unknown"
+	Commit  = "dev"
+	Date    = "dev"
 )
 
 // shutdownTracer holds the OTel tracer shutdown function registered by
