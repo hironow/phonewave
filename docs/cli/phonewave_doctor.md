@@ -4,7 +4,7 @@ Verify ecosystem health
 
 ### Synopsis
 
-Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, and daemon status.
+Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, daemon status, git-remote availability, resolved.yaml existence, and Docker credential hints.
 
 ```
 phonewave doctor [flags]

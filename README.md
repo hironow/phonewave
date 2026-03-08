@@ -48,14 +48,16 @@ Each tool declares its D-Mail capabilities in `SKILL.md` manifests:
 - `skills/dmail-sendable/SKILL.md` — declares what `kind`s the tool produces (writes to `outbox/`)
 - `skills/dmail-readable/SKILL.md` — declares what `kind`s the tool consumes (reads from `inbox/`)
 
-D-Mail Schema v1 defines four message kinds:
+D-Mail Schema v1 defines the following message kinds:
 
 | Kind | Flow | Description |
 |------|------|-------------|
 | `specification` | sightjack → paintress | Issue specification ready for implementation |
 | `report` | paintress → amadeus | Implementation report for verification |
-| `feedback` | amadeus → sightjack, paintress | Corrective feedback from verifier |
+| `design-feedback` | amadeus → sightjack | Design-level corrective feedback from verifier |
+| `implementation-feedback` | amadeus → paintress | Implementation-level corrective feedback from verifier |
 | `convergence` | amadeus → sightjack | World line convergence alert |
+| `ci-result` | CI → amadeus | CI/CD pipeline result notification |
 
 SKILL.md uses Agent Skills v1 format with D-Mail declarations nested under `metadata`:
 
@@ -93,7 +95,8 @@ Repository A                   Repository B
           |       |              |
           |  Route derivation    |
           |       |              |
-          |  phonewave.yaml      |
+          |  phonewave.yaml      |  (manifest)
+          |  resolved.yaml       |  (runtime state)
           |       |              |
           |  fsnotify daemon     |
           |       |              |
@@ -116,7 +119,7 @@ Repository A                   Repository B
 - Transform or inspect message content (routes as-is)
 - Execute tools or manage tool lifecycles
 - Guarantee exactly-once delivery (uses at-least-once + idempotent receivers)
-- Store configuration in databases (uses `phonewave.yaml` only)
+- Store configuration in databases (uses `phonewave.yaml` manifest + `resolved.yaml` runtime state)
 
 ## Subcommands
 
@@ -126,7 +129,7 @@ Repository A                   Repository B
 | `phonewave add <repo>` | Add a new repository to the ecosystem |
 | `phonewave remove <repo>` | Remove a repository from the ecosystem |
 | `phonewave sync` | Re-scan all repositories, reconcile routing table |
-| `phonewave doctor` | Verify ecosystem health (paths, endpoints, SKILL.md spec compliance, PID conflicts) |
+| `phonewave doctor` | Verify ecosystem health (paths, endpoints, SKILL.md spec compliance, PID conflicts, git-remote, resolved.yaml) |
 | `phonewave run` | Start the courier daemon (foreground) |
 | `phonewave status` | Show daemon state, uptime, and 24h delivery statistics |
 | `phonewave clean` | Remove runtime state from `.phonewave/` |
@@ -172,8 +175,9 @@ phonewave sync
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--verbose` | `-v` | `false` | Log all delivery events to stderr |
-| `--config` | `-c` | `./phonewave.yaml` | Path to phonewave config file |
+| `--config` | `-c` | `./phonewave.yaml` | Path to phonewave manifest config file |
 | `--output` | `-o` | `text` | Output format: `text` or `json` |
+| `--no-color` | | `false` | Disable color output (also respects `NO_COLOR` env var) |
 
 ### `run` command
 
@@ -271,7 +275,7 @@ See [docs/conformance.md](docs/conformance.md) for the full conformance table (s
 
 - [docs/](docs/README.md) — Full documentation index
 - [docs/conformance.md](docs/conformance.md) — What/Why/How conformance table
-- [docs/phonewave-directory.md](docs/phonewave-directory.md) — `.phonewave/` directory structure
+- [docs/phonewave-directory.md](docs/phonewave-directory.md) — `.phonewave/` directory structure (manifest + resolved state)
 - [docs/policies.md](docs/policies.md) — Event → Policy mapping
 - [docs/otel-backends.md](docs/otel-backends.md) — OTel backend configuration
 - [docs/adr/](docs/adr/README.md) — Architecture Decision Records
