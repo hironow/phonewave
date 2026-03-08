@@ -218,12 +218,12 @@ func TestCLI_Doctor_Healthy(t *testing.T) {
 	setupEcosystemOnHost(t, repoPath)
 	runPhonewave(t, workDir, "init", repoPath)
 
-	stdout, _, err := runPhonewave(t, workDir, "doctor")
+	stdout, stderr, err := runPhonewave(t, workDir, "doctor")
 	if err != nil {
 		t.Fatalf("doctor failed: %v", err)
 	}
 
-	combined := stdout
+	combined := stdout + stderr
 	if !strings.Contains(strings.ToLower(combined), "healthy") {
 		t.Errorf("doctor output does not indicate healthy: %s", combined)
 	}

@@ -167,8 +167,16 @@ func countFilesInContainer(t *testing.T, ctx context.Context, c testcontainers.C
 func countErrorQueueEntries(t *testing.T, ctx context.Context, c testcontainers.Container, stateDir string) int {
 	t.Helper()
 	dbPath := stateDir + "/.run/error_queue.db"
-	cmd := fmt.Sprintf("sqlite3 '%s' 'SELECT COUNT(*) FROM error_queue WHERE resolved = 0' 2>/dev/null || echo 0", dbPath)
+
+	// Diagnostic: check if DB file exists
+	existsCode, existsOut := execInContainerNoFail(t, ctx, c, []string{
+		"sh", "-c", fmt.Sprintf("ls -la '%s' 2>&1; echo '---'; ls -la '%s/.run/' 2>&1", dbPath, stateDir),
+	})
+	t.Logf("error_queue.db check (code=%d): %s", existsCode, existsOut)
+
+	cmd := fmt.Sprintf("sqlite3 '%s' 'SELECT COUNT(*) FROM error_queue WHERE resolved = 0' 2>&1", dbPath)
 	code, output := execInContainerNoFail(t, ctx, c, []string{"sh", "-c", cmd})
+	t.Logf("error_queue query (code=%d): %s", code, strings.TrimSpace(output))
 	if code != 0 {
 		return 0
 	}
