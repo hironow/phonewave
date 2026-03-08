@@ -68,17 +68,17 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 	// Start daemon
 	startDaemonInContainer(t, ctx, c, "/workspace", "--verbose --retry-interval 2s")
 
-	// Write D-Mail with unknown kind (no route)
-	unknownContent := "---\nname: mystery-msg\nkind: mystery\ndescription: Unknown kind\n---\n\n# Mystery\n"
-	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/mystery-msg.md", unknownContent)
+	// Write D-Mail with a valid kind that has no consumer route configured
+	noRouteContent := "---\ndmail-schema-version: \"1\"\nname: mystery-msg\nkind: ci-result\ndescription: No route for this kind\n---\n\n# No Route\n"
+	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/mystery-msg.md", noRouteContent)
 
 	// Wait for source file to be removed from outbox (moved to error queue)
 	waitForFileAbsentInContainer(t, ctx, c, repoPath+"/.siren/outbox/mystery-msg.md", 10*time.Second)
 
-	// Verify error queue has entries
-	errCount := countFilesInContainer(t, ctx, c, "/workspace/.phonewave/errors", ".err")
+	// Verify error queue has entries (SQLite-based)
+	errCount := countErrorQueueEntries(t, ctx, c, "/workspace/.phonewave")
 	if errCount == 0 {
-		t.Error("error queue should have .err sidecar files")
+		t.Error("error queue should have pending entries")
 	}
 
 	// Verify delivery log has FAILED
@@ -87,11 +87,11 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 	// Stop daemon
 	stopDaemonInContainer(t, ctx, c, "/workspace")
 
-	// Now add a consumer for "mystery" kind and re-sync
-	mysteryConsumerDir := repoPath + "/.expedition/skills/dmail-readable-mystery"
-	execInContainer(t, ctx, c, []string{"mkdir", "-p", mysteryConsumerDir})
-	heredocWrite(t, ctx, c, mysteryConsumerDir+"/SKILL.md",
-		"---\nname: dmail-readable-mystery\nconsumes:\n  - kind: mystery\n---\n")
+	// Now add a consumer for "ci-result" kind and re-sync
+	ciResultConsumerDir := repoPath + "/.expedition/skills/dmail-readable-ciresult"
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", ciResultConsumerDir})
+	heredocWrite(t, ctx, c, ciResultConsumerDir+"/SKILL.md",
+		"---\nname: dmail-readable-ciresult\ndescription: Consumes ci-result\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: ci-result\n---\n")
 
 	execInContainer(t, ctx, c, []string{
 		"sh", "-c", "cd /workspace && phonewave sync",
@@ -109,7 +109,7 @@ retryLoop:
 		case <-deadline:
 			t.Fatal("timeout waiting for error queue to clear after retry")
 		default:
-			count := countFilesInContainer(t, ctx, c, "/workspace/.phonewave/errors", ".err")
+			count := countErrorQueueEntries(t, ctx, c, "/workspace/.phonewave")
 			if count == 0 {
 				break retryLoop
 			}
@@ -135,20 +135,23 @@ func TestLifecycleDocker_MaxRetriesExceeded(t *testing.T) {
 		"sh", "-c", fmt.Sprintf("cd /workspace && phonewave init %s", repoPath),
 	})
 
-	// Manually seed error queue with attempts=10
-	errorsDir := "/workspace/.phonewave/errors"
-	execInContainer(t, ctx, c, []string{"mkdir", "-p", errorsDir})
+	// Seed error queue via SQLite with retry_count=10
+	runDir := "/workspace/.phonewave/.run"
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", runDir})
 
-	dmailData := "---\ndmail-schema-version: \"1\"\nname: exhausted\nkind: specification\ndescription: Max retries\n---\n\n# Exhausted\n"
-	sidecar := `source_outbox: /workspace/repo/.siren/outbox
-kind: specification
-original_name: exhausted.md
-attempts: 10
-error: "previous failure"
-timestamp: 2025-01-01T00:00:00Z`
+	seedSQL := `CREATE TABLE IF NOT EXISTS error_queue (
+		name TEXT PRIMARY KEY, data BLOB NOT NULL, source_outbox TEXT NOT NULL,
+		kind TEXT NOT NULL, original_name TEXT NOT NULL, error_message TEXT NOT NULL DEFAULT '',
+		retry_count INTEGER NOT NULL DEFAULT 0, resolved INTEGER NOT NULL DEFAULT 0,
+		claimed_by TEXT NOT NULL DEFAULT '', claimed_at TEXT NOT NULL DEFAULT '',
+		created_at TEXT NOT NULL DEFAULT (datetime('now'))
+	);
+	INSERT OR IGNORE INTO error_queue (name, data, source_outbox, kind, original_name, error_message, retry_count)
+	VALUES ('2025-01-01T000000-specification-exhausted', X'2D2D2D0A', '/workspace/repo/.siren/outbox', 'specification', 'exhausted.md', 'previous failure', 10);`
 
-	heredocWrite(t, ctx, c, errorsDir+"/2025-01-01T000000.000000000-specification-exhausted.md", dmailData)
-	heredocWrite(t, ctx, c, errorsDir+"/2025-01-01T000000.000000000-specification-exhausted.md.err", sidecar)
+	execInContainer(t, ctx, c, []string{
+		"sh", "-c", fmt.Sprintf("sqlite3 '%s/error_queue.db' \"%s\"", runDir, seedSQL),
+	})
 
 	// Start daemon with max-retries=10 and short retry interval
 	startDaemonInContainer(t, ctx, c, "/workspace", "--verbose --retry-interval 2s --max-retries 10")
@@ -158,7 +161,7 @@ timestamp: 2025-01-01T00:00:00Z`
 	time.Sleep(5 * time.Second)
 
 	// Error queue entry should still be there (not retried because attempts >= maxRetries)
-	errCount := countFilesInContainer(t, ctx, c, errorsDir, ".err")
+	errCount := countErrorQueueEntries(t, ctx, c, "/workspace/.phonewave")
 	if errCount == 0 {
 		t.Error("error queue entry should remain (max retries exceeded)")
 	}
@@ -204,8 +207,8 @@ func TestLifecycleDocker_PartialDeliveryRollback(t *testing.T) {
 		t.Log("file still in outbox — error queue save may have also failed")
 	}
 
-	// Error queue should have an entry
-	errCount := countFilesInContainer(t, ctx, c, "/workspace/.phonewave/errors", ".err")
+	// Error queue should have an entry (SQLite-based)
+	errCount := countErrorQueueEntries(t, ctx, c, "/workspace/.phonewave")
 	if errCount == 0 {
 		// Could be in outbox or error queue — just verify no partial delivery
 		t.Log("no error queue entry — checking outbox for source")

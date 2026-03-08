@@ -21,6 +21,9 @@ func runPhonewave(t *testing.T, workDir string, args ...string) (string, string,
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
+	if err != nil {
+		t.Logf("phonewave %v failed: err=%v\nstdout: %s\nstderr: %s", args, err, stdout.String(), stderr.String())
+	}
 	return stdout.String(), stderr.String(), err
 }
 
@@ -73,8 +76,8 @@ func setupSecondRepoOnHost(t *testing.T, repoPath string) {
 	tools := []struct {
 		dir, produces, consumes string
 	}{
-		{".beacon", "alert", ""},
-		{".monitor", "", "alert"},
+		{".beacon", "convergence", ""},
+		{".monitor", "", "convergence"},
 	}
 	for _, tool := range tools {
 		for _, sub := range []string{"outbox", "inbox"} {
@@ -194,7 +197,7 @@ func TestCLI_Sync(t *testing.T) {
 	skillDir := filepath.Join(oracleDir, "skills", "dmail-sendable")
 	os.MkdirAll(skillDir, 0o755)
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
-		[]byte("---\nname: dmail-sendable\nproduces:\n  - kind: prophecy\n---\n"), 0o644)
+		[]byte("---\nname: dmail-sendable\ndescription: Oracle predictions\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: ci-result\n---\n"), 0o644)
 
 	_, _, err := runPhonewave(t, workDir, "sync")
 	if err != nil {
