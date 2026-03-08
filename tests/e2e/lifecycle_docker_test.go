@@ -163,6 +163,7 @@ func countFilesInContainer(t *testing.T, ctx context.Context, c testcontainers.C
 	return n
 }
 
+
 // waitForStringInFile polls until a file in the container contains a substring.
 func waitForStringInFile(t *testing.T, ctx context.Context, c testcontainers.Container, path, substr string, timeout time.Duration) {
 	t.Helper()
@@ -203,15 +204,15 @@ func stopDaemonInContainer(t *testing.T, ctx context.Context, c testcontainers.C
 	waitForFileAbsentInContainer(t, ctx, c, pidFile, 10*time.Second)
 }
 
-// setupSecondRepoInContainer creates a second repo with .beacon (produces=alert)
-// and .monitor (consumes=alert) endpoints for multi-repo init testing.
+// setupSecondRepoInContainer creates a second repo with .beacon (produces=convergence)
+// and .monitor (consumes=convergence) endpoints for multi-repo init testing.
 func setupSecondRepoInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, repoPath string) {
 	t.Helper()
 	tools := []struct {
 		dir, produces, consumes string
 	}{
-		{".beacon", "alert", ""},
-		{".monitor", "", "alert"},
+		{".beacon", "convergence", ""},
+		{".monitor", "", "convergence"},
 	}
 	for _, tool := range tools {
 		for _, sub := range []string{"outbox", "inbox"} {

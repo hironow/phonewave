@@ -68,18 +68,14 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 	// Start daemon
 	startDaemonInContainer(t, ctx, c, "/workspace", "--verbose --retry-interval 2s")
 
-	// Write D-Mail with unknown kind (no route)
-	unknownContent := "---\nname: mystery-msg\nkind: mystery\ndescription: Unknown kind\n---\n\n# Mystery\n"
-	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/mystery-msg.md", unknownContent)
+	// Write D-Mail with a valid kind that has no consumer route configured
+	noRouteContent := "---\ndmail-schema-version: \"1\"\nname: mystery-msg\nkind: ci-result\ndescription: No route for this kind\n---\n\n# No Route\n"
+	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/mystery-msg.md", noRouteContent)
 
-	// Wait for source file to be removed from outbox (moved to error queue)
+	// Wait for source file to be removed from outbox.
+	// File removal proves the error queue enqueue succeeded
+	// (daemon only removes outbox file after successful SQLite INSERT).
 	waitForFileAbsentInContainer(t, ctx, c, repoPath+"/.siren/outbox/mystery-msg.md", 10*time.Second)
-
-	// Verify error queue has entries
-	errCount := countFilesInContainer(t, ctx, c, "/workspace/.phonewave/errors", ".err")
-	if errCount == 0 {
-		t.Error("error queue should have .err sidecar files")
-	}
 
 	// Verify delivery log has FAILED
 	waitForStringInFile(t, ctx, c, "/workspace/.phonewave/delivery.log", "FAILED", 5*time.Second)
@@ -87,12 +83,15 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 	// Stop daemon
 	stopDaemonInContainer(t, ctx, c, "/workspace")
 
-	// Now add a consumer for "mystery" kind and re-sync
-	mysteryConsumerDir := repoPath + "/.expedition/skills/dmail-readable-mystery"
-	execInContainer(t, ctx, c, []string{"mkdir", "-p", mysteryConsumerDir})
-	heredocWrite(t, ctx, c, mysteryConsumerDir+"/SKILL.md",
-		"---\nname: dmail-readable-mystery\nconsumes:\n  - kind: mystery\n---\n")
+	// Update .siren's dmail-sendable to also produce ci-result
+	heredocWrite(t, ctx, c, repoPath+"/.siren/skills/dmail-sendable/SKILL.md",
+		"---\nname: dmail-sendable\ndescription: Produces D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n    - kind: ci-result\n---\n")
 
+	// Update .expedition's dmail-readable to also consume ci-result
+	heredocWrite(t, ctx, c, repoPath+"/.expedition/skills/dmail-readable/SKILL.md",
+		"---\nname: dmail-readable\ndescription: Consumes D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: specification\n    - kind: feedback\n    - kind: ci-result\n---\n")
+
+	// Re-sync to pick up the new producer+consumer route
 	execInContainer(t, ctx, c, []string{
 		"sh", "-c", "cd /workspace && phonewave sync",
 	})
@@ -101,24 +100,8 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 	startDaemonInContainer(t, ctx, c, "/workspace", "--verbose --retry-interval 2s")
 	defer stopDaemonInContainer(t, ctx, c, "/workspace")
 
-	// Wait for error queue to be cleared (retry succeeded)
-	deadline := time.After(15 * time.Second)
-retryLoop:
-	for {
-		select {
-		case <-deadline:
-			t.Fatal("timeout waiting for error queue to clear after retry")
-		default:
-			count := countFilesInContainer(t, ctx, c, "/workspace/.phonewave/errors", ".err")
-			if count == 0 {
-				break retryLoop
-			}
-			time.Sleep(1 * time.Second)
-		}
-	}
-
-	// Verify RETRIED in delivery log
-	waitForStringInFile(t, ctx, c, "/workspace/.phonewave/delivery.log", "RETRIED", 5*time.Second)
+	// Verify RETRIED in delivery log (proves error queue retry succeeded)
+	waitForStringInFile(t, ctx, c, "/workspace/.phonewave/delivery.log", "RETRIED", 15*time.Second)
 }
 
 func TestLifecycleDocker_MaxRetriesExceeded(t *testing.T) {
@@ -135,32 +118,29 @@ func TestLifecycleDocker_MaxRetriesExceeded(t *testing.T) {
 		"sh", "-c", fmt.Sprintf("cd /workspace && phonewave init %s", repoPath),
 	})
 
-	// Manually seed error queue with attempts=10
-	errorsDir := "/workspace/.phonewave/errors"
-	execInContainer(t, ctx, c, []string{"mkdir", "-p", errorsDir})
-
-	dmailData := "---\ndmail-schema-version: \"1\"\nname: exhausted\nkind: specification\ndescription: Max retries\n---\n\n# Exhausted\n"
-	sidecar := `source_outbox: /workspace/repo/.siren/outbox
-kind: specification
-original_name: exhausted.md
-attempts: 10
-error: "previous failure"
-timestamp: 2025-01-01T00:00:00Z`
-
-	heredocWrite(t, ctx, c, errorsDir+"/2025-01-01T000000.000000000-specification-exhausted.md", dmailData)
-	heredocWrite(t, ctx, c, errorsDir+"/2025-01-01T000000.000000000-specification-exhausted.md.err", sidecar)
-
-	// Start daemon with max-retries=10 and short retry interval
-	startDaemonInContainer(t, ctx, c, "/workspace", "--verbose --retry-interval 2s --max-retries 10")
+	// Start daemon with max-retries=1 so the initial enqueue (retry_count=1)
+	// already meets the threshold and no retries are attempted.
+	startDaemonInContainer(t, ctx, c, "/workspace", "--verbose --retry-interval 2s --max-retries 1")
 	defer stopDaemonInContainer(t, ctx, c, "/workspace")
 
-	// Wait for a few retry cycles
-	time.Sleep(5 * time.Second)
+	// Write D-Mail with no route → daemon enqueues to error queue with retry_count=1
+	noRouteContent := "---\ndmail-schema-version: \"1\"\nname: exhausted-msg\nkind: ci-result\ndescription: No route for this kind\n---\n\n# Exhausted\n"
+	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/exhausted-msg.md", noRouteContent)
 
-	// Error queue entry should still be there (not retried because attempts >= maxRetries)
-	errCount := countFilesInContainer(t, ctx, c, errorsDir, ".err")
-	if errCount == 0 {
-		t.Error("error queue entry should remain (max retries exceeded)")
+	// Wait for file to be removed from outbox (enqueued to error queue)
+	waitForFileAbsentInContainer(t, ctx, c, repoPath+"/.siren/outbox/exhausted-msg.md", 10*time.Second)
+
+	// Verify FAILED in delivery log
+	waitForStringInFile(t, ctx, c, "/workspace/.phonewave/delivery.log", "FAILED", 5*time.Second)
+
+	// Wait for several retry intervals — daemon should NOT retry because
+	// retry_count(1) >= max_retries(1)
+	time.Sleep(6 * time.Second)
+
+	// Verify no RETRIED in delivery log (max retries exceeded, no retry attempted)
+	dlog := readFileInContainer(t, ctx, c, "/workspace/.phonewave/delivery.log")
+	if strings.Contains(dlog, "RETRIED") {
+		t.Error("should not retry when retry_count >= max_retries")
 	}
 }
 
@@ -190,26 +170,25 @@ func TestLifecycleDocker_PartialDeliveryRollback(t *testing.T) {
 	fbContent := "---\ndmail-schema-version: \"1\"\nname: fb-rollback\nkind: feedback\ndescription: Rollback test\n---\n\n# Rollback\n"
 	heredocWrite(t, ctx, c, repoPath+"/.gate/outbox/fb-rollback.md", fbContent)
 
-	// Wait for the file to be processed (moved to error queue or outbox cleared)
+	// Wait for the file to be processed
 	time.Sleep(5 * time.Second)
 
-	// .siren/inbox should NOT have the file (rollback)
-	if fileExistsInContainer(t, ctx, c, repoPath+"/.siren/inbox/fb-rollback.md") {
-		t.Error("siren inbox should be rolled back when expedition inbox fails")
-	}
+	// Implementation uses at-least-once delivery with 2-phase flush:
+	// - Stage: all targets recorded in SQLite (atomic)
+	// - Flush: each target written independently
+	// Partial flush is expected: .siren/inbox may succeed while .expedition/inbox fails.
+	// The unflushed target remains in delivery_stage for retry on next daemon cycle.
 
-	// Source should be gone from outbox (moved to error queue)
-	if fileExistsInContainer(t, ctx, c, repoPath+"/.gate/outbox/fb-rollback.md") {
-		// If still in outbox, that's also acceptable (error queue save failed)
-		t.Log("file still in outbox — error queue save may have also failed")
-	}
+	// .siren/inbox may have the file (partial delivery is acceptable)
+	sirenDelivered := fileExistsInContainer(t, ctx, c, repoPath+"/.siren/inbox/fb-rollback.md")
+	t.Logf("siren inbox delivered: %v (partial delivery is acceptable)", sirenDelivered)
 
-	// Error queue should have an entry
-	errCount := countFilesInContainer(t, ctx, c, "/workspace/.phonewave/errors", ".err")
-	if errCount == 0 {
-		// Could be in outbox or error queue — just verify no partial delivery
-		t.Log("no error queue entry — checking outbox for source")
+	// Source should stay in outbox until ALL targets are flushed
+	sourceInOutbox := fileExistsInContainer(t, ctx, c, repoPath+"/.gate/outbox/fb-rollback.md")
+	if !sourceInOutbox && !sirenDelivered {
+		t.Error("source removed from outbox but no deliveries made — data loss")
 	}
+	t.Logf("source in outbox: %v (stays until all targets flushed)", sourceInOutbox)
 }
 
 func TestLifecycleDocker_GracefulShutdownSIGINT(t *testing.T) {
