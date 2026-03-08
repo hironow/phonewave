@@ -207,6 +207,187 @@ routes:
 	}
 }
 
+func TestWriteConfig_ManifestExcludesRoutes(t *testing.T) {
+	// given — config with routes
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, domain.ConfigFile)
+	cfg := &domain.Config{
+		LastSynced: time.Now().UTC(),
+		Repositories: []domain.RepoConfig{
+			{Path: dir, Endpoints: []domain.EndpointConfig{{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}}}},
+		},
+		Routes: []domain.RouteConfig{
+			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository", RepoPath: dir},
+		},
+	}
+
+	// when
+	if err := session.WriteConfig(configPath, cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+
+	// then — phonewave.yaml should NOT contain routes or last_synced
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	content := string(data)
+	if strings.Contains(content, "routes:") {
+		t.Errorf("phonewave.yaml should not contain routes (moved to resolved.yaml), got:\n%s", content)
+	}
+	if strings.Contains(content, "last_synced:") {
+		t.Errorf("phonewave.yaml should not contain last_synced (moved to resolved.yaml), got:\n%s", content)
+	}
+}
+
+func TestWriteConfig_ResolvedStateContainsRoutes(t *testing.T) {
+	// given — config with routes
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, domain.StateDir, ".run")
+	os.MkdirAll(stateDir, 0755)
+	configPath := filepath.Join(dir, domain.ConfigFile)
+	cfg := &domain.Config{
+		LastSynced: time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC),
+		Repositories: []domain.RepoConfig{
+			{Path: dir, Endpoints: []domain.EndpointConfig{{Dir: ".siren", Produces: []string{"specification"}}}},
+		},
+		Routes: []domain.RouteConfig{
+			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository", RepoPath: dir},
+		},
+	}
+
+	// when
+	if err := session.WriteConfig(configPath, cfg); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+
+	// then — resolved.yaml should exist in .phonewave/.run/ and contain routes
+	resolvedPath := filepath.Join(dir, domain.StateDir, ".run", domain.ResolvedStateFile)
+	data, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		t.Fatalf("read resolved.yaml: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "routes:") {
+		t.Errorf("resolved.yaml should contain routes, got:\n%s", content)
+	}
+	if !strings.Contains(content, "last_synced:") {
+		t.Errorf("resolved.yaml should contain last_synced, got:\n%s", content)
+	}
+}
+
+func TestLoadConfig_MergesResolvedState(t *testing.T) {
+	// given — separate manifest and resolved state
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, domain.StateDir, ".run")
+	os.MkdirAll(stateDir, 0755)
+
+	// Write manifest (no routes)
+	manifest := `repositories:
+  - path: .
+    endpoints:
+      - dir: .siren
+        produces: [specification]
+        consumes: [feedback]
+`
+	configPath := filepath.Join(dir, domain.ConfigFile)
+	os.WriteFile(configPath, []byte(manifest), 0644)
+
+	// Write resolved state
+	resolved := `last_synced: 2026-03-08T12:00:00Z
+routes:
+  - kind: specification
+    from: .siren/outbox
+    to: [.expedition/inbox]
+    scope: same_repository
+    repo_path: .
+`
+	os.WriteFile(filepath.Join(stateDir, domain.ResolvedStateFile), []byte(resolved), 0644)
+
+	// when
+	cfg, err := session.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	// then — merged config should have both endpoints and routes
+	if len(cfg.Repositories) != 1 {
+		t.Fatalf("want 1 repo, got %d", len(cfg.Repositories))
+	}
+	if len(cfg.Routes) != 1 {
+		t.Fatalf("want 1 route, got %d", len(cfg.Routes))
+	}
+	if cfg.Routes[0].Kind != "specification" {
+		t.Errorf("route kind = %q, want specification", cfg.Routes[0].Kind)
+	}
+	if cfg.LastSynced.IsZero() {
+		t.Error("last_synced should not be zero")
+	}
+}
+
+func TestLoadConfig_GracefulWithoutResolvedState(t *testing.T) {
+	// given — manifest only, no resolved.yaml
+	dir := t.TempDir()
+	manifest := `repositories:
+  - path: .
+    endpoints:
+      - dir: .siren
+        produces: [specification]
+        consumes: [feedback]
+      - dir: .expedition
+        consumes: [specification]
+        produces: [report]
+`
+	configPath := filepath.Join(dir, domain.ConfigFile)
+	os.WriteFile(configPath, []byte(manifest), 0644)
+
+	// when
+	cfg, err := session.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	// then — routes should be derived from endpoints
+	if len(cfg.Routes) == 0 {
+		t.Error("LoadConfig should derive routes when resolved.yaml is missing")
+	}
+}
+
+func TestLoadConfig_BackwardCompat_OldFormatWithRoutes(t *testing.T) {
+	// given — old-style phonewave.yaml with routes inline
+	dir := t.TempDir()
+	oldYaml := `last_synced: 2026-03-07T03:40:13Z
+repositories:
+  - path: .
+    endpoints:
+      - dir: .siren
+        produces: [specification]
+        consumes: [feedback]
+routes:
+  - kind: specification
+    from: .siren/outbox
+    to: [.expedition/inbox]
+    scope: same_repository
+    repo_path: .
+`
+	configPath := filepath.Join(dir, domain.ConfigFile)
+	os.WriteFile(configPath, []byte(oldYaml), 0644)
+
+	// when
+	cfg, err := session.LoadConfig(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	// then — should still work (backward compatible)
+	if len(cfg.Routes) != 1 {
+		t.Fatalf("want 1 route from old format, got %d", len(cfg.Routes))
+	}
+	if cfg.Routes[0].Kind != "specification" {
+		t.Errorf("route kind = %q, want specification", cfg.Routes[0].Kind)
+	}
+}
+
 func TestWriteConfig_RoutesAlsoRelative(t *testing.T) {
 	// given — config with routes containing absolute repo_path
 	dir := t.TempDir()
