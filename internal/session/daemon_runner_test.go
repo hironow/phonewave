@@ -700,7 +700,7 @@ func TestDaemon_MultipleOutboxes(t *testing.T) {
 
 	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: outbox1, ToInboxes: []string{inbox1}},
-		{Kind: "feedback", FromOutbox: outbox2, ToInboxes: []string{inbox2}},
+		{Kind: "design-feedback", FromOutbox: outbox2, ToInboxes: []string{inbox2}},
 	}
 
 	d, err := NewDaemon(domain.DaemonOptions{
@@ -729,7 +729,7 @@ description: "Multi outbox test"
 	fbContent := `---
 dmail-schema-version: "1"
 name: fb-multi
-kind: feedback
+kind: design-feedback
 description: "Multi outbox test"
 ---
 `

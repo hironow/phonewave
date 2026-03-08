@@ -19,8 +19,8 @@ func TestConfigRoundTrip(t *testing.T) {
 			{
 				Path: "/home/user/repo-a",
 				Endpoints: []domain.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
-					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
+					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "design-feedback"}},
 				},
 			},
 		},
@@ -79,7 +79,7 @@ func TestWriteConfig_CreatesYAMLFile(t *testing.T) {
 			{
 				Path: "/test",
 				Endpoints: []domain.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
 				},
 			},
 		},
@@ -214,7 +214,7 @@ func TestWriteConfig_ManifestExcludesRoutes(t *testing.T) {
 	cfg := &domain.Config{
 		LastSynced: time.Now().UTC(),
 		Repositories: []domain.RepoConfig{
-			{Path: dir, Endpoints: []domain.EndpointConfig{{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}}}},
+			{Path: dir, Endpoints: []domain.EndpointConfig{{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}}}},
 		},
 		Routes: []domain.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository", RepoPath: dir},

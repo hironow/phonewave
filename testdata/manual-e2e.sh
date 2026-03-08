@@ -66,7 +66,7 @@ pw mkdir -p "$REPO/.siren/skills/dmail-readable"
 pw sh -c "printf '%s' '---
 name: dmail-readable
 consumes:
-  - kind: feedback
+  - kind: design-feedback
 ---
 ' > $REPO/.siren/skills/dmail-readable/SKILL.md"
 
@@ -83,7 +83,7 @@ pw sh -c "printf '%s' '---
 name: dmail-readable
 consumes:
   - kind: specification
-  - kind: feedback
+  - kind: design-feedback
 ---
 ' > $REPO/.expedition/skills/dmail-readable/SKILL.md"
 
@@ -91,7 +91,7 @@ pw mkdir -p "$REPO/.gate/skills/dmail-sendable"
 pw sh -c "printf '%s' '---
 name: dmail-sendable
 produces:
-  - kind: feedback
+  - kind: design-feedback
 ---
 ' > $REPO/.gate/skills/dmail-sendable/SKILL.md"
 
@@ -157,7 +157,7 @@ section "Phase 9: Cross-container delivery (writer)"
 # ---------------------------------------------------------------
 writer sh -c "printf '%s' '---
 name: fb-cross
-kind: feedback
+kind: design-feedback
 description: Cross-container feedback
 ---
 
@@ -180,7 +180,7 @@ section "Phase 11: Delivery log"
 log_out=$(pw cat /workspace/.phonewave/delivery.log 2>&1)
 assert_contains "$log_out" "DELIVERED" "delivery log has DELIVERED"
 assert_contains "$log_out" "kind=specification" "log has kind=specification"
-assert_contains "$log_out" "kind=feedback" "log has kind=feedback"
+assert_contains "$log_out" "kind=design-feedback" "log has kind=design-feedback"
 
 # ---------------------------------------------------------------
 section "Phase 12: Dry-run mode"

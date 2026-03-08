@@ -10,9 +10,9 @@ import (
 func TestDeriveRoutes_ThreeToolEcosystem(t *testing.T) {
 	// given — the canonical Sightjack/Paintress/Amadeus setup
 	endpoints := []domain.Endpoint{
-		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
-		{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
-		{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
+		{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "design-feedback"}},
+		{Dir: ".gate", Produces: []string{"design-feedback"}, Consumes: []string{"report"}},
 	}
 
 	// when
@@ -53,9 +53,9 @@ func TestDeriveRoutes_ThreeToolEcosystem(t *testing.T) {
 	}
 
 	// feedback: .gate/outbox → [.siren/inbox, .expedition/inbox]
-	fb, ok := routeMap["feedback"]
+	fb, ok := routeMap["design-feedback"]
 	if !ok {
-		t.Fatal("missing route for kind=feedback")
+		t.Fatal("missing route for kind=design-feedback")
 	}
 	if fb.From != ".gate/outbox" {
 		t.Errorf("feedback.from = %q, want %q", fb.From, ".gate/outbox")
@@ -90,7 +90,7 @@ func TestDeriveRoutes_OrphanedProducer(t *testing.T) {
 
 func TestDetectOrphans(t *testing.T) {
 	endpoints := []domain.Endpoint{
-		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
+		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
 		{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 		// feedback is consumed by .siren but nobody produces it
 		// report is produced by .expedition but nobody consumes it
@@ -101,8 +101,8 @@ func TestDetectOrphans(t *testing.T) {
 	if len(orphaned.UnconsumedKinds) != 1 || orphaned.UnconsumedKinds[0] != "report" {
 		t.Errorf("unconsumed = %v, want [report]", orphaned.UnconsumedKinds)
 	}
-	if len(orphaned.UnproducedKinds) != 1 || orphaned.UnproducedKinds[0] != "feedback" {
-		t.Errorf("unproduced = %v, want [feedback]", orphaned.UnproducedKinds)
+	if len(orphaned.UnproducedKinds) != 1 || orphaned.UnproducedKinds[0] != "design-feedback" {
+		t.Errorf("unproduced = %v, want [design-feedback]", orphaned.UnproducedKinds)
 	}
 }
 
@@ -147,9 +147,9 @@ func TestDetectOrphans_PerRepo_NoFalsePositivesSingleRepo(t *testing.T) {
 			{
 				Path: "/repo",
 				Endpoints: []domain.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
-					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
-					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
+					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "design-feedback"}},
+					{Dir: ".gate", Produces: []string{"design-feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},
@@ -206,9 +206,9 @@ func TestDeriveRoutes_ExpeditionProducesFeedback(t *testing.T) {
 	// This matches the updated SKILL.md where paintress declares
 	// produces: [report, feedback] for escalation scenarios.
 	endpoints := []domain.Endpoint{
-		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
-		{Dir: ".expedition", Produces: []string{"report", "feedback"}, Consumes: []string{"specification", "feedback"}},
-		{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
+		{Dir: ".expedition", Produces: []string{"report", "design-feedback"}, Consumes: []string{"specification", "design-feedback"}},
+		{Dir: ".gate", Produces: []string{"design-feedback"}, Consumes: []string{"report"}},
 	}
 
 	// when
@@ -221,7 +221,7 @@ func TestDeriveRoutes_ExpeditionProducesFeedback(t *testing.T) {
 	// feedback: .expedition → .siren  (NEW: escalation feedback)
 	feedbackFromExpedition := false
 	for _, r := range routes {
-		if r.Kind == "feedback" && r.From == ".expedition/outbox" {
+		if r.Kind == "design-feedback" && r.From == ".expedition/outbox" {
 			feedbackFromExpedition = true
 			// expedition's feedback should go to .siren (the only OTHER consumer)
 			// .expedition itself consumes feedback too, but self-delivery is filtered

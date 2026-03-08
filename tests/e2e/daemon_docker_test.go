@@ -89,7 +89,7 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 
 	// Update .expedition's dmail-readable to also consume ci-result
 	heredocWrite(t, ctx, c, repoPath+"/.expedition/skills/dmail-readable/SKILL.md",
-		"---\nname: dmail-readable\ndescription: Consumes D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: specification\n    - kind: feedback\n    - kind: ci-result\n---\n")
+		"---\nname: dmail-readable\ndescription: Consumes D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: specification\n    - kind: design-feedback\n    - kind: ci-result\n---\n")
 
 	// Re-sync to pick up the new producer+consumer route
 	execInContainer(t, ctx, c, []string{
@@ -167,7 +167,7 @@ func TestLifecycleDocker_PartialDeliveryRollback(t *testing.T) {
 	defer stopDaemonInContainer(t, ctx, c, "/workspace")
 
 	// Write feedback D-Mail (multi-target: siren + expedition)
-	fbContent := "---\ndmail-schema-version: \"1\"\nname: fb-rollback\nkind: feedback\ndescription: Rollback test\n---\n\n# Rollback\n"
+	fbContent := "---\ndmail-schema-version: \"1\"\nname: fb-rollback\nkind: design-feedback\ndescription: Rollback test\n---\n\n# Rollback\n"
 	heredocWrite(t, ctx, c, repoPath+"/.gate/outbox/fb-rollback.md", fbContent)
 
 	// Wait for the file to be processed

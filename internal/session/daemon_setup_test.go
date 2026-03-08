@@ -35,16 +35,16 @@ func TestResolveRoutes(t *testing.T) {
 			{
 				Path: repoDir,
 				Endpoints: []domain.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
-					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "feedback"}},
-					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
+					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification", "design-feedback"}},
+					{Dir: ".gate", Produces: []string{"design-feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},
 		Routes: []domain.RouteConfig{
 			{Kind: "specification", From: ".siren/outbox", To: []string{".expedition/inbox"}, Scope: "same_repository"},
 			{Kind: "report", From: ".expedition/outbox", To: []string{".gate/inbox"}, Scope: "same_repository"},
-			{Kind: "feedback", From: ".gate/outbox", To: []string{".siren/inbox", ".expedition/inbox"}, Scope: "same_repository"},
+			{Kind: "design-feedback", From: ".gate/outbox", To: []string{".siren/inbox", ".expedition/inbox"}, Scope: "same_repository"},
 		},
 	}
 
@@ -84,7 +84,7 @@ func TestResolveRoutes(t *testing.T) {
 	}
 
 	// Check feedback route (multiple targets)
-	fbRoute := findResolvedRoute(resolved, "feedback")
+	fbRoute := findResolvedRoute(resolved, "design-feedback")
 	if fbRoute == nil {
 		t.Fatal("feedback route not found")
 	}
@@ -194,9 +194,9 @@ func TestResolveRoutes_CollectsOutboxDirs(t *testing.T) {
 			{
 				Path: repoDir,
 				Endpoints: []domain.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
-					{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+					{Dir: ".gate", Produces: []string{"design-feedback"}, Consumes: []string{"report"}},
 				},
 			},
 		},

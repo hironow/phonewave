@@ -38,7 +38,7 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-sendable", "SKILL.md"),
 		"---\nname: dmail-sendable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".siren", "skills", "dmail-readable", "SKILL.md"),
-		"---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: feedback\n---\n")
+		"---\nname: dmail-readable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: design-feedback\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".expedition", "skills", "dmail-sendable", "SKILL.md"),
 		"---\nname: dmail-sendable\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: report\n---\n")
 	writeSkillFile(t, filepath.Join(repoDir, ".expedition", "skills", "dmail-readable", "SKILL.md"),
@@ -49,7 +49,7 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 			{
 				Path: repoDir,
 				Endpoints: []domain.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 				},
 			},

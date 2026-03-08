@@ -64,7 +64,7 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 					{
 						Dir:      ".siren",
 						Produces: []string{"specification"},
-						Consumes: []string{"feedback"},
+						Consumes: []string{"design-feedback"},
 					},
 				},
 			},

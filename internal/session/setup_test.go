@@ -53,9 +53,9 @@ func setupTestRepo(t *testing.T, tools map[string]struct{ produces, consumes []s
 func TestInit_FullEcosystem(t *testing.T) {
 	// given — a repo with all three tools
 	repo := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
-		".siren":      {produces: []string{"specification"}, consumes: []string{"feedback"}},
-		".expedition": {produces: []string{"report"}, consumes: []string{"specification", "feedback"}},
-		".gate":       {produces: []string{"feedback"}, consumes: []string{"report"}},
+		".siren":      {produces: []string{"specification"}, consumes: []string{"design-feedback"}},
+		".expedition": {produces: []string{"report"}, consumes: []string{"specification", "design-feedback"}},
+		".gate":       {produces: []string{"design-feedback"}, consumes: []string{"report"}},
 	})
 
 	// when
@@ -85,7 +85,7 @@ func TestInit_FullEcosystem(t *testing.T) {
 func TestAdd_NewRepository(t *testing.T) {
 	// given — existing config with one repo
 	repo1 := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
-		".siren": {produces: []string{"specification"}, consumes: []string{"feedback"}},
+		".siren": {produces: []string{"specification"}, consumes: []string{"design-feedback"}},
 	})
 	result, err := Init([]string{repo1})
 	if err != nil {
@@ -133,7 +133,7 @@ func TestAdd_SkillsRefWarnings(t *testing.T) {
 
 	// given — existing config, new repo with non-compliant SKILL.md
 	repo1 := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
-		".gate": {produces: []string{"feedback"}},
+		".gate": {produces: []string{"design-feedback"}},
 	})
 	initResult, err := Init([]string{repo1})
 	if err != nil {
@@ -316,7 +316,7 @@ func TestInit_SkillsRefWarnings(t *testing.T) {
 
 func TestSync_UpdatesEndpoints(t *testing.T) {
 	repo := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
-		".siren": {produces: []string{"specification"}, consumes: []string{"feedback"}},
+		".siren": {produces: []string{"specification"}, consumes: []string{"design-feedback"}},
 	})
 
 	result, err := Init([]string{repo})

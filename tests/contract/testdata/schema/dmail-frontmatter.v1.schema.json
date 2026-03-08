@@ -57,7 +57,7 @@
   "$defs": {
     "kind": {
       "type": "string",
-      "enum": ["specification", "report", "feedback", "convergence"]
+      "enum": ["specification", "report", "design-feedback", "implementation-feedback", "convergence"]
     }
   }
 }

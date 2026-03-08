@@ -48,7 +48,7 @@ license: Apache-2.0
 metadata:
   dmail-schema-version: "1"
   consumes:
-    - kind: feedback
+    - kind: design-feedback
       description: "Corrective feedback from verifier"
     - kind: specification
       description: "Issue specification"
@@ -61,8 +61,8 @@ metadata:
 	if len(skill.Consumes) != 2 {
 		t.Fatalf("want 2 consumes, got %d", len(skill.Consumes))
 	}
-	if skill.Consumes[0].Kind != "feedback" {
-		t.Errorf("consumes[0].kind = %q, want %q", skill.Consumes[0].Kind, "feedback")
+	if skill.Consumes[0].Kind != "design-feedback" {
+		t.Errorf("consumes[0].kind = %q, want %q", skill.Consumes[0].Kind, "design-feedback")
 	}
 	if skill.Consumes[1].Kind != "specification" {
 		t.Errorf("consumes[1].kind = %q, want %q", skill.Consumes[1].Kind, "specification")
@@ -120,7 +120,7 @@ license: Apache-2.0
 metadata:
   dmail-schema-version: "1"
   consumes:
-    - kind: feedback
+    - kind: design-feedback
       description: "Corrective feedback from verifier"
     - kind: specification
       description: "Issue specification"
@@ -133,8 +133,8 @@ metadata:
 	if len(skill.Consumes) != 2 {
 		t.Fatalf("want 2 consumes, got %d", len(skill.Consumes))
 	}
-	if skill.Consumes[0].Kind != "feedback" {
-		t.Errorf("consumes[0].kind = %q, want %q", skill.Consumes[0].Kind, "feedback")
+	if skill.Consumes[0].Kind != "design-feedback" {
+		t.Errorf("consumes[0].kind = %q, want %q", skill.Consumes[0].Kind, "design-feedback")
 	}
 	if skill.Consumes[1].Kind != "specification" {
 		t.Errorf("consumes[1].kind = %q, want %q", skill.Consumes[1].Kind, "specification")
@@ -256,7 +256,7 @@ license: Apache-2.0
 metadata:
   dmail-schema-version: "1"
   consumes:
-    - kind: feedback
+    - kind: design-feedback
       description: "Corrective feedback"
 ---
 `), 0644); err != nil {
@@ -296,7 +296,7 @@ metadata:
   consumes:
     - kind: specification
       description: "Issue specification"
-    - kind: feedback
+    - kind: design-feedback
       description: "Corrective feedback"
 ---
 `), 0644); err != nil {
@@ -327,8 +327,8 @@ metadata:
 	if len(siren.Produces) != 1 || siren.Produces[0] != "specification" {
 		t.Errorf(".siren produces = %v, want [specification]", siren.Produces)
 	}
-	if len(siren.Consumes) != 1 || siren.Consumes[0] != "feedback" {
-		t.Errorf(".siren consumes = %v, want [feedback]", siren.Consumes)
+	if len(siren.Consumes) != 1 || siren.Consumes[0] != "design-feedback" {
+		t.Errorf(".siren consumes = %v, want [design-feedback]", siren.Consumes)
 	}
 
 	exped, ok := endpointMap[".expedition"]

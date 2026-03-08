@@ -223,7 +223,7 @@ func TestCrossTool_DeliveryLog(t *testing.T) {
 
 	// Verify delivery log contains all kinds
 	logContent := readFileInContainer(t, ctx, c, "/workspace/.phonewave/delivery.log")
-	for _, kind := range []string{"specification", "report", "feedback"} {
+	for _, kind := range []string{"specification", "report", "design-feedback"} {
 		if !strings.Contains(logContent, "kind="+kind) {
 			t.Errorf("delivery log missing kind=%s", kind)
 		}

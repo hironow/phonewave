@@ -85,7 +85,7 @@ func TestDeliver_MultipleTargets(t *testing.T) {
 	dmailContent := `---
 dmail-schema-version: "1"
 name: feedback-042
-kind: feedback
+kind: design-feedback
 description: "Corrective feedback"
 ---
 
@@ -97,7 +97,7 @@ description: "Corrective feedback"
 	}
 
 	routes := []domain.ResolvedRoute{
-		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
+		{Kind: "design-feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 
 	ds := newTestDeliveryStore(t)
@@ -304,7 +304,7 @@ func TestDeliver_PartialFlush_SuccessfulTargetsKept(t *testing.T) {
 	dmailContent := `---
 dmail-schema-version: "1"
 name: fb-partial
-kind: feedback
+kind: design-feedback
 description: "Partial failure test"
 ---
 `
@@ -314,7 +314,7 @@ description: "Partial failure test"
 	}
 
 	routes := []domain.ResolvedRoute{
-		{Kind: "feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
+		{Kind: "design-feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
 	}
 
 	ds := newTestDeliveryStore(t)

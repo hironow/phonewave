@@ -120,7 +120,7 @@ func TestScenario_L3_Middle(t *testing.T) {
 		dmail := FormatDMail(map[string]string{
 			"dmail-schema-version": "1",
 			"name":                 fb.name,
-			"kind":                 "feedback",
+			"kind":                 "design-feedback",
 			"description":          "Feedback: " + fb.name,
 			"priority":             fb.priority,
 			"action":               fb.action,

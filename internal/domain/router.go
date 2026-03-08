@@ -7,7 +7,7 @@ import (
 
 // Route represents a derived routing rule for a D-Mail kind.
 type Route struct {
-	Kind  string   // D-Mail kind (e.g. "specification", "report", "feedback")
+	Kind  string   // D-Mail kind (e.g. "specification", "report", "design-feedback")
 	From  string   // source outbox path relative to repository (e.g. ".siren/outbox")
 	To    []string // target inbox paths relative to repository (e.g. [".expedition/inbox"])
 	Scope string   // "same_repository" or "cross_repository"
