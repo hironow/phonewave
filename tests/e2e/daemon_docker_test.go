@@ -83,12 +83,19 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 	// Stop daemon
 	stopDaemonInContainer(t, ctx, c, "/workspace")
 
-	// Now add a consumer for "ci-result" kind and re-sync
+	// Add producer for ci-result to .siren (so a route from .siren/outbox exists)
+	ciResultProducerDir := repoPath + "/.siren/skills/dmail-sendable-ciresult"
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", ciResultProducerDir})
+	heredocWrite(t, ctx, c, ciResultProducerDir+"/SKILL.md",
+		"---\nname: dmail-sendable-ciresult\ndescription: Produces ci-result\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: ci-result\n---\n")
+
+	// Add consumer for ci-result to .expedition
 	ciResultConsumerDir := repoPath + "/.expedition/skills/dmail-readable-ciresult"
 	execInContainer(t, ctx, c, []string{"mkdir", "-p", ciResultConsumerDir})
 	heredocWrite(t, ctx, c, ciResultConsumerDir+"/SKILL.md",
 		"---\nname: dmail-readable-ciresult\ndescription: Consumes ci-result\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: ci-result\n---\n")
 
+	// Re-sync to pick up the new producer+consumer route
 	execInContainer(t, ctx, c, []string{
 		"sh", "-c", "cd /workspace && phonewave sync",
 	})
