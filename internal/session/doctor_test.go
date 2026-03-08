@@ -386,6 +386,102 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 	}
 }
 
+func TestDoctor_MissingRepoPath_HintReferencesPhonewaveYAML(t *testing.T) {
+	// given — config references a non-existent repository path
+	stateDir := t.TempDir()
+
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
+			{
+				Path: "/nonexistent/repo/path",
+				Endpoints: []domain.EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}},
+				},
+			},
+		},
+	}
+
+	// when
+	report := session.Doctor(cfg, stateDir)
+
+	// then — hint should reference phonewave.yaml (not config.yaml)
+	for _, issue := range report.Issues {
+		if issue.Severity == "error" && strings.Contains(issue.Message, "does not exist") {
+			if !strings.Contains(issue.Hint, "phonewave.yaml") {
+				t.Errorf("hint should reference phonewave.yaml, got: %q", issue.Hint)
+			}
+			if strings.Contains(issue.Hint, "config.yaml") {
+				t.Errorf("hint should not reference config.yaml (stale), got: %q", issue.Hint)
+			}
+		}
+	}
+}
+
+func TestDoctor_WarnsWhenResolvedStateMissing(t *testing.T) {
+	// given — state dir exists but resolved.yaml does not
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, domain.StateDir)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
+			{
+				Path: repoDir,
+				Endpoints: []domain.EndpointConfig{
+					{Dir: ".siren", Produces: []string{"specification"}},
+				},
+			},
+		},
+	}
+
+	// Create endpoint dir so we don't get other errors
+	if err := os.MkdirAll(filepath.Join(repoDir, ".siren"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// when
+	report := session.Doctor(cfg, stateDir)
+
+	// then — should have a warning about missing resolved state
+	hasResolvedWarn := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "warn" && strings.Contains(issue.Message, "resolved.yaml") {
+			hasResolvedWarn = true
+		}
+	}
+	if !hasResolvedWarn {
+		t.Errorf("expected warning about missing resolved.yaml, got issues: %v", report.Issues)
+	}
+}
+
+func TestDoctor_NoWarningWhenResolvedStateExists(t *testing.T) {
+	// given — state dir with resolved.yaml present
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, domain.StateDir)
+	runDir := filepath.Join(stateDir, ".run")
+	if err := os.MkdirAll(runDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	resolvedPath := filepath.Join(runDir, domain.ResolvedStateFile)
+	if err := os.WriteFile(resolvedPath, []byte("last_synced: 2026-03-08T12:00:00Z\nroutes: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &domain.Config{}
+
+	// when
+	report := session.Doctor(cfg, stateDir)
+
+	// then — should NOT have a warning about missing resolved state
+	for _, issue := range report.Issues {
+		if issue.Severity == "warn" && strings.Contains(issue.Message, "resolved.yaml") {
+			t.Errorf("unexpected warning about resolved.yaml when it exists: %v", issue)
+		}
+	}
+}
+
 func writeSkillFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
