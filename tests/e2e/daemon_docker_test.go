@@ -96,26 +96,12 @@ func TestLifecycleDocker_ErrorQueueAndRetry(t *testing.T) {
 		"sh", "-c", "cd /workspace && phonewave sync",
 	})
 
-	// Verify sync updated config with ci-result route
-	syncedConfig := readFileInContainer(t, ctx, c, "/workspace/phonewave.yaml")
-	t.Logf("config after sync:\n%s", syncedConfig)
-
 	// Restart daemon — retry should pick up the error queue entry
 	startDaemonInContainer(t, ctx, c, "/workspace", "--verbose --retry-interval 2s")
 	defer stopDaemonInContainer(t, ctx, c, "/workspace")
 
-	// Wait for retry to happen
-	time.Sleep(10 * time.Second)
-
-	// Diagnostic: read daemon stderr log and delivery log
-	daemonLog := readFileInContainer(t, ctx, c, "/tmp/phonewave.log")
-	t.Logf("daemon log after retry wait:\n%s", daemonLog)
-	dlog := readFileInContainer(t, ctx, c, "/workspace/.phonewave/delivery.log")
-	t.Logf("delivery log after retry wait:\n%s", dlog)
-
-	if !strings.Contains(dlog, "RETRIED") {
-		t.Fatal("delivery log should contain RETRIED after error queue retry")
-	}
+	// Verify RETRIED in delivery log (proves error queue retry succeeded)
+	waitForStringInFile(t, ctx, c, "/workspace/.phonewave/delivery.log", "RETRIED", 15*time.Second)
 }
 
 func TestLifecycleDocker_MaxRetriesExceeded(t *testing.T) {
