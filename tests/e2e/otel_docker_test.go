@@ -164,6 +164,11 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 		t.Logf("Daemon log (last 2000 chars):\n%s", tailBytes(logBytes, 2000))
 	}
 
+	// Diagnostic: dump Jaeger container logs
+	jaegerLogs, _ := jaeger.Logs(ctx)
+	jaegerLogBytes, _ := io.ReadAll(jaegerLogs)
+	t.Logf("Jaeger logs (last 2000 chars):\n%s", tailBytes(jaegerLogBytes, 2000))
+
 	// Diagnostic: test network connectivity from phonewave to jaeger
 	code2, output2, _ := pw.Exec(ctx, []string{"sh", "-c", "wget -q -O- http://jaeger:16686/ 2>&1 | head -c 200 || echo 'CONNECTIVITY FAILED'"})
 	if code2 == 0 {
