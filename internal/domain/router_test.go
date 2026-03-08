@@ -201,6 +201,40 @@ func TestDetectOrphans_SelfConsumerWithExternalConsumer(t *testing.T) {
 	}
 }
 
+func TestDeriveRoutes_ExpeditionProducesFeedback(t *testing.T) {
+	// given — expedition produces both report AND feedback (escalation d-mail)
+	// This matches the updated SKILL.md where paintress declares
+	// produces: [report, feedback] for escalation scenarios.
+	endpoints := []domain.Endpoint{
+		{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
+		{Dir: ".expedition", Produces: []string{"report", "feedback"}, Consumes: []string{"specification", "feedback"}},
+		{Dir: ".gate", Produces: []string{"feedback"}, Consumes: []string{"report"}},
+	}
+
+	// when
+	routes := domain.DeriveRoutes(endpoints)
+
+	// then — should have 4 routes now:
+	// specification: .siren → .expedition
+	// report: .expedition → .gate
+	// feedback: .gate → [.siren, .expedition]
+	// feedback: .expedition → .siren  (NEW: escalation feedback)
+	feedbackFromExpedition := false
+	for _, r := range routes {
+		if r.Kind == "feedback" && r.From == ".expedition/outbox" {
+			feedbackFromExpedition = true
+			// expedition's feedback should go to .siren (the only OTHER consumer)
+			// .expedition itself consumes feedback too, but self-delivery is filtered
+			if len(r.To) != 1 || r.To[0] != ".siren/inbox" {
+				t.Errorf("feedback from .expedition: to = %v, want [.siren/inbox]", r.To)
+			}
+		}
+	}
+	if !feedbackFromExpedition {
+		t.Error("expected a feedback route from .expedition/outbox (escalation d-mail)")
+	}
+}
+
 func TestDeriveRoutes_SameKindMultipleProducers(t *testing.T) {
 	// Two endpoints produce the same kind — each gets its own route
 	endpoints := []domain.Endpoint{

@@ -41,6 +41,10 @@ func NewRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			noColor, _ := cmd.Flags().GetBool("no-color")
+			if noColor {
+				os.Setenv("NO_COLOR", "1")
+			}
 			applyOtelEnv(filepath.Join(configBase(cmd), domain.StateDir))
 			shutdownTracerFn = initTracer("phonewave", Version)
 			shutdownMeterFn = initMeter("phonewave", Version)
@@ -74,6 +78,7 @@ func NewRootCommand() *cobra.Command {
 	})
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Log all delivery events to stderr")
+	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output (respects NO_COLOR env)")
 	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", domain.ConfigFile), "Path to phonewave config file")
 	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format: text, json")
 
