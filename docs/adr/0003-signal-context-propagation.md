@@ -28,10 +28,9 @@ Implement a signal propagation chain from `main.go` through cobra to the daemon:
    daemon's shutdown sequence.
 4. **`SilenceUsage` and `SilenceErrors`**: Both are set on the root command
    to prevent cobra from printing usage/errors on signal-induced cancellation.
-5. **`ErrUpdateAvailable` sentinel**: The `update --check` command returns a
-   sentinel error to signal "update available" (exit code 1) without printing
-   an error message. `main.go` checks for this sentinel before writing to
-   stderr.
+5. **`update --check` returns nil**: The `update --check` command prints
+   availability to stderr and returns nil (exit 0), consistent with the
+   other three tools. No sentinel error pattern is needed.
 
 ## Consequences
 
@@ -46,5 +45,5 @@ Implement a signal propagation chain from `main.go` through cobra to the daemon:
 
 - cobra's `PersistentPostRunE` is skipped when `RunE` returns an error,
   so cleanup (e.g., tracer shutdown) must use `defer` in `main.go`
-- Sentinel error pattern (`ErrUpdateAvailable`) requires callers to
-  distinguish "expected" errors from real failures
+- All subcommands must return nil for non-error conditions; returning
+  a sentinel error to signal non-error state is an anti-pattern
