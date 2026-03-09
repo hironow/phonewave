@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -45,6 +46,8 @@ func NewRootCommand() *cobra.Command {
 			if noColor {
 				os.Setenv("NO_COLOR", "1")
 			}
+			// Auto-migrate legacy phonewave.yaml → .phonewave/config.yaml
+			_ = session.MigrateConfigIfNeeded(projectRoot(cmd))
 			applyOtelEnv(configBase(cmd))
 			shutdownTracerFn = initTracer("phonewave", Version)
 			shutdownMeterFn = initMeter("phonewave", Version)

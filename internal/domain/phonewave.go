@@ -14,6 +14,9 @@ const SkillsRefVenvName = "phonewave-skills-ref-venv"
 // ConfigFile is the default name of the phonewave configuration file.
 const ConfigFile = "config.yaml"
 
+// LegacyConfigFile is the old config filename used before the state-dir migration.
+const LegacyConfigFile = "phonewave.yaml"
+
 // DefaultConfigPath returns the standard config file path for a given project root.
 func DefaultConfigPath(projectRoot string) string {
 	return filepath.Join(projectRoot, StateDir, ConfigFile)

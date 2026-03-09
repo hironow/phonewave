@@ -414,3 +414,80 @@ func TestWriteConfig_RoutesAlsoRelative(t *testing.T) {
 		t.Errorf("route repo_path should be relative, found absolute directory in:\n%s", content)
 	}
 }
+
+func TestMigrateConfigIfNeeded_MovesLegacyFile(t *testing.T) {
+	// given — legacy phonewave.yaml at project root, no .phonewave/config.yaml
+	projectRoot := t.TempDir()
+	legacyContent := "# phonewave.yaml\nrepositories:\n  - path: .\n"
+	legacyPath := filepath.Join(projectRoot, domain.LegacyConfigFile)
+	os.WriteFile(legacyPath, []byte(legacyContent), 0644)
+
+	// when
+	err := session.MigrateConfigIfNeeded(projectRoot)
+
+	// then
+	if err != nil {
+		t.Fatalf("MigrateConfigIfNeeded: %v", err)
+	}
+	// legacy file should be gone
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Error("legacy phonewave.yaml should be removed after migration")
+	}
+	// new config should exist
+	newPath := domain.DefaultConfigPath(projectRoot)
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		t.Fatalf("migrated config should exist: %v", err)
+	}
+	if string(data) != legacyContent {
+		t.Errorf("migrated content mismatch: got %q", string(data))
+	}
+	// .gitignore should include !config.yaml
+	gitignore, err := os.ReadFile(filepath.Join(projectRoot, domain.StateDir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("gitignore should exist: %v", err)
+	}
+	if !strings.Contains(string(gitignore), "!config.yaml") {
+		t.Error("gitignore should include !config.yaml after migration")
+	}
+}
+
+func TestMigrateConfigIfNeeded_NoLegacyFile(t *testing.T) {
+	// given — no legacy file exists
+	projectRoot := t.TempDir()
+
+	// when
+	err := session.MigrateConfigIfNeeded(projectRoot)
+
+	// then — should be a no-op
+	if err != nil {
+		t.Fatalf("MigrateConfigIfNeeded should be no-op: %v", err)
+	}
+}
+
+func TestMigrateConfigIfNeeded_BothExist_RemovesLegacy(t *testing.T) {
+	// given — both legacy and new config exist
+	projectRoot := t.TempDir()
+	stateDir := filepath.Join(projectRoot, domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+
+	legacyPath := filepath.Join(projectRoot, domain.LegacyConfigFile)
+	os.WriteFile(legacyPath, []byte("old"), 0644)
+	newPath := domain.DefaultConfigPath(projectRoot)
+	os.WriteFile(newPath, []byte("new"), 0644)
+
+	// when
+	err := session.MigrateConfigIfNeeded(projectRoot)
+
+	// then — legacy removed, new preserved
+	if err != nil {
+		t.Fatalf("MigrateConfigIfNeeded: %v", err)
+	}
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Error("legacy file should be removed when both exist")
+	}
+	data, _ := os.ReadFile(newPath)
+	if string(data) != "new" {
+		t.Error("new config should be preserved")
+	}
+}

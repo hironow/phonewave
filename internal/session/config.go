@@ -17,6 +17,52 @@ type manifest struct {
 	Repositories []domain.RepoConfig `yaml:"repositories"`
 }
 
+// MigrateConfigIfNeeded detects a legacy phonewave.yaml at project root and
+// moves it to .phonewave/config.yaml. It also ensures the state directory
+// .gitignore includes !config.yaml. This is idempotent — calling it when
+// migration is not needed is a no-op.
+//
+// projectRoot is the directory that contains (or should contain) .phonewave/.
+func MigrateConfigIfNeeded(projectRoot string) error {
+	legacyPath := filepath.Join(projectRoot, domain.LegacyConfigFile)
+	newPath := domain.DefaultConfigPath(projectRoot)
+
+	// Check if legacy file exists and new file does NOT
+	if _, err := os.Stat(legacyPath); err != nil {
+		return nil // no legacy file — nothing to migrate
+	}
+	if _, err := os.Stat(newPath); err == nil {
+		// Both exist — legacy is stale, remove it
+		os.Remove(legacyPath)
+		return nil
+	}
+
+	// Ensure state dir exists
+	stateDir := filepath.Join(projectRoot, domain.StateDir)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("create state dir for migration: %w", err)
+	}
+
+	// Move legacy config into state dir
+	data, err := os.ReadFile(legacyPath)
+	if err != nil {
+		return fmt.Errorf("read legacy config: %w", err)
+	}
+	if err := os.WriteFile(newPath, data, 0644); err != nil {
+		return fmt.Errorf("write migrated config: %w", err)
+	}
+	if err := os.Remove(legacyPath); err != nil {
+		return fmt.Errorf("remove legacy config: %w", err)
+	}
+
+	// Update .gitignore to include !config.yaml
+	if err := EnsureStateDir(projectRoot); err != nil {
+		return fmt.Errorf("update state dir gitignore: %w", err)
+	}
+
+	return nil
+}
+
 // LoadConfig reads config.yaml and merges it with the resolved state from
 // .run/resolved.yaml (relative to the config directory). If resolved.yaml is
 // missing, routes are derived from endpoints. If config.yaml still has inline
