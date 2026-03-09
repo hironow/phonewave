@@ -16,6 +16,7 @@ var phonewaveGitignoreEntries = []string{
 	"events/",
 	".run/",
 	".otel.env",
+	"!config.yaml",
 }
 
 // EnsureStateDir creates the .phonewave/ state directory structure and

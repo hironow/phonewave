@@ -19,7 +19,7 @@ func newCleanCmd() *cobra.Command {
 
 Removes: delivery.log, .run/, watch.pid, watch.started, events/
 Also removes: skills-ref Python venv from temp directory (if present)
-Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
+Preserves: .phonewave/config.yaml and .phonewave/.gitignore`,
 		Example: `  phonewave clean
   phonewave clean /path/to/project
   phonewave clean --yes`,
@@ -87,7 +87,7 @@ Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
 }
 
 // collectCleanTargets returns paths to state files/directories that should be
-// cleaned. The config file (phonewave.yaml) and .gitignore are excluded.
+// cleaned. The config file (config.yaml) and .gitignore are excluded.
 func collectCleanTargets(stateDir string) []string {
 	candidates := []string{
 		"delivery.log",

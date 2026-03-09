@@ -226,25 +226,25 @@ func TestWriteConfig_ManifestExcludesRoutes(t *testing.T) {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
-	// then — phonewave.yaml should NOT contain routes or last_synced
+	// then — config.yaml should NOT contain routes or last_synced
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("read file: %v", err)
 	}
 	content := string(data)
 	if strings.Contains(content, "routes:") {
-		t.Errorf("phonewave.yaml should not contain routes (moved to resolved.yaml), got:\n%s", content)
+		t.Errorf("config.yaml should not contain routes (moved to resolved.yaml), got:\n%s", content)
 	}
 	if strings.Contains(content, "last_synced:") {
-		t.Errorf("phonewave.yaml should not contain last_synced (moved to resolved.yaml), got:\n%s", content)
+		t.Errorf("config.yaml should not contain last_synced (moved to resolved.yaml), got:\n%s", content)
 	}
 }
 
 func TestWriteConfig_ResolvedStateContainsRoutes(t *testing.T) {
 	// given — config with routes
 	dir := t.TempDir()
-	stateDir := filepath.Join(dir, domain.StateDir, ".run")
-	os.MkdirAll(stateDir, 0755)
+	runDir := filepath.Join(dir, ".run")
+	os.MkdirAll(runDir, 0755)
 	configPath := filepath.Join(dir, domain.ConfigFile)
 	cfg := &domain.Config{
 		LastSynced: time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC),
@@ -261,8 +261,8 @@ func TestWriteConfig_ResolvedStateContainsRoutes(t *testing.T) {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
-	// then — resolved.yaml should exist in .phonewave/.run/ and contain routes
-	resolvedPath := filepath.Join(dir, domain.StateDir, ".run", domain.ResolvedStateFile)
+	// then — resolved.yaml should exist in .run/ (relative to config dir) and contain routes
+	resolvedPath := filepath.Join(dir, ".run", domain.ResolvedStateFile)
 	data, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		t.Fatalf("read resolved.yaml: %v", err)
@@ -279,8 +279,8 @@ func TestWriteConfig_ResolvedStateContainsRoutes(t *testing.T) {
 func TestLoadConfig_MergesResolvedState(t *testing.T) {
 	// given — separate manifest and resolved state
 	dir := t.TempDir()
-	stateDir := filepath.Join(dir, domain.StateDir, ".run")
-	os.MkdirAll(stateDir, 0755)
+	runDir := filepath.Join(dir, ".run")
+	os.MkdirAll(runDir, 0755)
 
 	// Write manifest (no routes)
 	manifest := `repositories:
@@ -302,7 +302,7 @@ routes:
     scope: same_repository
     repo_path: .
 `
-	os.WriteFile(filepath.Join(stateDir, domain.ResolvedStateFile), []byte(resolved), 0644)
+	os.WriteFile(filepath.Join(runDir, domain.ResolvedStateFile), []byte(resolved), 0644)
 
 	// when
 	cfg, err := session.LoadConfig(configPath)

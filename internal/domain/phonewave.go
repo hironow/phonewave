@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"path/filepath"
+	"time"
+)
 
 // StateDir is the name of the phonewave state directory.
 const StateDir = ".phonewave"
@@ -9,7 +12,12 @@ const StateDir = ".phonewave"
 const SkillsRefVenvName = "phonewave-skills-ref-venv"
 
 // ConfigFile is the default name of the phonewave configuration file.
-const ConfigFile = "phonewave.yaml"
+const ConfigFile = "config.yaml"
+
+// DefaultConfigPath returns the standard config file path for a given project root.
+func DefaultConfigPath(projectRoot string) string {
+	return filepath.Join(projectRoot, StateDir, ConfigFile)
+}
 
 // ResolvedStateFile is the filename for the local resolved state (gitignored).
 const ResolvedStateFile = "resolved.yaml"

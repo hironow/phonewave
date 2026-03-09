@@ -28,7 +28,7 @@ func TestRunInit_ValidCommand(t *testing.T) {
 	rp1, _ := domain.NewRepoPath("/tmp/repo1")
 	rp2, _ := domain.NewRepoPath("/tmp/repo2")
 	paths, _ := domain.NewNonEmptyRepoPaths([]domain.RepoPath{rp1, rp2})
-	cp, _ := domain.NewConfigPath("/tmp/phonewave.yaml")
+	cp, _ := domain.NewConfigPath("/tmp/.phonewave/config.yaml")
 	cmd := domain.NewInitCommand(paths, cp)
 
 	result, err := usecase.RunInit(cmd, runner)
@@ -48,8 +48,8 @@ func TestRunInit_ValidCommand(t *testing.T) {
 	if len(runner.repoPaths) != 2 {
 		t.Errorf("expected 2 repoPaths, got %d", len(runner.repoPaths))
 	}
-	if runner.cfgPath != "/tmp/phonewave.yaml" {
-		t.Errorf("expected cfgPath /tmp/phonewave.yaml, got %q", runner.cfgPath)
+	if runner.cfgPath != "/tmp/.phonewave/config.yaml" {
+		t.Errorf("expected cfgPath /tmp/.phonewave/config.yaml, got %q", runner.cfgPath)
 	}
 }
 
@@ -57,7 +57,7 @@ func TestRunInit_RunnerError(t *testing.T) {
 	runner := &stubInitRunner{err: fmt.Errorf("scan failed")}
 	rp, _ := domain.NewRepoPath("/tmp/repo")
 	paths, _ := domain.NewNonEmptyRepoPaths([]domain.RepoPath{rp})
-	cp, _ := domain.NewConfigPath("/tmp/phonewave.yaml")
+	cp, _ := domain.NewConfigPath("/tmp/.phonewave/config.yaml")
 	cmd := domain.NewInitCommand(paths, cp)
 
 	_, err := usecase.RunInit(cmd, runner)

@@ -31,7 +31,7 @@ func TestArchivePruneCmd_DryRunDefault(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "archive-prune"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.StateDir, domain.ConfigFile), "archive-prune"})
 
 	// when
 	err := rootCmd.Execute()
@@ -70,7 +70,7 @@ func TestArchivePruneCmd_ExecuteDeletesExpired(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "archive-prune", "--execute", "--yes"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.StateDir, domain.ConfigFile), "archive-prune", "--execute", "--yes"})
 
 	// when
 	err := rootCmd.Execute()
@@ -108,7 +108,7 @@ func TestArchivePruneCmd_JSONOutput_DryRun(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "--output", "json", "archive-prune"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.StateDir, domain.ConfigFile), "--output", "json", "archive-prune"})
 
 	// when
 	err := rootCmd.Execute()
@@ -154,7 +154,7 @@ func TestArchivePruneCmd_JSONOutput_Execute(t *testing.T) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.ConfigFile), "--output", "json", "archive-prune", "--execute"})
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.StateDir, domain.ConfigFile), "--output", "json", "archive-prune", "--execute"})
 
 	// when
 	err := rootCmd.Execute()

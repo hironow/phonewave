@@ -386,7 +386,7 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 	}
 }
 
-func TestDoctor_MissingRepoPath_HintReferencesPhonewaveYAML(t *testing.T) {
+func TestDoctor_MissingRepoPath_HintReferencesConfigYAML(t *testing.T) {
 	// given — config references a non-existent repository path
 	stateDir := t.TempDir()
 
@@ -404,14 +404,11 @@ func TestDoctor_MissingRepoPath_HintReferencesPhonewaveYAML(t *testing.T) {
 	// when
 	report := session.Doctor(cfg, stateDir)
 
-	// then — hint should reference phonewave.yaml (not config.yaml)
+	// then — hint should reference config.yaml
 	for _, issue := range report.Issues {
 		if issue.Severity == "error" && strings.Contains(issue.Message, "does not exist") {
-			if !strings.Contains(issue.Hint, "phonewave.yaml") {
-				t.Errorf("hint should reference phonewave.yaml, got: %q", issue.Hint)
-			}
-			if strings.Contains(issue.Hint, "config.yaml") {
-				t.Errorf("hint should not reference config.yaml (stale), got: %q", issue.Hint)
+			if !strings.Contains(issue.Hint, "config.yaml") {
+				t.Errorf("hint should reference config.yaml, got: %q", issue.Hint)
 			}
 		}
 	}

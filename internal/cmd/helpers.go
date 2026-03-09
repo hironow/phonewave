@@ -15,16 +15,22 @@ func configPath(cmd *cobra.Command) string {
 }
 
 // configBase returns the directory containing the config file.
-// State directory and EnsureStateDir should use this as their base
-// so that daemon state (PID, error queue, delivery.log) lives alongside
-// the config rather than being tied to the current working directory.
+// Since config lives at .phonewave/config.yaml, this returns the state
+// directory (.phonewave/). Daemon state (PID, error queue, delivery.log)
+// lives alongside the config rather than being tied to the current working directory.
 func configBase(cmd *cobra.Command) string {
 	return filepath.Dir(configPath(cmd))
 }
 
+// projectRoot returns the project root directory (parent of the state dir).
+// Since config lives at .phonewave/config.yaml, the project root is two levels up.
+func projectRoot(cmd *cobra.Command) string {
+	return filepath.Dir(configBase(cmd))
+}
+
 // resolveBaseDir returns the base directory for phonewave state.
 // If args[0] is provided, uses that directory.
-// Otherwise, falls back to the --config flag's parent directory.
+// Otherwise, falls back to the project root (parent of the state dir).
 func resolveBaseDir(cmd *cobra.Command, args []string) (string, error) {
 	if len(args) > 0 {
 		abs, err := filepath.Abs(args[0])
@@ -40,7 +46,7 @@ func resolveBaseDir(cmd *cobra.Command, args []string) (string, error) {
 		}
 		return abs, nil
 	}
-	return filepath.Abs(configBase(cmd))
+	return filepath.Abs(projectRoot(cmd))
 }
 
 func printOrphanWarnings(logger domain.Logger, orphans domain.OrphanReport) {

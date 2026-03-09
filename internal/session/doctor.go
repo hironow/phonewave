@@ -32,7 +32,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 		// 1. Verify repository path exists
 		if _, err := os.Stat(repo.Path); os.IsNotExist(err) {
 			report.AddErrorWithHint("", fmt.Sprintf("Repository path does not exist: %s", repo.Path),
-				`check phonewave.yaml repositories.path or run "phonewave remove <path>"`)
+				`check config.yaml repositories.path or run "phonewave remove <path>"`)
 			continue
 		}
 

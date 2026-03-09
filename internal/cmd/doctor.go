@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +20,7 @@ func newDoctorCmd() *cobra.Command {
 			jsonOut := outputFmt == "json"
 
 			cfgPath := configPath(cmd)
-			stateDir := filepath.Join(configBase(cmd), domain.StateDir)
+			stateDir := configBase(cmd)
 
 			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {

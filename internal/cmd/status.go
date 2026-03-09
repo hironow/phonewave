@@ -33,7 +33,7 @@ Use -o json for machine-readable JSON output to stdout.`,
 			if err != nil {
 				return err
 			}
-			cfgPath := filepath.Join(base, domain.ConfigFile)
+			cfgPath := filepath.Join(base, domain.StateDir, domain.ConfigFile)
 			stateDir := filepath.Join(base, domain.StateDir)
 
 			cfg, err := session.LoadConfig(cfgPath)

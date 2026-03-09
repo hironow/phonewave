@@ -120,10 +120,10 @@ func (w *Workspace) initAmadeus(t *testing.T) {
 }
 
 // initPhonewave runs phonewave init, pointing to the repo path.
-// The config is written to the workspace root (not inside the repo).
+// The config is written to the workspace root's .phonewave/config.yaml.
 func (w *Workspace) initPhonewave(t *testing.T) {
 	t.Helper()
-	cfgPath := filepath.Join(w.Root, "phonewave.yaml")
+	cfgPath := filepath.Join(w.Root, ".phonewave", "config.yaml")
 	cmd := w.runToolCmd(context.Background(), "phonewave", "init", "--config", cfgPath, w.RepoPath)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -165,31 +165,31 @@ func (w *Workspace) overrideSightjackClaudeCommand(t *testing.T) {
 	}
 }
 
-// phonewaveConfigPath returns the path to the phonewave.yaml config file.
+// phonewaveConfigPath returns the path to the phonewave config file.
 func (w *Workspace) phonewaveConfigPath() string {
-	return filepath.Join(w.Root, "phonewave.yaml")
+	return filepath.Join(w.Root, ".phonewave", "config.yaml")
 }
 
-// verifyPhonewaveRoutes reads phonewave.yaml and verifies that routes exist
+// verifyPhonewaveRoutes reads the resolved state and verifies that routes exist
 // for specification, report, and feedback kinds.
 func (w *Workspace) verifyPhonewaveRoutes(t *testing.T) {
 	t.Helper()
-	cfgPath := w.phonewaveConfigPath()
-	data, err := os.ReadFile(cfgPath)
+	resolvedPath := filepath.Join(w.Root, ".phonewave", ".run", "resolved.yaml")
+	data, err := os.ReadFile(resolvedPath)
 	if err != nil {
-		t.Fatalf("read phonewave.yaml: %v", err)
+		t.Fatalf("read resolved.yaml: %v", err)
 	}
 
 	// Parse the routes section
-	var cfg struct {
+	var resolved struct {
 		Routes []struct {
 			Kind string   `yaml:"kind"`
 			From string   `yaml:"from"`
 			To   []string `yaml:"to"`
 		} `yaml:"routes"`
 	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		t.Fatalf("parse phonewave.yaml: %v", err)
+	if err := yaml.Unmarshal(data, &resolved); err != nil {
+		t.Fatalf("parse resolved.yaml: %v", err)
 	}
 
 	requiredKinds := map[string]bool{
@@ -197,7 +197,7 @@ func (w *Workspace) verifyPhonewaveRoutes(t *testing.T) {
 		"report":          false,
 		"design-feedback": false,
 	}
-	for _, route := range cfg.Routes {
+	for _, route := range resolved.Routes {
 		if _, ok := requiredKinds[route.Kind]; ok {
 			requiredKinds[route.Kind] = true
 		}
@@ -205,7 +205,7 @@ func (w *Workspace) verifyPhonewaveRoutes(t *testing.T) {
 
 	for kind, found := range requiredKinds {
 		if !found {
-			t.Fatalf("phonewave.yaml missing required route kind: %s\nconfig content:\n%s", kind, string(data))
+			t.Fatalf("resolved.yaml missing required route kind: %s\nresolved content:\n%s", kind, string(data))
 		}
 	}
 }

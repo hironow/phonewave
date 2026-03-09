@@ -39,8 +39,8 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 
 	outboxDirs := CollectOutboxDirs(cfg)
 
-	stateDir := filepath.Join(baseDir, domain.StateDir)
-	if err := EnsureStateDir(baseDir); err != nil {
+	stateDir := baseDir
+	if err := EnsureStateDir(filepath.Dir(baseDir)); err != nil {
 		return nil, fmt.Errorf("create state dir: %w", err)
 	}
 

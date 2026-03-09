@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Config is the top-level phonewave.yaml structure.
+// Config is the top-level phonewave config.yaml structure.
 type Config struct {
 	LastSynced   time.Time     `yaml:"last_synced"`
 	Repositories []RepoConfig  `yaml:"repositories"`

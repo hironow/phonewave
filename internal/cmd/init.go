@@ -16,7 +16,7 @@ func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init <repo-path> [repo-path...]",
 		Short: "Scan repositories, discover tools, generate routing table",
-		Long:  "Scan one or more repositories for tool endpoints, parse SKILL.md manifests, derive a routing table, and generate phonewave.yaml.",
+		Long:  "Scan one or more repositories for tool endpoints, parse SKILL.md manifests, derive a routing table, and generate .phonewave/config.yaml.",
 		Args:  cobra.MinimumNArgs(1),
 		Example: `  phonewave init ./sightjack-repo ./paintress-repo ./amadeus-repo
   phonewave init /absolute/path/to/repo
@@ -81,7 +81,7 @@ func newInitCmd() *cobra.Command {
 				if otelErr != nil {
 					return otelErr
 				}
-				stateDir := filepath.Join(filepath.Dir(cfgPath), domain.StateDir)
+				stateDir := filepath.Dir(cfgPath)
 				if err := os.MkdirAll(stateDir, 0o755); err != nil {
 					return fmt.Errorf("create state dir: %w", err)
 				}
