@@ -4,7 +4,11 @@ Show daemon and delivery status
 
 ### Synopsis
 
-Show daemon state, uptime, watched directories, route count, error queue, and 24h delivery statistics.
+Show daemon state, uptime, watched directories, route count,
+error queue, and 24h delivery statistics.
+
+Output goes to stdout by default (human-readable text).
+Use -o json for machine-readable JSON output to stdout.
 
 ```
 phonewave status [path] [flags]
@@ -13,8 +17,14 @@ phonewave status [path] [flags]
 ### Examples
 
 ```
+  # Show status for default config location
   phonewave status
+
+  # Show status for a specific project
   phonewave status /path/to/project
+
+  # JSON output for scripting
+  phonewave status -o json
 ```
 
 ### Options
