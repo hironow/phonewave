@@ -12,8 +12,8 @@ coverage.out
 .claude/*.local.*
 # git worktrees
 .worktrees/
-# plan drafts (ephemeral)
-docs/plans/
+# plan drafts (ephemeral, approved plans are tracked)
+docs/plans/*.draft.md
 # golang
 .gocache/
 # firebase local debug log
