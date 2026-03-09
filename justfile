@@ -311,3 +311,10 @@ release version:
     echo ""
     echo "Tagged $tag successfully."
     echo "Push with:  git push origin $tag"
+
+# Open all Markdown and prompt templates in mo viewer (foreground, live-reload)
+docs-view:
+    mo --foreground \
+        -w '*.md' \
+        -w 'docs/**/*.md' \
+        -w '.semgrep/**/*.md'
