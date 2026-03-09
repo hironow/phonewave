@@ -26,7 +26,7 @@ func newDoctorCmd() *cobra.Command {
 
 			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
-				fmt.Fprintln(cmd.ErrOrStderr(), "  [FAIL] config           Run 'phonewave init' first")
+				fmt.Fprintf(cmd.ErrOrStderr(), "  [%-4s] %-16s %s\n", "FAIL", "config", "Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
@@ -52,14 +52,14 @@ func newDoctorCmd() *cobra.Command {
 			var fails, warns int
 			for _, issue := range report.Issues {
 				status := severityToStatus(issue.Severity)
-				label := issue.Message
-				if issue.Endpoint != "" {
-					label = issue.Endpoint + "  " + label
+				name := issue.Endpoint
+				if name == "" {
+					name = "-"
 				}
 
-				fmt.Fprintf(w, "  [%-4s] %s\n", status, label)
+				fmt.Fprintf(w, "  [%-4s] %-16s %s\n", status, name, issue.Message)
 				if issue.Hint != "" {
-					fmt.Fprintf(w, "         hint: %s\n", issue.Hint)
+					fmt.Fprintf(w, "         %-16s hint: %s\n", "", issue.Hint)
 				}
 
 				switch issue.Severity {
@@ -72,9 +72,9 @@ func newDoctorCmd() *cobra.Command {
 
 			// Daemon status
 			if report.DaemonStatus.Running {
-				fmt.Fprintf(w, "  [%-4s] daemon: running (PID %d)\n", "OK", report.DaemonStatus.PID)
+				fmt.Fprintf(w, "  [%-4s] %-16s running (PID %d)\n", "OK", "daemon", report.DaemonStatus.PID)
 			} else {
-				fmt.Fprintf(w, "  [%-4s] daemon: not running\n", "OK")
+				fmt.Fprintf(w, "  [%-4s] %-16s not running\n", "OK", "daemon")
 			}
 
 			fmt.Fprintln(w)
