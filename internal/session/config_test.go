@@ -288,7 +288,7 @@ func TestLoadConfig_MergesResolvedState(t *testing.T) {
     endpoints:
       - dir: .siren
         produces: [specification]
-        consumes: [feedback]
+        consumes: [design-feedback]
 `
 	configPath := filepath.Join(dir, domain.ConfigFile)
 	os.WriteFile(configPath, []byte(manifest), 0644)
@@ -333,7 +333,7 @@ func TestLoadConfig_GracefulWithoutResolvedState(t *testing.T) {
     endpoints:
       - dir: .siren
         produces: [specification]
-        consumes: [feedback]
+        consumes: [design-feedback]
       - dir: .expedition
         consumes: [specification]
         produces: [report]
@@ -362,7 +362,7 @@ repositories:
     endpoints:
       - dir: .siren
         produces: [specification]
-        consumes: [feedback]
+        consumes: [design-feedback]
 routes:
   - kind: specification
     from: .siren/outbox
