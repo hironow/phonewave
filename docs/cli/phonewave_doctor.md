@@ -4,7 +4,7 @@ Verify ecosystem health
 
 ### Synopsis
 
-Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, daemon status, git-remote availability, resolved.yaml existence, and Docker credential hints.
+Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, and daemon status.
 
 ```
 phonewave doctor [flags]
@@ -26,6 +26,7 @@ phonewave doctor [flags]
 
 ```
   -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+      --no-color        Disable colored output (respects NO_COLOR env)
   -o, --output string   Output format: text, json (default "text")
   -v, --verbose         Log all delivery events to stderr
 ```

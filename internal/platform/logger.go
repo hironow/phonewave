@@ -23,11 +23,11 @@ var _ domain.Logger = (*Logger)(nil)
 // Respects NO_COLOR (https://no-color.org/) and auto-detects terminal output.
 const (
 	ansiReset     = "\033[0m"
-	ansiCyan      = "\033[36m"    // INFO — blue axis, universally visible
-	ansiBoldGreen = "\033[1;32m"  // OK   — convention + bold brightness for CVD
-	ansiYellow    = "\033[33m"    // WARN — yellow axis, safe for common CVD
-	ansiBoldRed   = "\033[1;31m"  // ERR  — convention + bold brightness for CVD
-	ansiGray      = "\033[90m"    // DBUG — brightness-only, no hue dependency
+	ansiCyan      = "\033[36m"   // INFO — blue axis, universally visible
+	ansiBoldGreen = "\033[1;32m" // OK   — convention + bold brightness for CVD
+	ansiYellow    = "\033[33m"   // WARN — yellow axis, safe for common CVD
+	ansiBoldRed   = "\033[1;31m" // ERR  — convention + bold brightness for CVD
+	ansiGray      = "\033[90m"   // DBUG — brightness-only, no hue dependency
 )
 
 // Logger provides structured, timestamped log output.

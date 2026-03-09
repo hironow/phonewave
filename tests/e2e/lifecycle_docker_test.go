@@ -163,7 +163,6 @@ func countFilesInContainer(t *testing.T, ctx context.Context, c testcontainers.C
 	return n
 }
 
-
 // waitForStringInFile polls until a file in the container contains a substring.
 func waitForStringInFile(t *testing.T, ctx context.Context, c testcontainers.Container, path, substr string, timeout time.Duration) {
 	t.Helper()
