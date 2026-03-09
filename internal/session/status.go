@@ -3,6 +3,7 @@ package session
 import (
 	"bufio"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -117,6 +118,15 @@ func Status(cfg *domain.Config, stateDir string) domain.StatusReport {
 		if count, cErr := eq.PendingCount(1<<31 - 1); cErr == nil {
 			report.PendingErrors = count
 		}
+	}
+
+	// Skills-ref toolchain status
+	venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
+	report.SkillsRefVenv = venvDir
+	if _, err := exec.LookPath("skills-ref"); err == nil {
+		report.SkillsRefReady = true
+	} else if _, err := exec.LookPath("uv"); err == nil {
+		report.SkillsRefReady = true
 	}
 
 	return report

@@ -20,6 +20,8 @@ type StatusReport struct {
 	FailedCount24h    int           `json:"failed_24h"`
 	RetriedCount24h   int           `json:"retried_24h"`
 	SuccessRate24h    float64       `json:"success_rate_24h"`
+	SkillsRefVenv     string        `json:"skills_ref_venv,omitempty"`
+	SkillsRefReady    bool          `json:"skills_ref_ready"`
 }
 
 // FormatText returns a human-readable status report string suitable for stdout.
@@ -45,6 +47,13 @@ func (r StatusReport) FormatText() string {
 	fmt.Fprintf(&b, "  %-16s %s\n", "Success:",
 		FormatSuccessRate(r.SuccessRate24h, r.DeliveredCount24h,
 			r.DeliveredCount24h+r.FailedCount24h))
+
+	// Skills-ref toolchain
+	if r.SkillsRefReady {
+		fmt.Fprintf(&b, "  %-16s ready (venv: %s)\n", "Skills-ref:", r.SkillsRefVenv)
+	} else {
+		fmt.Fprintf(&b, "  %-16s not available\n", "Skills-ref:")
+	}
 
 	return b.String()
 }

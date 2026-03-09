@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -104,6 +105,9 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 		}
 	}
 
+	// Check skills-ref toolchain
+	checkSkillsRefToolchain(&report)
+
 	// Check orphaned routes (per-repo to match routing scope)
 	orphans := domain.DetectOrphansPerRepo(cfg)
 	for _, kind := range orphans.UnconsumedKinds {
@@ -131,6 +135,42 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	report.DaemonStatus = checkDaemonStatus(stateDir)
 
 	return report
+}
+
+// checkSkillsRefToolchain reports skills-ref and uv availability and venv state.
+func checkSkillsRefToolchain(report *domain.DoctorReport) {
+	venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
+
+	// Check skills-ref on PATH
+	if _, err := exec.LookPath("skills-ref"); err == nil {
+		report.AddOK("skills-ref", "skills-ref found on PATH")
+		return // Global install; no uv/venv needed
+	}
+
+	// Check uv on PATH
+	_, uvErr := exec.LookPath("uv")
+	if uvErr != nil {
+		report.AddWarnWithHint("skills-ref",
+			"uv not found on PATH: SKILL.md spec validation is unavailable",
+			`install uv (https://docs.astral.sh/uv/) or "uv tool install skills-ref"`)
+		return
+	}
+
+	// Check submodule availability
+	subDir := findSkillsRefDir()
+	if subDir == "" {
+		report.AddWarnWithHint("skills-ref",
+			"uv found but skills-ref submodule not available",
+			`install globally: "uv tool install skills-ref"`)
+		return
+	}
+
+	// uv + submodule available; report venv state
+	if fi, err := os.Stat(venvDir); err == nil && fi.IsDir() {
+		report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv: %s)", venvDir))
+	} else {
+		report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv will be created at %s on first use)", venvDir))
+	}
 }
 
 func checkDaemonStatus(stateDir string) domain.DaemonHealthStatus {

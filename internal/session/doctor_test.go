@@ -482,6 +482,28 @@ func TestDoctor_NoWarningWhenResolvedStateExists(t *testing.T) {
 	}
 }
 
+func TestDoctor_SkillsRefToolchainCheck(t *testing.T) {
+	// given — empty config, any environment
+	cfg := &domain.Config{}
+	stateDir := filepath.Join(t.TempDir(), domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+
+	// when
+	report := session.Doctor(cfg, stateDir)
+
+	// then — should have a skills-ref related issue (ok or warn)
+	hasSkillsRef := false
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "skills-ref" {
+			hasSkillsRef = true
+			break
+		}
+	}
+	if !hasSkillsRef {
+		t.Error("expected a skills-ref toolchain issue in doctor report")
+	}
+}
+
 func writeSkillFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
