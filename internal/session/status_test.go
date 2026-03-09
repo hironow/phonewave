@@ -24,7 +24,7 @@ func TestStatus_DaemonStopped(t *testing.T) {
 			{
 				Path: repoDir,
 				Endpoints: []domain.EndpointConfig{
-					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"feedback"}},
+					{Dir: ".siren", Produces: []string{"specification"}, Consumes: []string{"design-feedback"}},
 					{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
 				},
 			},
@@ -98,7 +98,7 @@ func TestParseDeliveryStats_CountsLast24Hours(t *testing.T) {
 	old := now.Add(-25 * time.Hour).Format(time.RFC3339)
 
 	content := fmt.Sprintf(`%s DELIVERED kind=specification from=/outbox/spec.md to=/inbox/spec.md
-%s FAILED    kind=feedback from=/outbox/fb.md reason=no route
+%s FAILED    kind=design-feedback from=/outbox/fb.md reason=no route
 %s RETRIED   kind=specification from=/outbox/spec.md to=/inbox/spec.md
 %s DELIVERED kind=report from=/outbox/old.md to=/inbox/old.md
 `, recent, recent, recent, old)
@@ -174,7 +174,7 @@ func TestStatus_DeliveryStats(t *testing.T) {
 	recent := now.Add(-30 * time.Minute).Format(time.RFC3339)
 	logContent := fmt.Sprintf(`%s DELIVERED kind=specification from=/outbox/spec.md to=/inbox/spec.md
 %s DELIVERED kind=report from=/outbox/rpt.md to=/inbox/rpt.md
-%s FAILED    kind=feedback from=/outbox/fb.md reason=no route
+%s FAILED    kind=design-feedback from=/outbox/fb.md reason=no route
 `, recent, recent, recent)
 
 	if err := os.WriteFile(filepath.Join(stateDir, "delivery.log"), []byte(logContent), 0644); err != nil {

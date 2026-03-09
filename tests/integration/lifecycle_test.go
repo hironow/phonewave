@@ -36,9 +36,9 @@ func setupEcosystemDir(t *testing.T) string {
 		produces []string
 		consumes []string
 	}{
-		{".siren", []string{"specification"}, []string{"feedback"}},
-		{".expedition", []string{"report"}, []string{"specification", "feedback"}},
-		{".gate", []string{"feedback"}, []string{"report"}},
+		{".siren", []string{"specification"}, []string{"design-feedback"}},
+		{".expedition", []string{"report"}, []string{"specification", "design-feedback"}},
+		{".gate", []string{"design-feedback"}, []string{"report"}},
 	}
 
 	for _, tool := range tools {
@@ -230,7 +230,7 @@ description: "Runtime specification"
 	if err := os.WriteFile(feedbackPath, []byte(`---
 dmail-schema-version: "1"
 name: fb-lifecycle
-kind: feedback
+kind: design-feedback
 description: "Lifecycle feedback"
 ---
 
@@ -262,8 +262,8 @@ description: "Lifecycle feedback"
 	if !strings.Contains(logContent, "kind=specification") {
 		t.Error("delivery log missing kind=specification")
 	}
-	if !strings.Contains(logContent, "kind=feedback") {
-		t.Error("delivery log missing kind=feedback")
+	if !strings.Contains(logContent, "kind=design-feedback") {
+		t.Error("delivery log missing kind=design-feedback")
 	}
 
 	// Count DELIVERED lines — at least 4:

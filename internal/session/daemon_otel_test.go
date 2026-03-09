@@ -173,7 +173,7 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 
 	// No routes for "specification" from this outbox
 	routes := []domain.ResolvedRoute{
-		{Kind: "feedback", FromOutbox: "/tmp/other", ToInboxes: []string{"/tmp/nope"}},
+		{Kind: "design-feedback", FromOutbox: "/tmp/other", ToInboxes: []string{"/tmp/nope"}},
 	}
 
 	daemon, err := NewDaemon(domain.DaemonOptions{
@@ -257,7 +257,7 @@ func TestDeliverData_RecordsErrorSpan(t *testing.T) {
 	dmailContent := "---\ndmail-schema-version: \"1\"\nname: err-span\nkind: specification\ndescription: \"Error span\"\n---\n"
 
 	routes := []domain.ResolvedRoute{
-		{Kind: "feedback", FromOutbox: "/tmp/other", ToInboxes: []string{"/tmp/nope"}},
+		{Kind: "design-feedback", FromOutbox: "/tmp/other", ToInboxes: []string{"/tmp/nope"}},
 	}
 
 	ds := newTestDeliveryStore(t)

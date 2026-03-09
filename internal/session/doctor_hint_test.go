@@ -33,8 +33,8 @@ func TestDoctor_MissingRepoPath_HasHint(t *testing.T) {
 			if issue.Hint == "" {
 				t.Error("expected hint for missing repo path error")
 			}
-			if !strings.Contains(issue.Hint, "config.yaml") {
-				t.Errorf("hint should mention config.yaml, got: %s", issue.Hint)
+			if !strings.Contains(issue.Hint, "phonewave.yaml") {
+				t.Errorf("hint should mention phonewave.yaml, got: %s", issue.Hint)
 			}
 			return
 		}

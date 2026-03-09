@@ -99,7 +99,7 @@ func TestScenario_L4_Hard(t *testing.T) {
 		}
 	}
 	feedbackPath := ws.WaitForDMail(t, ".siren", "inbox", 30*time.Second)
-	obs.AssertDMailKind(feedbackPath, "feedback")
+	obs.AssertDMailKind(feedbackPath, "design-feedback")
 	ws.WaitForAbsent(t, ".gate", "outbox", 10*time.Second)
 	t.Log("downstream amadeus processed report after daemon restart — full chain OK")
 
@@ -136,7 +136,7 @@ func TestScenario_L4_Hard(t *testing.T) {
 	feedback := FormatDMail(map[string]string{
 		"dmail-schema-version": "1",
 		"name":                 "feedback-recovery-001",
-		"kind":                 "feedback",
+		"kind":                 "design-feedback",
 		"description":          "Post-recovery feedback",
 		"action":               "resolve",
 	}, "# Recovery Feedback\n\nSystem recovered from malformed D-Mail.")

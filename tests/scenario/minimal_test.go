@@ -78,7 +78,7 @@ func TestScenario_L1_Minimal(t *testing.T) {
 	feedbackDMail := FormatDMail(map[string]string{
 		"dmail-schema-version": "1",
 		"name":                 "feedback-minimal-001",
-		"kind":                 "feedback",
+		"kind":                 "design-feedback",
 		"description":          "Minimal test feedback",
 		"action":               "resolve",
 	}, "# Minimal Feedback\n\nAll checks passed. No issues detected.")
@@ -94,7 +94,7 @@ func TestScenario_L1_Minimal(t *testing.T) {
 	ws.WaitForAbsent(t, ".gate", "outbox", 10*time.Second)
 
 	// 13. Verify delivered feedback kind
-	obs.AssertDMailKind(feedbackSiren, "feedback")
+	obs.AssertDMailKind(feedbackSiren, "design-feedback")
 
 	// 14. Wait for closed loop completion (spec→report→feedback all delivered)
 	obs.WaitForClosedLoop(60 * time.Second)

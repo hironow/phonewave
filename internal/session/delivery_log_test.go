@@ -21,8 +21,8 @@ func TestDeliveryLog_Append(t *testing.T) {
 	defer log.Close()
 
 	// when
-	log.Delivered("feedback", "/repo/.gate/outbox/feedback-001.md", "/repo/.siren/inbox/feedback-001.md")
-	log.Delivered("feedback", "/repo/.gate/outbox/feedback-001.md", "/repo/.expedition/inbox/feedback-001.md")
+	log.Delivered("design-feedback", "/repo/.gate/outbox/feedback-001.md", "/repo/.siren/inbox/feedback-001.md")
+	log.Delivered("design-feedback", "/repo/.gate/outbox/feedback-001.md", "/repo/.expedition/inbox/feedback-001.md")
 	log.Removed("/repo/.gate/outbox/feedback-001.md")
 
 	// then — read the log file
@@ -39,8 +39,8 @@ func TestDeliveryLog_Append(t *testing.T) {
 	if !strings.Contains(lines[0], "DELIVERED") {
 		t.Errorf("line 0 should contain DELIVERED: %s", lines[0])
 	}
-	if !strings.Contains(lines[0], "kind=feedback") {
-		t.Errorf("line 0 should contain kind=feedback: %s", lines[0])
+	if !strings.Contains(lines[0], "kind=design-feedback") {
+		t.Errorf("line 0 should contain kind=design-feedback: %s", lines[0])
 	}
 	if !strings.Contains(lines[2], "REMOVED") {
 		t.Errorf("line 2 should contain REMOVED: %s", lines[2])
@@ -117,7 +117,7 @@ func TestDeliveryLog_CloseIsConcurrencySafe(t *testing.T) {
 		go func(n int) {
 			defer func() { done <- struct{}{} }()
 			<-start
-			log.Delivered("feedback", fmt.Sprintf("/outbox/msg-%d.md", n), "/inbox/msg.md")
+			log.Delivered("design-feedback", fmt.Sprintf("/outbox/msg-%d.md", n), "/inbox/msg.md")
 		}(i)
 	}
 	go func() {
@@ -152,7 +152,7 @@ func TestDeliveryLog_AppendAcrossRestarts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	log2.Delivered("feedback", "/outbox/fb-001.md", "/inbox/fb-001.md")
+	log2.Delivered("design-feedback", "/outbox/fb-001.md", "/inbox/fb-001.md")
 	log2.Close()
 
 	// then — log should contain entries from both sessions

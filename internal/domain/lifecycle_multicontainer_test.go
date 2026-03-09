@@ -156,7 +156,7 @@ func TestLifecycleDocker_MultiContainer(t *testing.T) {
 	// =====================================================================
 	// Phase 8: Writer sends feedback (multi-target: siren + expedition)
 	// =====================================================================
-	fbContent := "---\ndmail-schema-version: \"1\"\nname: fb-cross\nkind: feedback\ndescription: Cross-container feedback\n---\n\n# Feedback\n"
+	fbContent := "---\ndmail-schema-version: \"1\"\nname: fb-cross\nkind: design-feedback\ndescription: Cross-container feedback\n---\n\n# Feedback\n"
 	heredocWrite(t, ctx, writerContainer, repoPath+"/.gate/outbox/fb-cross.md", fbContent)
 
 	waitForFileInContainer(t, ctx, daemonContainer,
@@ -176,8 +176,8 @@ func TestLifecycleDocker_MultiContainer(t *testing.T) {
 	if !strings.Contains(logOutput, "kind=specification") {
 		t.Error("delivery log missing kind=specification")
 	}
-	if !strings.Contains(logOutput, "kind=feedback") {
-		t.Error("delivery log missing kind=feedback")
+	if !strings.Contains(logOutput, "kind=design-feedback") {
+		t.Error("delivery log missing kind=design-feedback")
 	}
 
 	// =====================================================================

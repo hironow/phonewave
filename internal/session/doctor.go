@@ -31,7 +31,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 		// 1. Verify repository path exists
 		if _, err := os.Stat(repo.Path); os.IsNotExist(err) {
 			report.AddErrorWithHint("", fmt.Sprintf("Repository path does not exist: %s", repo.Path),
-				`check config.yaml repositories.path or run "phonewave remove <path>"`)
+				`check phonewave.yaml repositories.path or run "phonewave remove <path>"`)
 			continue
 		}
 
@@ -113,6 +113,13 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	for _, kind := range orphans.UnproducedKinds {
 		report.AddWarnWithHint("", fmt.Sprintf("Orphaned: kind=%q is consumed but not produced", kind),
 			`add a producer for this kind or run "phonewave sync"`)
+	}
+
+	// Check resolved state file exists
+	resolvedPath := filepath.Join(stateDir, ".run", domain.ResolvedStateFile)
+	if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+		report.AddWarnWithHint("", "resolved.yaml not found: routes are being derived on-the-fly",
+			`run "phonewave sync" to generate resolved state`)
 	}
 
 	// Success rate (informational)

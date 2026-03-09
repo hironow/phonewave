@@ -38,9 +38,9 @@ func setupEcosystemOnHost(t *testing.T, repoPath string) {
 	}
 
 	tools := []toolDef{
-		{".siren", "specification", []string{"feedback"}},
-		{".expedition", "report", []string{"specification", "feedback"}},
-		{".gate", "feedback", []string{"report"}},
+		{".siren", "specification", []string{"design-feedback"}},
+		{".expedition", "report", []string{"specification", "design-feedback"}},
+		{".gate", "design-feedback", []string{"report"}},
 	}
 
 	for _, tool := range tools {

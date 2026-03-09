@@ -14,17 +14,17 @@ func TestExtractDMailKind(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid feedback dmail",
+			name: "valid design-feedback dmail",
 			content: `---
 dmail-schema-version: "1"
 name: feedback-001
-kind: feedback
+kind: design-feedback
 description: "ADR-003 violation detected"
 ---
 
 # ADR-003 Violation
 `,
-			want: "feedback",
+			want: "design-feedback",
 		},
 		{
 			name: "valid specification dmail",
@@ -83,27 +83,27 @@ description: "Missing kind"
 			content: `---
 dmail-schema-version: "1"
 name: feedback-meta
-kind: feedback
+kind: design-feedback
 description: "Feedback with metadata"
 metadata:
   created_at: "2026-02-22"
   convergence_for: "auth-module"
 ---
 `,
-			want: "feedback",
+			want: "design-feedback",
 		},
 		{
 			name: "dmail with metadata produces as string",
 			content: `---
 dmail-schema-version: "1"
 name: feedback-str
-kind: feedback
+kind: implementation-feedback
 description: "Metadata produces is a string not array"
 metadata:
   produces: "some-tool-specific-value"
 ---
 `,
-			want: "feedback",
+			want: "implementation-feedback",
 		},
 		{
 			name: "invalid kind value",
@@ -176,7 +176,7 @@ func TestExtractDMailKind_WithActionField(t *testing.T) {
 	content := `---
 dmail-schema-version: "1"
 name: feedback-action-001
-kind: feedback
+kind: design-feedback
 description: "Evaluation with retry action"
 action: retry
 priority: 2
@@ -192,8 +192,26 @@ Implementation needs revision.
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != "feedback" {
-		t.Errorf("kind = %q, want %q", got, "feedback")
+	if got != "design-feedback" {
+		t.Errorf("kind = %q, want %q", got, "design-feedback")
+	}
+}
+
+func TestValidateKind_DesignFeedback(t *testing.T) {
+	if err := domain.ValidateKind("design-feedback"); err != nil {
+		t.Errorf("expected design-feedback to be valid, got: %v", err)
+	}
+}
+
+func TestValidateKind_ImplementationFeedback(t *testing.T) {
+	if err := domain.ValidateKind("implementation-feedback"); err != nil {
+		t.Errorf("expected implementation-feedback to be valid, got: %v", err)
+	}
+}
+
+func TestValidateKind_OldFeedback_Invalid(t *testing.T) {
+	if err := domain.ValidateKind("feedback"); err == nil {
+		t.Error("expected feedback to be invalid after kind split")
 	}
 }
 
@@ -204,9 +222,11 @@ func TestValidateKind(t *testing.T) {
 	}{
 		{"specification", false},
 		{"report", false},
-		{"feedback", false},
+		{"design-feedback", false},
+		{"implementation-feedback", false},
 		{"convergence", false},
 		{"ci-result", false},
+		{"feedback", true},
 		{"", true},
 		{"unknown", true},
 		{"SPECIFICATION", true},

@@ -163,7 +163,6 @@ func countFilesInContainer(t *testing.T, ctx context.Context, c testcontainers.C
 	return n
 }
 
-
 // waitForStringInFile polls until a file in the container contains a substring.
 func waitForStringInFile(t *testing.T, ctx context.Context, c testcontainers.Container, path, substr string, timeout time.Duration) {
 	t.Helper()
@@ -246,9 +245,9 @@ func setupEcosystemInContainer(t *testing.T, ctx context.Context, c testcontaine
 	}
 
 	tools := []toolDef{
-		{".siren", "specification", "feedback"},
-		{".expedition", "report", "specification\n    - kind: feedback"},
-		{".gate", "feedback", "report"},
+		{".siren", "specification", "design-feedback"},
+		{".expedition", "report", "specification\n    - kind: design-feedback"},
+		{".gate", "design-feedback", "report"},
 	}
 
 	for _, tool := range tools {
@@ -342,7 +341,7 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 	// =====================================================================
 	// Phase 7: Multi-target delivery — feedback → siren + expedition
 	// =====================================================================
-	feedbackContent := "---\ndmail-schema-version: \"1\"\nname: fb-docker\nkind: feedback\ndescription: Docker feedback\n---\n\n# Feedback\n"
+	feedbackContent := "---\ndmail-schema-version: \"1\"\nname: fb-docker\nkind: design-feedback\ndescription: Docker feedback\n---\n\n# Feedback\n"
 	heredocWrite(t, ctx, container, repoPath+"/.gate/outbox/fb-docker.md", feedbackContent)
 
 	waitForFileInContainer(t, ctx, container,
@@ -362,8 +361,8 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 	if !strings.Contains(logOutput, "kind=specification") {
 		t.Error("delivery log missing kind=specification")
 	}
-	if !strings.Contains(logOutput, "kind=feedback") {
-		t.Error("delivery log missing kind=feedback")
+	if !strings.Contains(logOutput, "kind=design-feedback") {
+		t.Error("delivery log missing kind=design-feedback")
 	}
 
 	// =====================================================================

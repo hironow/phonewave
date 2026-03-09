@@ -47,6 +47,7 @@ phonewave archive-prune [path] [flags]
 
 ```
   -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+      --no-color        Disable colored output (respects NO_COLOR env)
   -o, --output string   Output format: text, json (default "text")
   -v, --verbose         Log all delivery events to stderr
 ```

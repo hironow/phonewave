@@ -96,7 +96,7 @@ func TestScenario_L2_Small(t *testing.T) {
 	fbResolve := FormatDMail(map[string]string{
 		"dmail-schema-version": "1",
 		"name":                 "feedback-resolve-001",
-		"kind":                 "feedback",
+		"kind":                 "design-feedback",
 		"description":          "Feedback: high priority resolved",
 		"action":               "resolve",
 		"priority":             "1",
@@ -105,7 +105,7 @@ func TestScenario_L2_Small(t *testing.T) {
 	fbRetry := FormatDMail(map[string]string{
 		"dmail-schema-version": "1",
 		"name":                 "feedback-retry-002",
-		"kind":                 "feedback",
+		"kind":                 "design-feedback",
 		"description":          "Feedback: low priority needs retry",
 		"action":               "retry",
 		"priority":             "3",
@@ -123,7 +123,7 @@ func TestScenario_L2_Small(t *testing.T) {
 	ws.WaitForAbsent(t, ".gate", "outbox", 10*time.Second)
 
 	// 12. Verify feedback kinds in .siren/inbox
-	verifyAllDMailKinds(t, ws, ".siren", "inbox", "feedback")
+	verifyAllDMailKinds(t, ws, ".siren", "inbox", "design-feedback")
 
 	// === Cycle 2: retry triggers follow-up specification ===
 
@@ -165,7 +165,7 @@ func TestScenario_L2_Small(t *testing.T) {
 	fbResolve2 := FormatDMail(map[string]string{
 		"dmail-schema-version": "1",
 		"name":                 "feedback-resolve-003",
-		"kind":                 "feedback",
+		"kind":                 "design-feedback",
 		"description":          "Feedback: retry now resolved",
 		"action":               "resolve",
 		"priority":             "2",

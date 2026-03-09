@@ -1,7 +1,7 @@
 ---
 dmail-schema-version: "1"
 name: feedback-cross-e2e
-kind: feedback
+kind: design-feedback
 description: "Cross-tool E2E test feedback from amadeus"
 ---
 

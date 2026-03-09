@@ -26,8 +26,8 @@ func TestMain(m *testing.M) {
 	req := testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
-				Context:    repoRoot(),
-				Dockerfile: "tests/e2e/testdata/Dockerfile.test",
+				Context:       repoRoot(),
+				Dockerfile:    "tests/e2e/testdata/Dockerfile.test",
 				PrintBuildLog: true,
 			},
 			WaitingFor: wait.ForExec([]string{"phonewave", "--version"}).

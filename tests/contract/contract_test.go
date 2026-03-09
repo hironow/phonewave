@@ -97,7 +97,7 @@ func TestGroup2_RequiredFields(t *testing.T) {
 			}
 			validKinds := map[string]bool{
 				"specification": true, "report": true,
-				"feedback": true, "convergence": true,
+				"design-feedback": true, "implementation-feedback": true, "convergence": true,
 			}
 			if !validKinds[dm.Kind] {
 				t.Errorf("kind = %q, not a valid schema v1 kind", dm.Kind)
@@ -164,7 +164,7 @@ func TestGroup4_RoundTrip(t *testing.T) {
 		{
 			SchemaVersion: "1",
 			Name:          "roundtrip-feedback",
-			Kind:          "feedback",
+			Kind:          "design-feedback",
 			Description:   "Round-trip test feedback",
 			Issues:        []string{"TEST-1"},
 			Severity:      "medium",
@@ -249,7 +249,7 @@ func TestGroup5_PostelUnknownKind(t *testing.T) {
 	// Should parse but is NOT a valid schema v1 kind
 	validKinds := map[string]bool{
 		"specification": true, "report": true,
-		"feedback": true, "convergence": true,
+		"design-feedback": true, "implementation-feedback": true, "convergence": true,
 	}
 	if validKinds[dm.Kind] {
 		t.Error("unknown kind should not be in valid schema v1 kinds")
