@@ -314,6 +314,7 @@ release version:
 
 # Open all Markdown and prompt templates in mo viewer (foreground, live-reload)
 docs-view:
+    mo --clear --no-open
     mo --foreground \
         -w '*.md' \
         -w 'docs/**/*.md' \
