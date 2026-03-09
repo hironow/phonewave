@@ -141,6 +141,8 @@ Repository A                   Repository B
 
 ## Usage
 
+Most commands accept an optional `[path]` argument and default to the current working directory. Commands that manage repositories (`init`, `add`, `remove`) require explicit paths.
+
 ```bash
 # Initialize with multiple repositories
 phonewave init ./sightjack-repo ./paintress-repo ./amadeus-repo
