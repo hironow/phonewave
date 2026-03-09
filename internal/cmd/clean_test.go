@@ -3,9 +3,13 @@ package cmd
 // white-box-reason: cobra command construction: NewRootCommand and CLI routing are unexported
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func TestCollectCleanTargets_IncludesRunDir(t *testing.T) {
@@ -86,5 +90,34 @@ func TestCollectCleanTargets_AllExpectedCandidates(t *testing.T) {
 		if !found {
 			t.Errorf("expected %s in clean targets, got: %v", name, targets)
 		}
+	}
+}
+
+func TestCleanCmd_IncludesSkillsRefVenv(t *testing.T) {
+	// given — state dir + skills-ref venv exists in temp
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, domain.StateDir)
+	runDir := filepath.Join(stateDir, ".run")
+	os.MkdirAll(runDir, 0755)
+
+	// Create a fake venv at the expected location
+	venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
+	os.MkdirAll(venvDir, 0755)
+	defer os.RemoveAll(venvDir) // cleanup
+
+	cmd := NewRootCommand()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetIn(strings.NewReader("n\n")) // decline deletion
+	cmd.SetArgs([]string{"clean", dir})
+
+	// when
+	cmd.Execute()
+
+	// then — output should mention the venv path
+	output := buf.String()
+	if !strings.Contains(output, "phonewave-skills-ref-venv") {
+		t.Errorf("expected skills-ref venv in clean targets, got:\n%s", output)
 	}
 }

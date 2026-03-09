@@ -5,6 +5,9 @@ import "time"
 // StateDir is the name of the phonewave state directory.
 const StateDir = ".phonewave"
 
+// SkillsRefVenvName is the directory name for the skills-ref Python venv.
+const SkillsRefVenvName = "phonewave-skills-ref-venv"
+
 // ConfigFile is the default name of the phonewave configuration file.
 const ConfigFile = "phonewave.yaml"
 

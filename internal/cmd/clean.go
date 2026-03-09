@@ -18,6 +18,7 @@ func newCleanCmd() *cobra.Command {
 		Long: `Remove runtime state files from the .phonewave/ directory.
 
 Removes: delivery.log, .run/, watch.pid, watch.started, events/
+Also removes: skills-ref Python venv from temp directory (if present)
 Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
 		Example: `  phonewave clean
   phonewave clean /path/to/project
@@ -41,6 +42,13 @@ Preserves: phonewave.yaml (config) and .phonewave/.gitignore`,
 			}
 
 			targets := collectCleanTargets(stateDir)
+
+			// Include skills-ref venv in temp dir if it exists
+			venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
+			if _, err := os.Stat(venvDir); err == nil {
+				targets = append(targets, venvDir)
+			}
+
 			if len(targets) == 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Nothing to clean.\n")
 				return nil

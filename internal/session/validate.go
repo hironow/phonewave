@@ -62,7 +62,7 @@ func skillsRefCommand(skillDir string) (*exec.Cmd, context.CancelFunc, error) {
 			cmd := exec.CommandContext(ctx, uvPath, "run", "--project", subDir, "skills-ref", "validate", skillDir)
 			// Redirect uv's venv to a temp directory so Python artifacts
 			// don't pollute the Go repository tree.
-			venvDir := filepath.Join(os.TempDir(), "phonewave-skills-ref-venv")
+			venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
 			cmd.Env = append(os.Environ(), "UV_PROJECT_ENVIRONMENT="+venvDir)
 			cmd.Cancel = func() error { cancel(); return cmd.Process.Kill() }
 			return cmd, cancel, nil
