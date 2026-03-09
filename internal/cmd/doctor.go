@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/hironow/phonewave/internal/domain"
-	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -18,17 +18,15 @@ func newDoctorCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		Example: `  phonewave doctor`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, _ := cmd.Flags().GetBool("verbose")
 			outputFmt, _ := cmd.Flags().GetString("output")
 			jsonOut := outputFmt == "json"
-			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
 			stateDir := filepath.Join(configBase(cmd), domain.StateDir)
 
 			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
-				logger.Info("Run 'phonewave init' first")
+				fmt.Fprintln(cmd.ErrOrStderr(), "  [FAIL] config           Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
@@ -46,35 +44,69 @@ func newDoctorCmd() *cobra.Command {
 				return nil
 			}
 
+			// text output — aligned with amadeus/sightjack/paintress format
+			w := cmd.ErrOrStderr()
+			fmt.Fprintln(w, "phonewave doctor — ecosystem health check")
+			fmt.Fprintln(w)
+
+			var fails, warns int
 			for _, issue := range report.Issues {
-				switch issue.Severity {
-				case "ok":
-					logger.OK("%s  %s", issue.Endpoint, issue.Message)
-				case "fixed":
-					logger.Warn("%s  %s", issue.Endpoint, issue.Message)
-				case "warn":
-					logger.Warn("%s  %s", issue.Endpoint, issue.Message)
-				case "error":
-					logger.Error("%s  %s", issue.Endpoint, issue.Message)
+				status := severityToStatus(issue.Severity)
+				label := issue.Message
+				if issue.Endpoint != "" {
+					label = issue.Endpoint + "  " + label
 				}
+
+				fmt.Fprintf(w, "  [%-4s] %s\n", status, label)
 				if issue.Hint != "" {
-					logger.Info("         hint: %s", issue.Hint)
+					fmt.Fprintf(w, "         hint: %s\n", issue.Hint)
+				}
+
+				switch issue.Severity {
+				case "error":
+					fails++
+				case "warn":
+					warns++
 				}
 			}
 
+			// Daemon status
 			if report.DaemonStatus.Running {
-				logger.OK("Daemon: running (PID %d)", report.DaemonStatus.PID)
+				fmt.Fprintf(w, "  [%-4s] daemon: running (PID %d)\n", "OK", report.DaemonStatus.PID)
 			} else {
-				logger.OK("Daemon: not running")
+				fmt.Fprintf(w, "  [%-4s] daemon: not running\n", "OK")
 			}
 
+			fmt.Fprintln(w)
 			if !report.Healthy {
+				var parts []string
+				if fails > 0 {
+					parts = append(parts, fmt.Sprintf("%d error(s)", fails))
+				}
+				if warns > 0 {
+					parts = append(parts, fmt.Sprintf("%d warning(s)", warns))
+				}
+				fmt.Fprintln(w, strings.Join(parts, ", ")+".")
 				return fmt.Errorf("ecosystem has issues")
 			}
-			logger.OK("Ecosystem healthy")
+			fmt.Fprintln(w, "All checks passed.")
 			return nil
 		},
 	}
 
 	return cmd
+}
+
+// severityToStatus maps phonewave DoctorIssue severity to [FAIL]/[OK]/[WARN]/[FIX] labels.
+func severityToStatus(severity string) string {
+	switch severity {
+	case "error":
+		return "FAIL"
+	case "warn":
+		return "WARN"
+	case "fixed":
+		return "FIX"
+	default:
+		return "OK"
+	}
 }
