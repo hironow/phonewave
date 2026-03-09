@@ -11,6 +11,16 @@ import (
 	"github.com/hironow/phonewave/internal/session"
 )
 
+// stateConfigPath creates a .phonewave/config.yaml inside a temp dir,
+// mirroring the real directory structure. Returns (projectRoot, configPath).
+func stateConfigPath(t *testing.T) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+	return dir, filepath.Join(stateDir, domain.ConfigFile)
+}
+
 func TestConfigRoundTrip(t *testing.T) {
 	// given
 	cfg := &domain.Config{
@@ -29,8 +39,7 @@ func TestConfigRoundTrip(t *testing.T) {
 		},
 	}
 
-	dir := t.TempDir()
-	configPath := filepath.Join(dir, domain.ConfigFile)
+	_, configPath := stateConfigPath(t)
 
 	// when — write
 	if err := session.WriteConfig(configPath, cfg); err != nil {
@@ -71,8 +80,7 @@ func TestLoadConfig_NotFound(t *testing.T) {
 }
 
 func TestWriteConfig_CreatesYAMLFile(t *testing.T) {
-	dir := t.TempDir()
-	configPath := filepath.Join(dir, domain.ConfigFile)
+	_, configPath := stateConfigPath(t)
 	cfg := &domain.Config{
 		LastSynced: time.Now().UTC(),
 		Repositories: []domain.RepoConfig{
@@ -103,9 +111,8 @@ func TestWriteConfig_CreatesYAMLFile(t *testing.T) {
 
 func TestWriteConfig_StoresRelativePaths(t *testing.T) {
 	// given — config with absolute repo paths
-	dir := t.TempDir()
+	dir, configPath := stateConfigPath(t)
 	repoPath := filepath.Join(dir, "my-repo")
-	configPath := filepath.Join(dir, domain.ConfigFile)
 	cfg := &domain.Config{
 		Repositories: []domain.RepoConfig{
 			{Path: repoPath, Endpoints: []domain.EndpointConfig{{Dir: ".siren"}}},
@@ -142,8 +149,7 @@ func TestWriteConfig_StoresRelativePaths(t *testing.T) {
 
 func TestLoadConfig_ResolvesRelativePaths(t *testing.T) {
 	// given — YAML with relative paths
-	dir := t.TempDir()
-	configPath := filepath.Join(dir, domain.ConfigFile)
+	dir, configPath := stateConfigPath(t)
 	yamlContent := `repositories:
   - path: my-repo
     endpoints:
@@ -176,8 +182,7 @@ routes:
 
 func TestLoadConfig_BackwardCompat_AbsolutePaths(t *testing.T) {
 	// given — YAML with absolute paths (legacy format)
-	dir := t.TempDir()
-	configPath := filepath.Join(dir, domain.ConfigFile)
+	_, configPath := stateConfigPath(t)
 	yamlContent := `repositories:
   - path: /absolute/path/to/repo
     endpoints:
@@ -209,8 +214,7 @@ routes:
 
 func TestWriteConfig_ManifestExcludesRoutes(t *testing.T) {
 	// given — config with routes
-	dir := t.TempDir()
-	configPath := filepath.Join(dir, domain.ConfigFile)
+	dir, configPath := stateConfigPath(t)
 	cfg := &domain.Config{
 		LastSynced: time.Now().UTC(),
 		Repositories: []domain.RepoConfig{
@@ -242,10 +246,8 @@ func TestWriteConfig_ManifestExcludesRoutes(t *testing.T) {
 
 func TestWriteConfig_ResolvedStateContainsRoutes(t *testing.T) {
 	// given — config with routes
-	dir := t.TempDir()
-	runDir := filepath.Join(dir, ".run")
-	os.MkdirAll(runDir, 0755)
-	configPath := filepath.Join(dir, domain.ConfigFile)
+	dir, configPath := stateConfigPath(t)
+	stateDir := filepath.Dir(configPath)
 	cfg := &domain.Config{
 		LastSynced: time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC),
 		Repositories: []domain.RepoConfig{
@@ -261,8 +263,8 @@ func TestWriteConfig_ResolvedStateContainsRoutes(t *testing.T) {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
-	// then — resolved.yaml should exist in .run/ (relative to config dir) and contain routes
-	resolvedPath := filepath.Join(dir, ".run", domain.ResolvedStateFile)
+	// then — resolved.yaml should exist in .run/ (relative to state dir) and contain routes
+	resolvedPath := filepath.Join(stateDir, ".run", domain.ResolvedStateFile)
 	data, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		t.Fatalf("read resolved.yaml: %v", err)
@@ -278,8 +280,9 @@ func TestWriteConfig_ResolvedStateContainsRoutes(t *testing.T) {
 
 func TestLoadConfig_MergesResolvedState(t *testing.T) {
 	// given — separate manifest and resolved state
-	dir := t.TempDir()
-	runDir := filepath.Join(dir, ".run")
+	_, configPath := stateConfigPath(t)
+	stateDir := filepath.Dir(configPath)
+	runDir := filepath.Join(stateDir, ".run")
 	os.MkdirAll(runDir, 0755)
 
 	// Write manifest (no routes)
@@ -290,7 +293,6 @@ func TestLoadConfig_MergesResolvedState(t *testing.T) {
         produces: [specification]
         consumes: [design-feedback]
 `
-	configPath := filepath.Join(dir, domain.ConfigFile)
 	os.WriteFile(configPath, []byte(manifest), 0644)
 
 	// Write resolved state
@@ -327,7 +329,7 @@ routes:
 
 func TestLoadConfig_GracefulWithoutResolvedState(t *testing.T) {
 	// given — manifest only, no resolved.yaml
-	dir := t.TempDir()
+	_, configPath := stateConfigPath(t)
 	manifest := `repositories:
   - path: .
     endpoints:
@@ -338,7 +340,6 @@ func TestLoadConfig_GracefulWithoutResolvedState(t *testing.T) {
         consumes: [specification]
         produces: [report]
 `
-	configPath := filepath.Join(dir, domain.ConfigFile)
 	os.WriteFile(configPath, []byte(manifest), 0644)
 
 	// when
@@ -354,8 +355,8 @@ func TestLoadConfig_GracefulWithoutResolvedState(t *testing.T) {
 }
 
 func TestLoadConfig_BackwardCompat_OldFormatWithRoutes(t *testing.T) {
-	// given — old-style phonewave.yaml with routes inline
-	dir := t.TempDir()
+	// given — old-style config with routes inline
+	_, configPath := stateConfigPath(t)
 	oldYaml := `last_synced: 2026-03-07T03:40:13Z
 repositories:
   - path: .
@@ -370,7 +371,6 @@ routes:
     scope: same_repository
     repo_path: .
 `
-	configPath := filepath.Join(dir, domain.ConfigFile)
 	os.WriteFile(configPath, []byte(oldYaml), 0644)
 
 	// when
@@ -390,9 +390,8 @@ routes:
 
 func TestWriteConfig_RoutesAlsoRelative(t *testing.T) {
 	// given — config with routes containing absolute repo_path
-	dir := t.TempDir()
-	repoPath := filepath.Join(dir, "project")
-	configPath := filepath.Join(dir, domain.ConfigFile)
+	projectRoot, configPath := stateConfigPath(t)
+	repoPath := filepath.Join(projectRoot, "project")
 	cfg := &domain.Config{
 		Routes: []domain.RouteConfig{
 			{Kind: "report", From: ".expedition/outbox", To: []string{".siren/inbox"}, RepoPath: repoPath},
@@ -404,13 +403,14 @@ func TestWriteConfig_RoutesAlsoRelative(t *testing.T) {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
-	// then
-	data, err := os.ReadFile(configPath)
+	// then — check resolved state file (routes are written there, not config.yaml)
+	resolvedPath := filepath.Join(filepath.Dir(configPath), ".run", domain.ResolvedStateFile)
+	data, err := os.ReadFile(resolvedPath)
 	if err != nil {
-		t.Fatalf("read file: %v", err)
+		t.Fatalf("read resolved state: %v", err)
 	}
 	content := string(data)
-	if strings.Contains(content, dir) {
+	if strings.Contains(content, projectRoot) {
 		t.Errorf("route repo_path should be relative, found absolute directory in:\n%s", content)
 	}
 }

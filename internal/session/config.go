@@ -67,6 +67,9 @@ func MigrateConfigIfNeeded(projectRoot string) error {
 // .run/resolved.yaml (relative to the config directory). If resolved.yaml is
 // missing, routes are derived from endpoints. If config.yaml still has inline
 // routes (old format), they are used as-is for backward compatibility.
+//
+// Repository paths in the config are relative to the project root (parent of
+// the state directory), NOT relative to the config file's directory.
 func LoadConfig(path string) (*domain.Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -77,7 +80,9 @@ func LoadConfig(path string) (*domain.Config, error) {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	configDir := filepath.Dir(path)
-	resolveRelPaths(&cfg, configDir)
+	// Repo paths are relative to project root (parent of state dir)
+	projectRoot := filepath.Dir(configDir)
+	resolveRelPaths(&cfg, projectRoot)
 
 	// If routes were loaded from old-format config with inline routes, keep them.
 	if len(cfg.Routes) > 0 {
@@ -91,7 +96,7 @@ func LoadConfig(path string) (*domain.Config, error) {
 		if err := yaml.Unmarshal(rdata, &rs); err == nil {
 			cfg.Routes = rs.Routes
 			cfg.LastSynced = rs.LastSynced
-			resolveRelPaths(&cfg, configDir)
+			resolveRelPaths(&cfg, projectRoot)
 		}
 	}
 
@@ -108,7 +113,9 @@ func LoadConfig(path string) (*domain.Config, error) {
 //   - .run/resolved.yaml: gitignored resolved state (routes, last_synced)
 func WriteConfig(path string, cfg *domain.Config) error {
 	configDir := filepath.Dir(path)
-	rel := convertToRelPaths(cfg, configDir)
+	// Repo paths are relative to project root (parent of state dir)
+	projectRoot := filepath.Dir(configDir)
+	rel := convertToRelPaths(cfg, projectRoot)
 
 	// Write manifest (endpoints only, no routes or timestamp)
 	m := manifest{Repositories: rel.Repositories}

@@ -34,6 +34,7 @@ type Config struct {
 ```
 
 CLI key mapping:
+
 - `assistant.command` → `claude_cmd`
 - `assistant.model` → `model`
 - `assistant.timeout_sec` → `timeout_sec`
@@ -56,6 +57,7 @@ Remove all LoadConfig fallback assignments and hardcoded `"claude"` in review_ga
 ### 3. Tracker unification (sightjack ↔ paintress)
 
 Both already share `IssueTrackerConfig` with `Team` and `Project`.
+
 - Remove `omitempty` from paintress `Project` field to match sightjack
 - sightjack keeps `Cycle` as tool-specific field (paintress does not use cycles)
 
@@ -87,6 +89,7 @@ This is acceptable: we do not need backward compatibility per project CLAUDE.md.
 ## Files Changed
 
 **sightjack (primary):**
+
 - `internal/domain/config.go` — Remove AIAssistantConfig, add flat fields, update DefaultConfig
 - `internal/domain/config_test.go` — Update field references
 - `internal/session/config.go` — Update setConfigField keys, remove LoadConfig fallbacks
@@ -102,6 +105,7 @@ This is acceptable: we do not need backward compatibility per project CLAUDE.md.
 - ~10 test files — Mechanical `.Assistant.X` → flat field replacement
 
 **paintress (minor):**
+
 - `internal/domain/config.go` — Remove `omitempty` from `IssueTrackerConfig.Project`
 
 ## Testing
