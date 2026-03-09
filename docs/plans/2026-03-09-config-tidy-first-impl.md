@@ -17,30 +17,31 @@ sightjack has a real ComputedConfig use case: `Strictness.Estimated` is LLM-comp
 ### Task 1: Test computed-key rejection in setConfigField
 
 **Files:**
+
 - Modify: `/Users/nino/tap/sightjack/internal/session/config_test.go`
 
 **Step 1: Write the failing test**
 
 ```go
 func TestSetConfigField_RejectsComputedKey(t *testing.T) {
-	// given
-	dir := t.TempDir()
-	cfg := domain.DefaultConfig()
-	data, _ := yaml.Marshal(cfg)
-	cfgPath := filepath.Join(dir, ".siren", "config.yaml")
-	os.MkdirAll(filepath.Dir(cfgPath), 0755)
-	os.WriteFile(cfgPath, data, 0644)
+ // given
+ dir := t.TempDir()
+ cfg := domain.DefaultConfig()
+ data, _ := yaml.Marshal(cfg)
+ cfgPath := filepath.Join(dir, ".siren", "config.yaml")
+ os.MkdirAll(filepath.Dir(cfgPath), 0755)
+ os.WriteFile(cfgPath, data, 0644)
 
-	// when
-	err := UpdateConfig(cfgPath, "strictness.estimated", "fog")
+ // when
+ err := UpdateConfig(cfgPath, "strictness.estimated", "fog")
 
-	// then
-	if err == nil {
-		t.Fatal("expected error for computed key")
-	}
-	if !strings.Contains(err.Error(), "computed") {
-		t.Errorf("error should mention 'computed', got: %v", err)
-	}
+ // then
+ if err == nil {
+  t.Fatal("expected error for computed key")
+ }
+ if !strings.Contains(err.Error(), "computed") {
+  t.Errorf("error should mention 'computed', got: %v", err)
+ }
 }
 ```
 
@@ -55,7 +56,7 @@ In `/Users/nino/tap/sightjack/internal/session/config.go`, add case before the `
 
 ```go
 case "strictness.estimated":
-	return fmt.Errorf("key %q is computed (read-only): cannot be set manually", key)
+ return fmt.Errorf("key %q is computed (read-only): cannot be set manually", key)
 ```
 
 **Step 4: Run test to verify it passes**
@@ -75,6 +76,7 @@ git -C /Users/nino/tap/sightjack commit -m "feat: reject computed key strictness
 ### Task 2: Introduce UserConfig / ComputedConfig types for sightjack
 
 **Files:**
+
 - Modify: `/Users/nino/tap/sightjack/internal/domain/config.go`
 - Modify: `/Users/nino/tap/sightjack/internal/domain/config_test.go`
 
@@ -84,59 +86,59 @@ In `/Users/nino/tap/sightjack/internal/domain/config_test.go`:
 
 ```go
 func TestConfig_UserAndComputedEmbedding(t *testing.T) {
-	// given
-	cfg := DefaultConfig()
+ // given
+ cfg := DefaultConfig()
 
-	// then — UserConfig fields accessible
-	if cfg.Lang != "ja" {
-		t.Errorf("UserConfig.Lang = %q, want ja", cfg.Lang)
-	}
-	if cfg.Strictness.Default != StrictnessFog {
-		t.Errorf("UserConfig.Strictness.Default = %v, want fog", cfg.Strictness.Default)
-	}
+ // then — UserConfig fields accessible
+ if cfg.Lang != "ja" {
+  t.Errorf("UserConfig.Lang = %q, want ja", cfg.Lang)
+ }
+ if cfg.Strictness.Default != StrictnessFog {
+  t.Errorf("UserConfig.Strictness.Default = %v, want fog", cfg.Strictness.Default)
+ }
 
-	// then — ComputedConfig accessible (empty by default)
-	if cfg.Computed.EstimatedStrictness != nil {
-		t.Errorf("ComputedConfig.EstimatedStrictness should be nil by default")
-	}
+ // then — ComputedConfig accessible (empty by default)
+ if cfg.Computed.EstimatedStrictness != nil {
+  t.Errorf("ComputedConfig.EstimatedStrictness should be nil by default")
+ }
 }
 
 func TestConfig_YAMLRoundTrip_FlatOutput(t *testing.T) {
-	// given
-	cfg := DefaultConfig()
-	cfg.Computed.EstimatedStrictness = map[string]StrictnessLevel{
-		"cluster-a": StrictnessHaze,
-	}
+ // given
+ cfg := DefaultConfig()
+ cfg.Computed.EstimatedStrictness = map[string]StrictnessLevel{
+  "cluster-a": StrictnessHaze,
+ }
 
-	// when — marshal
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
+ // when — marshal
+ data, err := yaml.Marshal(cfg)
+ if err != nil {
+  t.Fatalf("marshal: %v", err)
+ }
 
-	// then — YAML should be flat (no "user:" or "computed:" wrapper keys)
-	text := string(data)
-	if strings.Contains(text, "user:") {
-		t.Errorf("YAML should be flat, found 'user:' key:\n%s", text)
-	}
-	if strings.Contains(text, "computed:") {
-		t.Errorf("YAML should be flat, found 'computed:' key:\n%s", text)
-	}
+ // then — YAML should be flat (no "user:" or "computed:" wrapper keys)
+ text := string(data)
+ if strings.Contains(text, "user:") {
+  t.Errorf("YAML should be flat, found 'user:' key:\n%s", text)
+ }
+ if strings.Contains(text, "computed:") {
+  t.Errorf("YAML should be flat, found 'computed:' key:\n%s", text)
+ }
 
-	// when — unmarshal round-trip
-	var loaded Config
-	if err := yaml.Unmarshal(data, &loaded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
+ // when — unmarshal round-trip
+ var loaded Config
+ if err := yaml.Unmarshal(data, &loaded); err != nil {
+  t.Fatalf("unmarshal: %v", err)
+ }
 
-	// then — values preserved
-	if loaded.Lang != "ja" {
-		t.Errorf("round-trip Lang = %q, want ja", loaded.Lang)
-	}
-	est, ok := loaded.Computed.EstimatedStrictness["cluster-a"]
-	if !ok || est != StrictnessHaze {
-		t.Errorf("round-trip EstimatedStrictness[cluster-a] = %v (ok=%v), want haze", est, ok)
-	}
+ // then — values preserved
+ if loaded.Lang != "ja" {
+  t.Errorf("round-trip Lang = %q, want ja", loaded.Lang)
+ }
+ est, ok := loaded.Computed.EstimatedStrictness["cluster-a"]
+ if !ok || est != StrictnessHaze {
+  t.Errorf("round-trip EstimatedStrictness[cluster-a] = %v (ok=%v), want haze", est, ok)
+ }
 }
 ```
 
@@ -154,8 +156,8 @@ In `/Users/nino/tap/sightjack/internal/domain/config.go`:
 ```go
 // UserStrictnessConfig holds user-settable strictness fields.
 type UserStrictnessConfig struct {
-	Default   StrictnessLevel            `yaml:"default"`
-	Overrides map[string]StrictnessLevel `yaml:"overrides,omitempty"`
+ Default   StrictnessLevel            `yaml:"default"`
+ Overrides map[string]StrictnessLevel `yaml:"overrides,omitempty"`
 }
 ```
 
@@ -164,7 +166,7 @@ type UserStrictnessConfig struct {
 ```go
 // ComputedConfig holds system-written fields that cannot be set via `config set`.
 type ComputedConfig struct {
-	EstimatedStrictness map[string]StrictnessLevel `yaml:"estimated,omitempty"`
+ EstimatedStrictness map[string]StrictnessLevel `yaml:"estimated,omitempty"`
 }
 ```
 
@@ -172,17 +174,17 @@ type ComputedConfig struct {
 
 ```go
 type Config struct {
-	Tracker      IssueTrackerConfig     `yaml:"tracker"`
-	Scan         ScanConfig             `yaml:"scan"`
-	Assistant    AIAssistantConfig      `yaml:"assistant"`
-	Scribe       ScribeConfig           `yaml:"scribe"`
-	Strictness   UserStrictnessConfig   `yaml:"strictness"`
-	Retry        RetryConfig            `yaml:"retry"`
-	Labels       LabelsConfig           `yaml:"labels"`
-	Gate         GateConfig             `yaml:"gate"`
-	DoDTemplates map[string]DoDTemplate `yaml:"dod_templates,omitempty"`
-	Lang         string                 `yaml:"lang"`
-	Computed     ComputedConfig         `yaml:"computed,omitempty"`
+ Tracker      IssueTrackerConfig     `yaml:"tracker"`
+ Scan         ScanConfig             `yaml:"scan"`
+ Assistant    AIAssistantConfig      `yaml:"assistant"`
+ Scribe       ScribeConfig           `yaml:"scribe"`
+ Strictness   UserStrictnessConfig   `yaml:"strictness"`
+ Retry        RetryConfig            `yaml:"retry"`
+ Labels       LabelsConfig           `yaml:"labels"`
+ Gate         GateConfig             `yaml:"gate"`
+ DoDTemplates map[string]DoDTemplate `yaml:"dod_templates,omitempty"`
+ Lang         string                 `yaml:"lang"`
+ Computed     ComputedConfig         `yaml:"computed,omitempty"`
 }
 ```
 
@@ -197,11 +199,13 @@ NOTE: We keep `Computed` as a named field (not inline) because sightjack has rea
 **Step 4: Fix all compile errors**
 
 Files that reference `cfg.Strictness.Estimated`:
+
 - `internal/session/config.go` — `WriteEstimatedStrictness()` function: change `cfg.Strictness.Estimated = estimated` to `cfg.Computed.EstimatedStrictness = estimated`
 - `internal/session/scan.go` or wherever estimated strictness is read: `cfg.Strictness.Estimated` → `cfg.Computed.EstimatedStrictness`
 - `internal/domain/strictness.go` — `ResolveStrictness()` if it reads Estimated: update path
 
 Search for all `Strictness.Estimated` references:
+
 ```bash
 cd /Users/nino/tap/sightjack && grep -rn 'Strictness\.Estimated\|\.Estimated\b' internal/ --include='*.go' | grep -v _test.go
 ```
@@ -229,6 +233,7 @@ YAML output adds computed: section only when populated."
 ### Task 3: Update WriteEstimatedStrictness to use ComputedConfig path
 
 **Files:**
+
 - Modify: `/Users/nino/tap/sightjack/internal/session/config.go`
 - Modify: `/Users/nino/tap/sightjack/internal/session/config_test.go`
 
@@ -236,36 +241,36 @@ YAML output adds computed: section only when populated."
 
 ```go
 func TestWriteEstimatedStrictness_WritesToComputedConfig(t *testing.T) {
-	// given
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "config.yaml")
-	cfg := domain.DefaultConfig()
-	data, _ := yaml.Marshal(cfg)
-	os.WriteFile(cfgPath, data, 0644)
+ // given
+ dir := t.TempDir()
+ cfgPath := filepath.Join(dir, "config.yaml")
+ cfg := domain.DefaultConfig()
+ data, _ := yaml.Marshal(cfg)
+ os.WriteFile(cfgPath, data, 0644)
 
-	estimated := map[string]domain.StrictnessLevel{
-		"cluster-x": domain.StrictnessHaze,
-	}
+ estimated := map[string]domain.StrictnessLevel{
+  "cluster-x": domain.StrictnessHaze,
+ }
 
-	// when
-	err := WriteEstimatedStrictness(cfgPath, estimated)
+ // when
+ err := WriteEstimatedStrictness(cfgPath, estimated)
 
-	// then
-	if err != nil {
-		t.Fatalf("WriteEstimatedStrictness: %v", err)
-	}
-	loaded, loadErr := LoadConfig(cfgPath)
-	if loadErr != nil {
-		t.Fatalf("LoadConfig: %v", loadErr)
-	}
-	got, ok := loaded.Computed.EstimatedStrictness["cluster-x"]
-	if !ok || got != domain.StrictnessHaze {
-		t.Errorf("EstimatedStrictness[cluster-x] = %v (ok=%v), want haze", got, ok)
-	}
-	// user fields preserved
-	if loaded.Lang != "ja" {
-		t.Errorf("Lang should be preserved, got %q", loaded.Lang)
-	}
+ // then
+ if err != nil {
+  t.Fatalf("WriteEstimatedStrictness: %v", err)
+ }
+ loaded, loadErr := LoadConfig(cfgPath)
+ if loadErr != nil {
+  t.Fatalf("LoadConfig: %v", loadErr)
+ }
+ got, ok := loaded.Computed.EstimatedStrictness["cluster-x"]
+ if !ok || got != domain.StrictnessHaze {
+  t.Errorf("EstimatedStrictness[cluster-x] = %v (ok=%v), want haze", got, ok)
+ }
+ // user fields preserved
+ if loaded.Lang != "ja" {
+  t.Errorf("Lang should be preserved, got %q", loaded.Lang)
+ }
 }
 ```
 
@@ -303,6 +308,7 @@ paintress has no computed fields today, but gets the type-level pattern for cons
 ### Task 4: Add ComputedConfig to paintress ProjectConfig
 
 **Files:**
+
 - Modify: `/Users/nino/tap/paintress/internal/domain/config.go`
 - Modify: `/Users/nino/tap/paintress/internal/domain/config_test.go`
 
@@ -312,38 +318,38 @@ In `/Users/nino/tap/paintress/internal/domain/config_test.go`:
 
 ```go
 func TestProjectConfig_ComputedConfig_EmptyByDefault(t *testing.T) {
-	// given/when
-	cfg := DefaultProjectConfig()
+ // given/when
+ cfg := DefaultProjectConfig()
 
-	// then — ComputedConfig exists but is empty
-	if cfg.Computed != (ComputedConfig{}) {
-		t.Errorf("ComputedConfig should be zero-value by default, got %+v", cfg.Computed)
-	}
+ // then — ComputedConfig exists but is empty
+ if cfg.Computed != (ComputedConfig{}) {
+  t.Errorf("ComputedConfig should be zero-value by default, got %+v", cfg.Computed)
+ }
 }
 
 func TestProjectConfig_YAMLRoundTrip_NoComputedKey(t *testing.T) {
-	// given — default config with empty computed
-	cfg := DefaultProjectConfig()
+ // given — default config with empty computed
+ cfg := DefaultProjectConfig()
 
-	// when
-	data, err := yaml.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
+ // when
+ data, err := yaml.Marshal(cfg)
+ if err != nil {
+  t.Fatalf("marshal: %v", err)
+ }
 
-	// then — no "computed" key in YAML output
-	if strings.Contains(string(data), "computed") {
-		t.Errorf("YAML should not contain 'computed' when empty:\n%s", string(data))
-	}
+ // then — no "computed" key in YAML output
+ if strings.Contains(string(data), "computed") {
+  t.Errorf("YAML should not contain 'computed' when empty:\n%s", string(data))
+ }
 
-	// round-trip
-	var loaded ProjectConfig
-	if err := yaml.Unmarshal(data, &loaded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if loaded.Lang != cfg.Lang {
-		t.Errorf("round-trip Lang = %q, want %q", loaded.Lang, cfg.Lang)
-	}
+ // round-trip
+ var loaded ProjectConfig
+ if err := yaml.Unmarshal(data, &loaded); err != nil {
+  t.Fatalf("unmarshal: %v", err)
+ }
+ if loaded.Lang != cfg.Lang {
+  t.Errorf("round-trip Lang = %q, want %q", loaded.Lang, cfg.Lang)
+ }
 }
 ```
 
@@ -365,8 +371,8 @@ Add field to `ProjectConfig`:
 
 ```go
 type ProjectConfig struct {
-	// ... existing fields ...
-	Computed ComputedConfig `yaml:"computed,omitempty"`
+ // ... existing fields ...
+ Computed ComputedConfig `yaml:"computed,omitempty"`
 }
 ```
 
@@ -390,6 +396,7 @@ ComputedConfig is empty and omitted from YAML output."
 ### Task 5: Fix config bypass in paintress doctor.go and issues.go
 
 **Files:**
+
 - Modify: `/Users/nino/tap/paintress/internal/cmd/doctor.go`
 - Modify: `/Users/nino/tap/paintress/internal/cmd/issues.go`
 - Create: `/Users/nino/tap/paintress/internal/cmd/config_helpers.go` (shared helper)
@@ -401,15 +408,15 @@ In `/Users/nino/tap/paintress/internal/cmd/doctor_test.go`, add:
 
 ```go
 func TestDoctor_UsesConfigClaudeCmd(t *testing.T) {
-	// given — verify doctor command reads claude_cmd from config, not platform.DefaultClaudeCmd
-	// This is a structural verification: the doctor command should call loadClaudeCmd()
-	// which loads from ProjectConfig. We verify the helper exists and works.
-	dir := t.TempDir()
-	cmd := loadClaudeCmd(dir)
-	// default should be "claude" (from DefaultProjectConfig)
-	if cmd != "claude" {
-		t.Errorf("loadClaudeCmd default = %q, want 'claude'", cmd)
-	}
+ // given — verify doctor command reads claude_cmd from config, not platform.DefaultClaudeCmd
+ // This is a structural verification: the doctor command should call loadClaudeCmd()
+ // which loads from ProjectConfig. We verify the helper exists and works.
+ dir := t.TempDir()
+ cmd := loadClaudeCmd(dir)
+ // default should be "claude" (from DefaultProjectConfig)
+ if cmd != "claude" {
+  t.Errorf("loadClaudeCmd default = %q, want 'claude'", cmd)
+ }
 }
 ```
 
@@ -426,27 +433,29 @@ Create `/Users/nino/tap/paintress/internal/cmd/config_helpers.go`:
 package cmd
 
 import (
-	"github.com/hironow/paintress/internal/session"
+ "github.com/hironow/paintress/internal/session"
 )
 
 // loadClaudeCmd returns the claude_cmd from project config, falling back to default.
 func loadClaudeCmd(repoPath string) string {
-	cfg, err := session.LoadProjectConfig(repoPath)
-	if err != nil {
-		return "claude"
-	}
-	if cfg.ClaudeCmd != "" {
-		return cfg.ClaudeCmd
-	}
-	return "claude"
+ cfg, err := session.LoadProjectConfig(repoPath)
+ if err != nil {
+  return "claude"
+ }
+ if cfg.ClaudeCmd != "" {
+  return cfg.ClaudeCmd
+ }
+ return "claude"
 }
 ```
 
 Update `/Users/nino/tap/paintress/internal/cmd/doctor.go`:
+
 - Replace `claudeCmd := platform.DefaultClaudeCmd` with `claudeCmd := loadClaudeCmd(continent)`
 - Remove `platform` import if no longer used
 
 Update `/Users/nino/tap/paintress/internal/cmd/issues.go`:
+
 - Replace `platform.DefaultClaudeCmd` with `loadClaudeCmd(absPath)`
 
 **Step 4: Run all tests**
@@ -478,6 +487,7 @@ amadeus has no computed fields but needs a `claude_cmd` field added to config an
 ### Task 6: Add ComputedConfig and claude_cmd to amadeus Config
 
 **Files:**
+
 - Modify: `/Users/nino/tap/amadeus/internal/domain/config.go`
 - Modify: `/Users/nino/tap/amadeus/internal/domain/config_test.go`
 
@@ -487,29 +497,29 @@ In `/Users/nino/tap/amadeus/internal/domain/config_test.go`:
 
 ```go
 func TestConfig_ComputedConfig_EmptyByDefault(t *testing.T) {
-	cfg := DefaultConfig()
-	if cfg.Computed != (ComputedConfig{}) {
-		t.Errorf("ComputedConfig should be zero-value, got %+v", cfg.Computed)
-	}
+ cfg := DefaultConfig()
+ if cfg.Computed != (ComputedConfig{}) {
+  t.Errorf("ComputedConfig should be zero-value, got %+v", cfg.Computed)
+ }
 }
 
 func TestDefaultConfig_ClaudeCmd(t *testing.T) {
-	cfg := DefaultConfig()
-	if cfg.ClaudeCmd != "claude" {
-		t.Errorf("ClaudeCmd = %q, want 'claude'", cfg.ClaudeCmd)
-	}
+ cfg := DefaultConfig()
+ if cfg.ClaudeCmd != "claude" {
+  t.Errorf("ClaudeCmd = %q, want 'claude'", cfg.ClaudeCmd)
+ }
 }
 
 func TestValidateConfig_ClaudeCmdEmpty_IsValid(t *testing.T) {
-	// empty claude_cmd is valid (uses default at runtime)
-	cfg := DefaultConfig()
-	cfg.ClaudeCmd = ""
-	errs := ValidateConfig(cfg)
-	for _, e := range errs {
-		if strings.Contains(e, "claude_cmd") {
-			t.Errorf("empty claude_cmd should be valid, got error: %s", e)
-		}
-	}
+ // empty claude_cmd is valid (uses default at runtime)
+ cfg := DefaultConfig()
+ cfg.ClaudeCmd = ""
+ errs := ValidateConfig(cfg)
+ for _, e := range errs {
+  if strings.Contains(e, "claude_cmd") {
+   t.Errorf("empty claude_cmd should be valid, got error: %s", e)
+  }
+ }
 }
 ```
 
@@ -527,14 +537,14 @@ In `/Users/nino/tap/amadeus/internal/domain/config.go`:
 type ComputedConfig struct{}
 
 type Config struct {
-	Lang            string            `yaml:"lang"`
-	ClaudeCmd       string            `yaml:"claude_cmd,omitempty"`
-	Weights         Weights           `yaml:"weights"`
-	Thresholds      Thresholds        `yaml:"thresholds"`
-	PerAxisOverride PerAxisOverride   `yaml:"per_axis_override"`
-	FullCheck       FullCheckConfig   `yaml:"full_check"`
-	Convergence     ConvergenceConfig `yaml:"convergence"`
-	Computed        ComputedConfig    `yaml:"computed,omitempty"`
+ Lang            string            `yaml:"lang"`
+ ClaudeCmd       string            `yaml:"claude_cmd,omitempty"`
+ Weights         Weights           `yaml:"weights"`
+ Thresholds      Thresholds        `yaml:"thresholds"`
+ PerAxisOverride PerAxisOverride   `yaml:"per_axis_override"`
+ FullCheck       FullCheckConfig   `yaml:"full_check"`
+ Convergence     ConvergenceConfig `yaml:"convergence"`
+ Computed        ComputedConfig    `yaml:"computed,omitempty"`
 }
 ```
 
@@ -560,6 +570,7 @@ Adds claude_cmd to Config with default 'claude'."
 ### Task 7: Add claude_cmd to amadeus config set + fix hardcoded "claude"
 
 **Files:**
+
 - Modify: `/Users/nino/tap/amadeus/internal/cmd/config_cmd.go`
 - Modify: `/Users/nino/tap/amadeus/internal/cmd/config_test.go`
 - Modify: `/Users/nino/tap/amadeus/internal/cmd/check.go`
@@ -573,14 +584,14 @@ In `/Users/nino/tap/amadeus/internal/cmd/config_test.go`:
 
 ```go
 func TestConfigSet_ClaudeCmd(t *testing.T) {
-	cfg := domain.DefaultConfig()
-	err := setAmadeusConfigField(&cfg, "claude_cmd", "custom-claude")
-	if err != nil {
-		t.Fatalf("setAmadeusConfigField: %v", err)
-	}
-	if cfg.ClaudeCmd != "custom-claude" {
-		t.Errorf("ClaudeCmd = %q, want 'custom-claude'", cfg.ClaudeCmd)
-	}
+ cfg := domain.DefaultConfig()
+ err := setAmadeusConfigField(&cfg, "claude_cmd", "custom-claude")
+ if err != nil {
+  t.Fatalf("setAmadeusConfigField: %v", err)
+ }
+ if cfg.ClaudeCmd != "custom-claude" {
+  t.Errorf("ClaudeCmd = %q, want 'custom-claude'", cfg.ClaudeCmd)
+ }
 }
 ```
 
@@ -595,7 +606,7 @@ In `/Users/nino/tap/amadeus/internal/cmd/config_cmd.go`, add:
 
 ```go
 case "claude_cmd":
-	cfg.ClaudeCmd = value
+ cfg.ClaudeCmd = value
 ```
 
 **Step 4: Fix hardcoded "claude" in check.go, run.go, review.go, claude.go**
@@ -629,6 +640,7 @@ config.yaml with fallback to default when absent."
 ### Task 8: Add semgrep rule — config-no-hardcoded-claude-cmd
 
 **Files:**
+
 - Modify: `/Users/nino/tap/paintress/.semgrep/layers.yaml`
 - Modify: `/Users/nino/tap/amadeus/.semgrep/shared-adr.yaml` (or create `config.yaml`)
 
@@ -702,6 +714,7 @@ git -C /Users/nino/tap/amadeus commit -m "ci: add semgrep rule blocking hardcode
 ### Task 9: Add semgrep rule — config-no-computed-field-in-set (sightjack)
 
 **Files:**
+
 - Modify: `/Users/nino/tap/sightjack/.semgrep/layers.yaml`
 
 **Step 1: Write semgrep rule**
@@ -741,6 +754,7 @@ git -C /Users/nino/tap/sightjack commit -m "ci: add semgrep rule blocking comput
 ### Task 10: Add semgrep rule — config-no-direct-computed-write (sightjack)
 
 **Files:**
+
 - Modify: `/Users/nino/tap/sightjack/.semgrep/layers.yaml`
 
 **Step 1: Write semgrep rule**
@@ -780,6 +794,7 @@ git -C /Users/nino/tap/sightjack commit -m "ci: add semgrep rule blocking cmd-la
 ### Task 11: Config round-trip test for each tool
 
 **Files:**
+
 - Modify: `/Users/nino/tap/sightjack/internal/session/config_test.go`
 - Modify: `/Users/nino/tap/paintress/internal/session/project_config_test.go`
 - Modify: `/Users/nino/tap/amadeus/internal/cmd/config_test.go`
@@ -787,6 +802,7 @@ git -C /Users/nino/tap/sightjack commit -m "ci: add semgrep rule blocking cmd-la
 **Step 1: Write round-trip tests**
 
 For each tool, write a test that:
+
 1. Creates DefaultConfig()
 2. Saves to YAML file
 3. Loads from YAML file
@@ -796,44 +812,44 @@ For each tool, write a test that:
 
 ```go
 func TestConfig_SaveLoadRoundTrip_AllFields(t *testing.T) {
-	// given
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "config.yaml")
-	original := domain.DefaultConfig()
+ // given
+ dir := t.TempDir()
+ cfgPath := filepath.Join(dir, "config.yaml")
+ original := domain.DefaultConfig()
 
-	// when — save
-	data, err := yaml.Marshal(original)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	os.WriteFile(cfgPath, data, 0644)
+ // when — save
+ data, err := yaml.Marshal(original)
+ if err != nil {
+  t.Fatalf("marshal: %v", err)
+ }
+ os.WriteFile(cfgPath, data, 0644)
 
-	// when — load
-	loaded, loadErr := LoadConfig(cfgPath)
-	if loadErr != nil {
-		t.Fatalf("LoadConfig: %v", loadErr)
-	}
+ // when — load
+ loaded, loadErr := LoadConfig(cfgPath)
+ if loadErr != nil {
+  t.Fatalf("LoadConfig: %v", loadErr)
+ }
 
-	// then — all user-config fields match
-	if loaded.Lang != original.Lang {
-		t.Errorf("Lang: got %q, want %q", loaded.Lang, original.Lang)
-	}
-	if loaded.Scan.ChunkSize != original.Scan.ChunkSize {
-		t.Errorf("Scan.ChunkSize: got %d, want %d", loaded.Scan.ChunkSize, original.Scan.ChunkSize)
-	}
-	if loaded.Scan.MaxConcurrency != original.Scan.MaxConcurrency {
-		t.Errorf("Scan.MaxConcurrency: got %d, want %d", loaded.Scan.MaxConcurrency, original.Scan.MaxConcurrency)
-	}
-	if loaded.Strictness.Default != original.Strictness.Default {
-		t.Errorf("Strictness.Default: got %v, want %v", loaded.Strictness.Default, original.Strictness.Default)
-	}
-	if loaded.Retry.MaxAttempts != original.Retry.MaxAttempts {
-		t.Errorf("Retry.MaxAttempts: got %d, want %d", loaded.Retry.MaxAttempts, original.Retry.MaxAttempts)
-	}
-	// ComputedConfig should be empty
-	if loaded.Computed.EstimatedStrictness != nil {
-		t.Errorf("Computed.EstimatedStrictness should be nil, got %v", loaded.Computed.EstimatedStrictness)
-	}
+ // then — all user-config fields match
+ if loaded.Lang != original.Lang {
+  t.Errorf("Lang: got %q, want %q", loaded.Lang, original.Lang)
+ }
+ if loaded.Scan.ChunkSize != original.Scan.ChunkSize {
+  t.Errorf("Scan.ChunkSize: got %d, want %d", loaded.Scan.ChunkSize, original.Scan.ChunkSize)
+ }
+ if loaded.Scan.MaxConcurrency != original.Scan.MaxConcurrency {
+  t.Errorf("Scan.MaxConcurrency: got %d, want %d", loaded.Scan.MaxConcurrency, original.Scan.MaxConcurrency)
+ }
+ if loaded.Strictness.Default != original.Strictness.Default {
+  t.Errorf("Strictness.Default: got %v, want %v", loaded.Strictness.Default, original.Strictness.Default)
+ }
+ if loaded.Retry.MaxAttempts != original.Retry.MaxAttempts {
+  t.Errorf("Retry.MaxAttempts: got %d, want %d", loaded.Retry.MaxAttempts, original.Retry.MaxAttempts)
+ }
+ // ComputedConfig should be empty
+ if loaded.Computed.EstimatedStrictness != nil {
+  t.Errorf("Computed.EstimatedStrictness should be nil, got %v", loaded.Computed.EstimatedStrictness)
+ }
 }
 ```
 
@@ -841,25 +857,25 @@ func TestConfig_SaveLoadRoundTrip_AllFields(t *testing.T) {
 
 ```go
 func TestProjectConfig_SaveLoadRoundTrip_AllFields(t *testing.T) {
-	dir := t.TempDir()
-	original := domain.DefaultProjectConfig()
-	session.SaveProjectConfig(dir, &original)
-	loaded, err := session.LoadProjectConfig(dir)
-	if err != nil {
-		t.Fatalf("LoadProjectConfig: %v", err)
-	}
-	if loaded.Model != original.Model {
-		t.Errorf("Model: got %q, want %q", loaded.Model, original.Model)
-	}
-	if loaded.Workers != original.Workers {
-		t.Errorf("Workers: got %d, want %d", loaded.Workers, original.Workers)
-	}
-	if loaded.ClaudeCmd != original.ClaudeCmd {
-		t.Errorf("ClaudeCmd: got %q, want %q", loaded.ClaudeCmd, original.ClaudeCmd)
-	}
-	if loaded.Computed != (domain.ComputedConfig{}) {
-		t.Errorf("Computed should be zero-value")
-	}
+ dir := t.TempDir()
+ original := domain.DefaultProjectConfig()
+ session.SaveProjectConfig(dir, &original)
+ loaded, err := session.LoadProjectConfig(dir)
+ if err != nil {
+  t.Fatalf("LoadProjectConfig: %v", err)
+ }
+ if loaded.Model != original.Model {
+  t.Errorf("Model: got %q, want %q", loaded.Model, original.Model)
+ }
+ if loaded.Workers != original.Workers {
+  t.Errorf("Workers: got %d, want %d", loaded.Workers, original.Workers)
+ }
+ if loaded.ClaudeCmd != original.ClaudeCmd {
+  t.Errorf("ClaudeCmd: got %q, want %q", loaded.ClaudeCmd, original.ClaudeCmd)
+ }
+ if loaded.Computed != (domain.ComputedConfig{}) {
+  t.Errorf("Computed should be zero-value")
+ }
 }
 ```
 
@@ -867,36 +883,38 @@ func TestProjectConfig_SaveLoadRoundTrip_AllFields(t *testing.T) {
 
 ```go
 func TestConfig_SaveLoadRoundTrip_AllFields(t *testing.T) {
-	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "config.yaml")
-	original := domain.DefaultConfig()
-	data, _ := yaml.Marshal(original)
-	os.WriteFile(cfgPath, data, 0644)
+ dir := t.TempDir()
+ cfgPath := filepath.Join(dir, "config.yaml")
+ original := domain.DefaultConfig()
+ data, _ := yaml.Marshal(original)
+ os.WriteFile(cfgPath, data, 0644)
 
-	loaded, err := loadConfig(cfgPath)
-	if err != nil {
-		t.Fatalf("loadConfig: %v", err)
-	}
-	if loaded.Lang != original.Lang {
-		t.Errorf("Lang: got %q, want %q", loaded.Lang, original.Lang)
-	}
-	if loaded.ClaudeCmd != original.ClaudeCmd {
-		t.Errorf("ClaudeCmd: got %q, want %q", loaded.ClaudeCmd, original.ClaudeCmd)
-	}
-	if loaded.Computed != (domain.ComputedConfig{}) {
-		t.Errorf("Computed should be zero-value")
-	}
+ loaded, err := loadConfig(cfgPath)
+ if err != nil {
+  t.Fatalf("loadConfig: %v", err)
+ }
+ if loaded.Lang != original.Lang {
+  t.Errorf("Lang: got %q, want %q", loaded.Lang, original.Lang)
+ }
+ if loaded.ClaudeCmd != original.ClaudeCmd {
+  t.Errorf("ClaudeCmd: got %q, want %q", loaded.ClaudeCmd, original.ClaudeCmd)
+ }
+ if loaded.Computed != (domain.ComputedConfig{}) {
+  t.Errorf("Computed should be zero-value")
+ }
 }
 ```
 
 **Step 2: Run tests**
 
 Run each tool's tests:
+
 ```bash
 cd /Users/nino/tap/sightjack && go test ./internal/session/ -run TestConfig_SaveLoadRoundTrip -v -count=1
 cd /Users/nino/tap/paintress && go test ./internal/session/ -run TestProjectConfig_SaveLoadRoundTrip -v -count=1
 cd /Users/nino/tap/amadeus && go test ./internal/cmd/ -run TestConfig_SaveLoadRoundTrip -v -count=1
 ```
+
 Expected: ALL PASS
 
 **Step 3: Commit per tool**

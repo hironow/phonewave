@@ -45,28 +45,34 @@ load config with fallback to DefaultConfig() when file is absent.
 ### 4. Semgrep Rules (ERROR severity)
 
 **Rule 1: `config-no-hardcoded-claude-cmd`**
+
 - paintress: block `platform.DefaultClaudeCmd` outside cobra flag definitions
 - amadeus: block `"claude"` literal in exec arguments
 
 **Rule 2: `config-no-computed-field-in-set`**
+
 - Block `cfg.Computed.` field assignment in setConfigField functions
 
 **Rule 3: `config-no-direct-computed-write`**
+
 - Block cmd-layer writes to ComputedConfig fields
 - Exclude session-layer write functions (WriteEstimatedStrictness)
 
 ### 5. Per-Tool Changes
 
 **sightjack** (has real ComputedConfig):
+
 - Move `Strictness.Estimated` into ComputedConfig
 - Add computed-key rejection to setConfigField
 - WriteEstimatedStrictness writes via ComputedConfig
 
 **paintress** (empty ComputedConfig):
+
 - Split ProjectConfig into UserConfig + ComputedConfig + ProjectConfig(embed)
 - doctor.go/issues.go: replace DefaultClaudeCmd with config-loaded value
 
 **amadeus** (empty ComputedConfig):
+
 - Split Config into UserConfig + ComputedConfig + Config(embed)
 - check.go: replace hardcoded "claude" with config-loaded value
 - Add claude_cmd field to UserConfig

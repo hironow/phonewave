@@ -95,7 +95,7 @@ Repository A                   Repository B
           |       |              |
           |  Route derivation    |
           |       |              |
-          |  phonewave.yaml      |  (manifest)
+          |  config.yaml          |  (manifest)
           |  resolved.yaml       |  (runtime state)
           |       |              |
           |  fsnotify daemon     |
@@ -121,13 +121,13 @@ Repository A                   Repository B
 - Transform or inspect message content (routes as-is)
 - Execute tools or manage tool lifecycles
 - Guarantee exactly-once delivery (uses at-least-once + idempotent receivers)
-- Store configuration in databases (uses `phonewave.yaml` manifest + `resolved.yaml` runtime state)
+- Store configuration in databases (uses `config.yaml` manifest + `resolved.yaml` runtime state)
 
 ## Subcommands
 
 | Command | Description |
 |---------|-------------|
-| `phonewave init <repo...>` | Scan repositories, discover endpoints, derive routes, generate `phonewave.yaml` |
+| `phonewave init <repo...>` | Scan repositories, discover endpoints, derive routes, generate `.phonewave/config.yaml` |
 | `phonewave add <repo>` | Add a new repository to the ecosystem |
 | `phonewave remove <repo>` | Remove a repository from the ecosystem |
 | `phonewave sync` | Re-scan all repositories, reconcile routing table |
@@ -179,7 +179,7 @@ phonewave sync
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--verbose` | `-v` | `false` | Log all delivery events to stderr |
-| `--config` | `-c` | `./phonewave.yaml` | Path to phonewave manifest config file |
+| `--config` | `-c` | `./.phonewave/config.yaml` | Path to phonewave manifest config file |
 | `--output` | `-o` | `text` | Output format: `text` or `json` |
 | `--no-color` | | `false` | Disable color output (also respects `NO_COLOR` env var) |
 

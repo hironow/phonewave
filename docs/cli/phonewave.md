@@ -13,7 +13,7 @@ phonewave [flags]
 ### Options
 
 ```
-  -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+  -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
   -h, --help            help for phonewave
       --no-color        Disable colored output (respects NO_COLOR env)
   -o, --output string   Output format: text, json (default "text")

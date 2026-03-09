@@ -7,8 +7,8 @@ the working directory (where `phonewave init` is run) and each monitored reposit
 
 ```
 ./
-  phonewave.yaml              # manifest config (git-tracked, declarative)
-  .phonewave/                 # daemon state directory
+  .phonewave/                 # state directory
+    config.yaml               # manifest config (git-tracked, declarative)
     watch.pid                 # daemon PID (ephemeral)
     watch.started             # daemon start timestamp (ephemeral)
     delivery.log              # append-only delivery audit log
@@ -46,7 +46,7 @@ in each repository for SKILL.md files.
 
 | File | Purpose |
 |------|---------|
-| `phonewave.yaml` | Manifest configuration (git-tracked): repository list and endpoint declarations. Does not contain routes or timestamps |
+| `.phonewave/config.yaml` | Manifest configuration (git-tracked): repository list and endpoint declarations. Does not contain routes or timestamps |
 | `.phonewave/` | Daemon state directory. Created by `phonewave init` or `phonewave run` |
 | `.phonewave/watch.pid` | Running daemon's PID. Used by `status` and `doctor` to check liveness (signal 0). Removed on shutdown |
 | `.phonewave/watch.started` | RFC3339 timestamp of daemon start. Used by `status` to compute uptime. Removed on shutdown |
@@ -100,7 +100,7 @@ Producer                  phonewave daemon               Consumer
 
 | File | Created By | When |
 |------|-----------|------|
-| `phonewave.yaml` | `WriteConfig` (manifest) | `phonewave init`, `phonewave add`, `phonewave remove`, `phonewave sync` |
+| `.phonewave/config.yaml` | `WriteConfig` (manifest) | `phonewave init`, `phonewave add`, `phonewave remove`, `phonewave sync` |
 | `.phonewave/.run/resolved.yaml` | `WriteConfig` (resolved state) | `phonewave init`, `phonewave add`, `phonewave remove`, `phonewave sync` |
 | `.phonewave/` | `EnsureStateDir` | `phonewave init`, `phonewave run` |
 | `.phonewave/watch.pid` | `Daemon.Run` | Daemon startup (removed on shutdown) |

@@ -7,7 +7,8 @@ Remove runtime state from .phonewave/
 Remove runtime state files from the .phonewave/ directory.
 
 Removes: delivery.log, .run/, watch.pid, watch.started, events/
-Preserves: phonewave.yaml (config) and .phonewave/.gitignore
+Also removes: skills-ref Python venv from temp directory (if present)
+Preserves: .phonewave/config.yaml and .phonewave/.gitignore
 
 ```
 phonewave clean [path] [flags]
@@ -31,7 +32,7 @@ phonewave clean [path] [flags]
 ### Options inherited from parent commands
 
 ```
-  -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+  -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
       --no-color        Disable colored output (respects NO_COLOR env)
   -o, --output string   Output format: text, json (default "text")
   -v, --verbose         Log all delivery events to stderr

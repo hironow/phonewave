@@ -36,7 +36,7 @@ phonewave status [path] [flags]
 ### Options inherited from parent commands
 
 ```
-  -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+  -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
       --no-color        Disable colored output (respects NO_COLOR env)
   -o, --output string   Output format: text, json (default "text")
   -v, --verbose         Log all delivery events to stderr
