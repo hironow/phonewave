@@ -1,10 +1,14 @@
 ## phonewave update
 
-Update phonewave to the latest version
+Self-update phonewave to the latest release
 
 ### Synopsis
 
-Check for and install the latest version of phonewave from GitHub releases.
+Self-update phonewave to the latest GitHub release.
+
+Downloads the latest release, verifies the checksum, and replaces
+the current binary. Use --check to only check for updates without
+installing.
 
 ```
 phonewave update [flags]
@@ -13,10 +17,10 @@ phonewave update [flags]
 ### Examples
 
 ```
-  # Check for updates without installing
-  phonewave update -C
+  # Check for updates
+  phonewave update --check
 
-  # Update to latest version
+  # Update to the latest version
   phonewave update
 ```
 
@@ -38,4 +42,5 @@ phonewave update [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)  - D-Mail courier daemon
+* [phonewave](phonewave.md)	 - D-Mail courier daemon
+
