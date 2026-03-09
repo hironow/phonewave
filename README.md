@@ -110,12 +110,14 @@ Repository A                   Repository B
 ## Scope
 
 **What Phonewave does:**
+
 - Watch outbox directories and route D-Mails by `kind` to matching inboxes
 - Derive routing tables from SKILL.md manifests automatically
 - Retry failed deliveries with exponential backoff (at-least-once delivery)
 - Track all deliveries in an append-only log
 
 **What Phonewave does NOT do:**
+
 - Transform or inspect message content (routes as-is)
 - Execute tools or manage tool lifecycles
 - Guarantee exactly-once delivery (uses at-least-once + idempotent receivers)
