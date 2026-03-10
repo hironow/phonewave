@@ -31,7 +31,7 @@ This maps to the courier daemon's design:
 | **Worldline** | Repository state | Each delivery changes the target repo's state |
 | **Divergence Meter** | Delivery log | Tracks what was delivered, when, where |
 | **Error Queue** | `.phonewave/.run/error_queue.db` | Failed D-Mails waiting for retry (SQLite, like unsent D-Mails) |
-| **Reading Steiner** | `.phonewave/insights/` | Accumulated delivery failure knowledge (git-tracked insight ledger) |
+| **Reading Steiner** | `.phonewave/insights/` | Accumulated delivery failure knowledge (git-tracked insight ledger). Reads prior failures to detect repeated failures on the same route and enrich insight entries with failure count |
 
 ## D-Mail Protocol
 
@@ -117,7 +117,7 @@ Repository A                   Repository B
 - Derive routing tables from SKILL.md manifests automatically
 - Retry failed deliveries with exponential backoff (at-least-once delivery)
 - Track all deliveries in an append-only log
-- Record delivery failure insights in git-tracked ledger files (`insights/`)
+- Record delivery failure insights in git-tracked ledger files (`insights/`), with repeat failure detection per route
 
 **What Phonewave does NOT do:**
 
