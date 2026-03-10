@@ -47,7 +47,9 @@ func NewRootCommand() *cobra.Command {
 				os.Setenv("NO_COLOR", "1")
 			}
 			// Auto-migrate legacy phonewave.yaml → .phonewave/config.yaml
-			_ = session.MigrateConfigIfNeeded(projectRoot(cmd))
+			if migErr := session.MigrateConfigIfNeeded(projectRoot(cmd)); migErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: config migration: %v\n", migErr)
+			}
 			applyOtelEnv(configBase(cmd))
 			shutdownTracerFn = initTracer("phonewave", Version)
 			shutdownMeterFn = initMeter("phonewave", Version)

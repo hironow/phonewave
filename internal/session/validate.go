@@ -62,6 +62,11 @@ func skillsRefCommand(skillDir string) (*exec.Cmd, context.CancelFunc, error) {
 			cmd := exec.CommandContext(ctx, uvPath, "run", "--project", subDir, "skills-ref", "validate", skillDir)
 			// Redirect uv's venv to a temp directory so Python artifacts
 			// don't pollute the Go repository tree.
+			// NOTE: os.TempDir() is used instead of os.UserCacheDir() for
+			// simplicity and cross-platform consistency. The tradeoff is that
+			// temp dirs may be cleaned by the OS between reboots, causing a
+			// venv rebuild. If isolation becomes a concern, consider switching
+			// to os.UserCacheDir() here and in doctor.go / status.go.
 			venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
 			cmd.Env = append(os.Environ(), "UV_PROJECT_ENVIRONMENT="+venvDir)
 			cmd.Cancel = func() error { cancel(); return cmd.Process.Kill() }

@@ -120,13 +120,16 @@ func Status(cfg *domain.Config, stateDir string) domain.StatusReport {
 		}
 	}
 
-	// Skills-ref toolchain status
+	// Skills-ref toolchain status (aligned with doctor's checkSkillsRefToolchain)
 	venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
 	report.SkillsRefVenv = venvDir
 	if _, err := exec.LookPath("skills-ref"); err == nil {
 		report.SkillsRefReady = true
 	} else if _, err := exec.LookPath("uv"); err == nil {
-		report.SkillsRefReady = true
+		// uv alone is not enough; submodule must also be available
+		if findSkillsRefDir() != "" {
+			report.SkillsRefReady = true
+		}
 	}
 
 	return report

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/creativeprojects/go-selfupdate"
@@ -43,12 +44,12 @@ installing.`,
 			}
 
 			if isUpToDate(Version, latest.Version()) {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Already up to date (v%s).\n", Version)
+				fmt.Fprintf(cmd.ErrOrStderr(), "Already up to date (v%s).\n", strings.TrimPrefix(Version, "v"))
 				return nil
 			}
 
 			if checkOnly {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Update available: v%s → v%s\n", Version, latest.Version())
+				fmt.Fprintf(cmd.ErrOrStderr(), "Update available: v%s → v%s\n", strings.TrimPrefix(Version, "v"), latest.Version())
 				return nil
 			}
 

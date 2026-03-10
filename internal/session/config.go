@@ -29,11 +29,16 @@ func MigrateConfigIfNeeded(projectRoot string) error {
 
 	// Check if legacy file exists and new file does NOT
 	if _, err := os.Stat(legacyPath); err != nil {
-		return nil // no legacy file — nothing to migrate
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil // no legacy file — nothing to migrate
+		}
+		return fmt.Errorf("check legacy config %s: %w", legacyPath, err)
 	}
 	if _, err := os.Stat(newPath); err == nil {
 		// Both exist — legacy is stale, remove it
-		os.Remove(legacyPath)
+		if rmErr := os.Remove(legacyPath); rmErr != nil {
+			return fmt.Errorf("remove stale legacy config %s: %w", legacyPath, rmErr)
+		}
 		return nil
 	}
 
