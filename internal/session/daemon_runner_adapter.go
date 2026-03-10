@@ -18,6 +18,7 @@ type daemonRunnerAdapter struct {
 	eventStore  port.EventStore
 	unlock      func()
 	notifier    port.Notifier
+	insights    port.InsightAppender
 	routeCount  int
 	outboxCount int
 }
@@ -39,8 +40,8 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 
 	outboxDirs := CollectOutboxDirs(cfg)
 
-	stateDir := filepath.Join(baseDir, domain.StateDir)
-	if err := EnsureStateDir(baseDir); err != nil {
+	stateDir := baseDir
+	if err := EnsureStateDir(filepath.Dir(baseDir)); err != nil {
 		return nil, fmt.Errorf("create state dir: %w", err)
 	}
 
@@ -89,6 +90,9 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 
 	notifier := BuildNotifier()
 
+	insightsDir := filepath.Join(stateDir, "insights")
+	insightWriter := NewInsightWriter(insightsDir, runDir)
+
 	return &daemonRunnerAdapter{
 		daemon:      d,
 		session:     ds,
@@ -97,6 +101,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		eventStore:  eventStore,
 		unlock:      unlock,
 		notifier:    notifier,
+		insights:    insightWriter,
 		routeCount:  len(routes),
 		outboxCount: len(outboxDirs),
 	}, nil
@@ -112,6 +117,18 @@ func (a *daemonRunnerAdapter) EventStore() port.EventStore {
 
 func (a *daemonRunnerAdapter) BuildNotifier() port.Notifier {
 	return a.notifier
+}
+
+func (a *daemonRunnerAdapter) BuildInsightAppender() port.InsightAppender {
+	return a.insights
+}
+
+func (a *daemonRunnerAdapter) BuildInsightReader() port.InsightReader {
+	// InsightWriter already implements Read(filename) (*domain.InsightFile, error)
+	if w, ok := a.insights.(*InsightWriter); ok {
+		return w
+	}
+	return nil
 }
 
 func (a *daemonRunnerAdapter) RouteCount() int {

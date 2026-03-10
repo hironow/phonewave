@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
 
@@ -39,13 +40,17 @@ func NewRootCommand() *cobra.Command {
 		Long:          "Phonewave routes D-Mails between AI agent tool repositories via file-based message passing.",
 		Version:       Version,
 		SilenceUsage:  true,
-		SilenceErrors: true,
+		SilenceErrors: true, // nosemgrep: cobra-silence-errors-without-output — main.go prints err to os.Stderr when ExecuteContext fails [permanent]
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			noColor, _ := cmd.Flags().GetBool("no-color")
 			if noColor {
 				os.Setenv("NO_COLOR", "1")
 			}
-			applyOtelEnv(filepath.Join(configBase(cmd), domain.StateDir))
+			// Auto-migrate legacy phonewave.yaml → .phonewave/config.yaml
+			if migErr := session.MigrateConfigIfNeeded(projectRoot(cmd)); migErr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: config migration: %v\n", migErr)
+			}
+			applyOtelEnv(configBase(cmd))
 			shutdownTracerFn = initTracer("phonewave", Version)
 			shutdownMeterFn = initMeter("phonewave", Version)
 			spanCtx := startRootSpan(cmd.Context(), cmd.Name())
@@ -79,7 +84,7 @@ func NewRootCommand() *cobra.Command {
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Log all delivery events to stderr")
 	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output (respects NO_COLOR env)")
-	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", domain.ConfigFile), "Path to phonewave config file")
+	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", domain.StateDir, domain.ConfigFile), "Path to phonewave config file")
 	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format: text, json")
 
 	rootCmd.AddCommand(

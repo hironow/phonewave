@@ -200,6 +200,25 @@ func TestStatus_DeliveryStats(t *testing.T) {
 	}
 }
 
+func TestStatus_SkillsRefVenvField(t *testing.T) {
+	// given
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+	cfg := &domain.Config{}
+
+	// when
+	status := session.Status(cfg, stateDir)
+
+	// then — venv path should always be populated
+	if status.SkillsRefVenv == "" {
+		t.Error("expected SkillsRefVenv to be set")
+	}
+	if !filepath.IsAbs(status.SkillsRefVenv) {
+		t.Errorf("expected absolute path, got %q", status.SkillsRefVenv)
+	}
+}
+
 func TestStatus_SuccessRate_NoDeliveries(t *testing.T) {
 	// given — no delivery log
 	repoDir := t.TempDir()

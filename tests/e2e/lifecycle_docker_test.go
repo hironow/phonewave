@@ -303,8 +303,8 @@ func TestLifecycleDocker_SingleContainer(t *testing.T) {
 		"sh", "-c", fmt.Sprintf("cd /workspace && phonewave init %s", repoPath),
 	})
 
-	if !fileExistsInContainer(t, ctx, container, "/workspace/phonewave.yaml") {
-		t.Fatal("phonewave.yaml not created after init")
+	if !fileExistsInContainer(t, ctx, container, "/workspace/.phonewave/config.yaml") {
+		t.Fatal("config.yaml not created after init")
 	}
 
 	// =====================================================================

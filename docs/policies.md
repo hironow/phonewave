@@ -21,16 +21,19 @@ Errors are logged but never propagated — `Dispatch()` always returns nil.
 
 ## Event Payload Format
 
-All handlers use `map[string]string` unmarshaling from `event.Data`.
-
-| Event | Payload Fields |
-|---|---|
-| delivery.completed | `kind` |
-| delivery.failed | (none — uses event.Type) |
-| error.retried | `name`, `kind` |
-| scan.completed | `delivered`, `errors` |
+| Event | Payload Type | Fields |
+|---|---|---|
+| delivery.completed | `domain.DeliveryCompletedPayload` | `Path`, `Kind` |
+| delivery.failed | `domain.DeliveryFailedPayload` | `Path`, `Kind`, `Error` |
+| error.retried | `domain.ErrorRetriedPayload` | `Name`, `Kind` |
+| scan.completed | `domain.ScanCompletedPayload` | `Outbox`, `Delivered`, `Failed` |
 
 ## Dispatch Guarantee
 
 Best-effort (at-most-once). Handler failures are silently logged.
 No retry, no dead-letter queue, no error propagation to callers.
+
+## Skeleton Handlers
+
+DeliveryCompletedLogMetrics is an observation-only placeholder
+(Info log + Metrics, no notification).

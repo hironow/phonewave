@@ -1,78 +1,87 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 )
 
-// ErrUpdateAvailable is returned by update --check when a newer version exists.
-// Callers can check for this sentinel to distinguish "update available" (exit 1)
-// from real errors.
-var ErrUpdateAvailable = errors.New("update available")
-
-const repoSlug = "hironow/phonewave"
-
 func newUpdateCmd() *cobra.Command {
+	var checkOnly bool
+
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update phonewave to the latest version",
-		Long:  "Check for and install the latest version of phonewave from GitHub releases.",
-		Args:  cobra.NoArgs,
-		Example: `  # Check for updates without installing
-  phonewave update -C
+		Short: "Self-update phonewave to the latest release",
+		Long: `Self-update phonewave to the latest GitHub release.
 
-  # Update to latest version
+Downloads the latest release, verifies the checksum, and replaces
+the current binary. Use --check to only check for updates without
+installing.`,
+		Example: `  # Check for updates
+  phonewave update --check
+
+  # Update to the latest version
   phonewave update`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			checkOnly, _ := cmd.Flags().GetBool("check")
-
-			latest, found, err := selfupdate.DetectLatest(cmd.Context(), selfupdate.ParseSlug(repoSlug))
+			updater, err := selfupdate.NewUpdater(selfupdate.Config{
+				Validator: &selfupdate.ChecksumValidator{UniqueFilename: "checksums.txt"},
+			})
 			if err != nil {
-				return fmt.Errorf("detect latest version: %w", err)
+				return fmt.Errorf("failed to create updater: %w", err)
+			}
+
+			latest, found, err := updater.DetectLatest(cmd.Context(), selfupdate.ParseSlug("hironow/phonewave"))
+			if err != nil {
+				return fmt.Errorf("failed to detect latest version: %w", err)
 			}
 			if !found {
-				fmt.Fprintln(cmd.ErrOrStderr(), "No release found for this platform.")
+				fmt.Fprintln(cmd.ErrOrStderr(), "No release found.")
 				return nil
 			}
 
-			currentVer := Version
-			currentSemver, parseErr := semver.NewVersion(currentVer)
-			if parseErr != nil {
-				// Non-semver build (dev, commit hash, dirty tag, etc.)
-				fmt.Fprintf(cmd.ErrOrStderr(), "Running non-release build (%s). Latest release: %s\n", currentVer, latest.Version())
-				if checkOnly {
-					return ErrUpdateAvailable
-				}
-			} else if !latest.GreaterThan(currentSemver.String()) {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Already up to date (%s).\n", currentVer)
+			if isUpToDate(Version, latest.Version()) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Already up to date (v%s).\n", strings.TrimPrefix(Version, "v"))
 				return nil
 			}
 
 			if checkOnly {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Update available: %s → %s\n", currentVer, latest.Version())
-				return ErrUpdateAvailable
+				fmt.Fprintf(cmd.ErrOrStderr(), "Update available: v%s → v%s\n", strings.TrimPrefix(Version, "v"), latest.Version())
+				return nil
 			}
 
-			exe, err := os.Executable()
+			exe, err := selfupdate.ExecutablePath()
 			if err != nil {
-				return fmt.Errorf("locate executable: %w", err)
+				return fmt.Errorf("failed to locate executable: %w", err)
 			}
 
-			fmt.Fprintf(cmd.ErrOrStderr(), "Updating to %s ...\n", latest.Version())
-			if err := selfupdate.UpdateTo(cmd.Context(), latest.AssetURL, latest.AssetName, exe); err != nil {
-				return fmt.Errorf("update: %w", err)
+			if err := updater.UpdateTo(cmd.Context(), latest, exe); err != nil {
+				return fmt.Errorf("update failed: %w", err)
 			}
-			fmt.Fprintf(cmd.ErrOrStderr(), "Updated to %s\n", latest.Version())
+
+			fmt.Fprintf(cmd.ErrOrStderr(), "Updated to v%s\n", latest.Version())
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolP("check", "C", false, "Check for updates without installing")
+	cmd.Flags().BoolVarP(&checkOnly, "check", "C", false, "Check for updates without installing")
 
 	return cmd
+}
+
+// isUpToDate returns true if current version is >= latest version.
+// Non-semver versions (e.g. "dev") are always considered out of date.
+func isUpToDate(current, latest string) bool {
+	cv, err := semver.NewVersion(current)
+	if err != nil {
+		return false
+	}
+	lv, err := semver.NewVersion(latest)
+	if err != nil {
+		return false
+	}
+	return !cv.LessThan(lv)
 }

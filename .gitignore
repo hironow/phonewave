@@ -4,16 +4,23 @@
 /dist/
 # test
 coverage.out
-# phonewave runtime state on target repository
-.phonewave/
+# phonewave runtime state — ignore contents individually (insights/ is git-tracked per S0030)
+.phonewave/.run/
+.phonewave/events/
+.phonewave/watch.pid
+.phonewave/watch.started
+.phonewave/delivery.log
+.phonewave/config.yaml
+.phonewave/.otel.env
+.phonewave/.gitignore
 # environment-specific local files (must not contain full paths)
 *.local.*
 # claude local settings
 .claude/*.local.*
 # git worktrees
 .worktrees/
-# plan drafts (ephemeral)
-docs/plans/
+# plan drafts (ephemeral, approved plans are tracked)
+docs/plans/*.draft.md
 # golang
 .gocache/
 # firebase local debug log

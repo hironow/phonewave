@@ -11,16 +11,70 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// manifest is the git-tracked portion of the config (phonewave.yaml).
+// manifest is the git-tracked portion of the config (config.yaml).
 // It contains only repository endpoint declarations — no routes, no timestamps.
 type manifest struct {
 	Repositories []domain.RepoConfig `yaml:"repositories"`
 }
 
-// LoadConfig reads phonewave.yaml and merges it with the resolved state from
-// .phonewave/.run/resolved.yaml. If resolved.yaml is missing, routes are
-// derived from endpoints. If phonewave.yaml still has inline routes (old
-// format), they are used as-is for backward compatibility.
+// MigrateConfigIfNeeded detects a legacy phonewave.yaml at project root and
+// moves it to .phonewave/config.yaml. It also ensures the state directory
+// .gitignore includes !config.yaml. This is idempotent — calling it when
+// migration is not needed is a no-op.
+//
+// projectRoot is the directory that contains (or should contain) .phonewave/.
+func MigrateConfigIfNeeded(projectRoot string) error {
+	legacyPath := filepath.Join(projectRoot, domain.LegacyConfigFile)
+	newPath := domain.DefaultConfigPath(projectRoot)
+
+	// Check if legacy file exists and new file does NOT
+	if _, err := os.Stat(legacyPath); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil // no legacy file — nothing to migrate
+		}
+		return fmt.Errorf("check legacy config %s: %w", legacyPath, err)
+	}
+	if _, err := os.Stat(newPath); err == nil {
+		// Both exist — legacy is stale, remove it
+		if rmErr := os.Remove(legacyPath); rmErr != nil {
+			return fmt.Errorf("remove stale legacy config %s: %w", legacyPath, rmErr)
+		}
+		return nil
+	}
+
+	// Ensure state dir exists
+	stateDir := filepath.Join(projectRoot, domain.StateDir)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("create state dir for migration: %w", err)
+	}
+
+	// Move legacy config into state dir
+	data, err := os.ReadFile(legacyPath)
+	if err != nil {
+		return fmt.Errorf("read legacy config: %w", err)
+	}
+	if err := os.WriteFile(newPath, data, 0644); err != nil {
+		return fmt.Errorf("write migrated config: %w", err)
+	}
+	if err := os.Remove(legacyPath); err != nil {
+		return fmt.Errorf("remove legacy config: %w", err)
+	}
+
+	// Update .gitignore to include !config.yaml
+	if err := EnsureStateDir(projectRoot); err != nil {
+		return fmt.Errorf("update state dir gitignore: %w", err)
+	}
+
+	return nil
+}
+
+// LoadConfig reads config.yaml and merges it with the resolved state from
+// .run/resolved.yaml (relative to the config directory). If resolved.yaml is
+// missing, routes are derived from endpoints. If config.yaml still has inline
+// routes (old format), they are used as-is for backward compatibility.
+//
+// Repository paths in the config are relative to the project root (parent of
+// the state directory), NOT relative to the config file's directory.
 func LoadConfig(path string) (*domain.Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -31,21 +85,23 @@ func LoadConfig(path string) (*domain.Config, error) {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	configDir := filepath.Dir(path)
-	resolveRelPaths(&cfg, configDir)
+	// Repo paths are relative to project root (parent of state dir)
+	projectRoot := filepath.Dir(configDir)
+	resolveRelPaths(&cfg, projectRoot)
 
-	// If routes were loaded from old-format phonewave.yaml, keep them.
+	// If routes were loaded from old-format config with inline routes, keep them.
 	if len(cfg.Routes) > 0 {
 		return &cfg, nil
 	}
 
-	// Try loading resolved state from .phonewave/.run/resolved.yaml
-	resolvedPath := filepath.Join(configDir, domain.StateDir, ".run", domain.ResolvedStateFile)
+	// Try loading resolved state from .run/resolved.yaml (configDir IS the state dir)
+	resolvedPath := filepath.Join(configDir, ".run", domain.ResolvedStateFile)
 	if rdata, rerr := os.ReadFile(resolvedPath); rerr == nil {
 		var rs domain.ResolvedState
 		if err := yaml.Unmarshal(rdata, &rs); err == nil {
 			cfg.Routes = rs.Routes
 			cfg.LastSynced = rs.LastSynced
-			resolveRelPaths(&cfg, configDir)
+			resolveRelPaths(&cfg, projectRoot)
 		}
 	}
 
@@ -58,11 +114,13 @@ func LoadConfig(path string) (*domain.Config, error) {
 }
 
 // WriteConfig writes the config as two files:
-//   - phonewave.yaml: git-tracked manifest (repositories/endpoints only)
-//   - .phonewave/.run/resolved.yaml: gitignored resolved state (routes, last_synced)
+//   - config.yaml: git-tracked manifest (repositories/endpoints only)
+//   - .run/resolved.yaml: gitignored resolved state (routes, last_synced)
 func WriteConfig(path string, cfg *domain.Config) error {
 	configDir := filepath.Dir(path)
-	rel := convertToRelPaths(cfg, configDir)
+	// Repo paths are relative to project root (parent of state dir)
+	projectRoot := filepath.Dir(configDir)
+	rel := convertToRelPaths(cfg, projectRoot)
 
 	// Write manifest (endpoints only, no routes or timestamp)
 	m := manifest{Repositories: rel.Repositories}
@@ -70,13 +128,13 @@ func WriteConfig(path string, cfg *domain.Config) error {
 	if err != nil {
 		return err
 	}
-	header := "# phonewave.yaml\n# Auto-generated by phonewave\n\n"
+	header := "# phonewave config\n# Auto-generated by phonewave\n\n"
 	if err := os.WriteFile(path, []byte(header+string(mdata)), 0644); err != nil {
 		return err
 	}
 
-	// Write resolved state
-	runDir := filepath.Join(configDir, domain.StateDir, ".run")
+	// Write resolved state (configDir IS the state dir)
+	runDir := filepath.Join(configDir, ".run")
 	if err := os.MkdirAll(runDir, 0755); err != nil {
 		return fmt.Errorf("create .run dir: %w", err)
 	}
@@ -132,7 +190,7 @@ func resolveRelPaths(cfg *domain.Config, configDir string) {
 // resolvedStatePath returns the path to the resolved state file for a given
 // config file path. Exported for migration tooling only.
 func resolvedStatePath(cfgPath string) string {
-	return filepath.Join(filepath.Dir(cfgPath), domain.StateDir, ".run", domain.ResolvedStateFile)
+	return filepath.Join(filepath.Dir(cfgPath), ".run", domain.ResolvedStateFile)
 }
 
 // ResolvedStateExists reports whether a resolved state file exists.

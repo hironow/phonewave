@@ -3,7 +3,9 @@
 package e2e
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,7 +115,7 @@ func TestCLI_MultiRepoInit(t *testing.T) {
 		t.Fatalf("init failed: %v", err)
 	}
 
-	config, err := os.ReadFile(filepath.Join(workDir, "phonewave.yaml"))
+	config, err := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
@@ -124,7 +126,7 @@ func TestCLI_MultiRepoInit(t *testing.T) {
 		t.Error("config missing repo2")
 	}
 
-	if _, err := os.Stat(filepath.Join(workDir, ".phonewave")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(workDir, ".phonewave")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("state directory .phonewave not created")
 	}
 }
@@ -139,7 +141,7 @@ func TestCLI_AddRepo(t *testing.T) {
 	setupEcosystemOnHost(t, repo1)
 	runPhonewave(t, workDir, "init", repo1)
 
-	configBefore, _ := os.ReadFile(filepath.Join(workDir, "phonewave.yaml"))
+	configBefore, _ := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
 
 	setupSecondRepoOnHost(t, repo2)
 	_, _, err := runPhonewave(t, workDir, "add", repo2)
@@ -147,7 +149,7 @@ func TestCLI_AddRepo(t *testing.T) {
 		t.Fatalf("add failed: %v", err)
 	}
 
-	configAfter, _ := os.ReadFile(filepath.Join(workDir, "phonewave.yaml"))
+	configAfter, _ := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
 	if !strings.Contains(string(configAfter), "repo2") {
 		t.Error("config missing repo2 after add")
 	}
@@ -172,7 +174,7 @@ func TestCLI_RemoveRepo(t *testing.T) {
 		t.Fatalf("remove failed: %v", err)
 	}
 
-	config, _ := os.ReadFile(filepath.Join(workDir, "phonewave.yaml"))
+	config, _ := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
 	if strings.Contains(string(config), "repo2") {
 		t.Error("config still contains repo2 after remove")
 	}
@@ -204,7 +206,7 @@ func TestCLI_Sync(t *testing.T) {
 		t.Fatalf("sync failed: %v", err)
 	}
 
-	config, _ := os.ReadFile(filepath.Join(workDir, "phonewave.yaml"))
+	config, _ := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
 	if !strings.Contains(string(config), ".oracle") {
 		t.Error("config missing .oracle after sync")
 	}
@@ -224,7 +226,7 @@ func TestCLI_Doctor_Healthy(t *testing.T) {
 	}
 
 	combined := stdout + stderr
-	if !strings.Contains(strings.ToLower(combined), "healthy") {
+	if !strings.Contains(combined, "All checks passed") {
 		t.Errorf("doctor output does not indicate healthy: %s", combined)
 	}
 }
@@ -271,21 +273,21 @@ func TestCLI_ConfigFlag(t *testing.T) {
 
 	setupEcosystemOnHost(t, repoPath)
 
-	customDir := filepath.Join(workDir, "custom")
-	os.MkdirAll(customDir, 0o755)
-	customPath := filepath.Join(customDir, "phonewave.yaml")
+	customStateDir := filepath.Join(workDir, "custom", ".phonewave")
+	os.MkdirAll(customStateDir, 0o755)
+	customPath := filepath.Join(customStateDir, "config.yaml")
 
 	_, _, err := runPhonewave(t, workDir, "init", "--config", customPath, repoPath)
 	if err != nil {
 		t.Fatalf("init with --config failed: %v", err)
 	}
 
-	if _, err := os.Stat(customPath); os.IsNotExist(err) {
+	if _, err := os.Stat(customPath); errors.Is(err, fs.ErrNotExist) {
 		t.Fatal("config not created at custom path")
 	}
 
-	if _, err := os.Stat(filepath.Join(customDir, ".phonewave")); os.IsNotExist(err) {
-		t.Error("state dir .phonewave not created alongside custom config")
+	if _, err := os.Stat(customStateDir); errors.Is(err, fs.ErrNotExist) {
+		t.Error("state dir .phonewave not created at custom location")
 	}
 }
 

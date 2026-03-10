@@ -2,7 +2,9 @@ package session_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -110,10 +112,10 @@ func TestDoctor_MissingDirs(t *testing.T) {
 	}
 
 	// outbox and inbox should now exist
-	if _, err := os.Stat(filepath.Join(repoDir, ".siren", "outbox")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(repoDir, ".siren", "outbox")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("outbox should have been auto-created")
 	}
-	if _, err := os.Stat(filepath.Join(repoDir, ".siren", "inbox")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(repoDir, ".siren", "inbox")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("inbox should have been auto-created")
 	}
 }
@@ -386,7 +388,7 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 	}
 }
 
-func TestDoctor_MissingRepoPath_HintReferencesPhonewaveYAML(t *testing.T) {
+func TestDoctor_MissingRepoPath_HintReferencesConfigYAML(t *testing.T) {
 	// given — config references a non-existent repository path
 	stateDir := t.TempDir()
 
@@ -404,14 +406,11 @@ func TestDoctor_MissingRepoPath_HintReferencesPhonewaveYAML(t *testing.T) {
 	// when
 	report := session.Doctor(cfg, stateDir)
 
-	// then — hint should reference phonewave.yaml (not config.yaml)
+	// then — hint should reference config.yaml
 	for _, issue := range report.Issues {
 		if issue.Severity == "error" && strings.Contains(issue.Message, "does not exist") {
-			if !strings.Contains(issue.Hint, "phonewave.yaml") {
-				t.Errorf("hint should reference phonewave.yaml, got: %q", issue.Hint)
-			}
-			if strings.Contains(issue.Hint, "config.yaml") {
-				t.Errorf("hint should not reference config.yaml (stale), got: %q", issue.Hint)
+			if !strings.Contains(issue.Hint, "config.yaml") {
+				t.Errorf("hint should reference config.yaml, got: %q", issue.Hint)
 			}
 		}
 	}
@@ -479,6 +478,28 @@ func TestDoctor_NoWarningWhenResolvedStateExists(t *testing.T) {
 		if issue.Severity == "warn" && strings.Contains(issue.Message, "resolved.yaml") {
 			t.Errorf("unexpected warning about resolved.yaml when it exists: %v", issue)
 		}
+	}
+}
+
+func TestDoctor_SkillsRefToolchainCheck(t *testing.T) {
+	// given — empty config, any environment
+	cfg := &domain.Config{}
+	stateDir := filepath.Join(t.TempDir(), domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+
+	// when
+	report := session.Doctor(cfg, stateDir)
+
+	// then — should have a skills-ref related issue (ok or warn)
+	hasSkillsRef := false
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "skills-ref" {
+			hasSkillsRef = true
+			break
+		}
+	}
+	if !hasSkillsRef {
+		t.Error("expected a skills-ref toolchain issue in doctor report")
 	}
 }
 

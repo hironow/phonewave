@@ -24,7 +24,9 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, logger 
 	if metrics == nil {
 		metrics = port.NopPolicyMetrics{}
 	}
-	registerDaemonPolicies(engine, logger, notifier, metrics)
+	insights := runner.BuildInsightAppender()
+	reader := runner.BuildInsightReader()
+	registerDaemonPolicies(engine, logger, notifier, metrics, insights, reader)
 
 	// Aggregate lives in usecase — never exposed to session layer.
 	agg := domain.NewDeliveryAggregate()

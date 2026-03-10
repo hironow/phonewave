@@ -31,6 +31,7 @@ This maps to the courier daemon's design:
 | **Worldline** | Repository state | Each delivery changes the target repo's state |
 | **Divergence Meter** | Delivery log | Tracks what was delivered, when, where |
 | **Error Queue** | `.phonewave/.run/error_queue.db` | Failed D-Mails waiting for retry (SQLite, like unsent D-Mails) |
+| **Reading Steiner** | `.phonewave/insights/` | Accumulated delivery failure knowledge (git-tracked insight ledger). Reads prior failures to detect repeated failures on the same route and enrich insight entries with failure count |
 
 ## D-Mail Protocol
 
@@ -95,7 +96,7 @@ Repository A                   Repository B
           |       |              |
           |  Route derivation    |
           |       |              |
-          |  phonewave.yaml      |  (manifest)
+          |  config.yaml          |  (manifest)
           |  resolved.yaml       |  (runtime state)
           |       |              |
           |  fsnotify daemon     |
@@ -103,6 +104,7 @@ Repository A                   Repository B
           |  Delivery pipeline   |
           |       |              |
           |  delivery.log        |
+          |  insights/           |  (git-tracked ledger)
           |  .run/error_queue.db |
           +----------------------+
 ```
@@ -115,19 +117,36 @@ Repository A                   Repository B
 - Derive routing tables from SKILL.md manifests automatically
 - Retry failed deliveries with exponential backoff (at-least-once delivery)
 - Track all deliveries in an append-only log
+- Record delivery failure insights in git-tracked ledger files (`insights/`), with repeat failure detection per route
 
 **What Phonewave does NOT do:**
 
 - Transform or inspect message content (routes as-is)
 - Execute tools or manage tool lifecycles
 - Guarantee exactly-once delivery (uses at-least-once + idempotent receivers)
-- Store configuration in databases (uses `phonewave.yaml` manifest + `resolved.yaml` runtime state)
+- Store configuration in databases (uses `config.yaml` manifest + `resolved.yaml` runtime state)
+
+## Setup
+
+```bash
+# Build and install
+just install
+
+# Initialize
+phonewave init /path/to/repo-a /path/to/repo-b
+
+# Check health
+phonewave doctor
+
+# Run daemon
+phonewave run -v
+```
 
 ## Subcommands
 
 | Command | Description |
 |---------|-------------|
-| `phonewave init <repo...>` | Scan repositories, discover endpoints, derive routes, generate `phonewave.yaml` |
+| `phonewave init <repo...>` | Scan repositories, discover endpoints, derive routes, generate `.phonewave/config.yaml` |
 | `phonewave add <repo>` | Add a new repository to the ecosystem |
 | `phonewave remove <repo>` | Remove a repository from the ecosystem |
 | `phonewave sync` | Re-scan all repositories, reconcile routing table |
@@ -140,6 +159,8 @@ Repository A                   Repository B
 | `phonewave update` | Update phonewave to the latest version |
 
 ## Usage
+
+Most commands accept an optional `[path]` argument and default to the current working directory. Commands that manage repositories (`init`, `add`, `remove`) require explicit paths.
 
 ```bash
 # Initialize with multiple repositories
@@ -177,47 +198,15 @@ phonewave sync
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--verbose` | `-v` | `false` | Log all delivery events to stderr |
-| `--config` | `-c` | `./phonewave.yaml` | Path to phonewave manifest config file |
+| `--config` | `-c` | `./.phonewave/config.yaml` | Path to phonewave manifest config file |
 | `--output` | `-o` | `text` | Output format: `text` or `json` |
 | `--no-color` | | `false` | Disable color output (also respects `NO_COLOR` env var) |
 
-### `run` command
+For full flag reference per subcommand, see [docs/cli/](docs/cli/).
 
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--dry-run` | `-n` | `false` | Detect events without delivering |
-| `--retry-interval` | `-r` | `60s` | Error queue retry interval (0 to disable) |
-| `--max-retries` | `-m` | `10` | Maximum retry attempts per failed D-Mail |
+## Configuration
 
-### `init` command
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--force` | | `false` | Overwrite existing configuration |
-| `--otel-backend` | | `""` | OTel backend: `jaeger` or `weave` |
-| `--otel-entity` | | `""` | Weave entity/team (required for weave) |
-| `--otel-project` | | `""` | Weave project (required for weave) |
-
-### `archive-prune` command
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--days` | `-d` | `30` | Prune files older than N days |
-| `--execute` | `-x` | `false` | Execute pruning (default: dry-run) |
-| `--dry-run` | `-n` | `false` | Explicit dry-run (default behavior) |
-| `--yes` | `-y` | `false` | Skip confirmation prompt |
-
-### `version` command
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--json` | `-j` | `false` | Output version info as JSON |
-
-### `update` command
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--check` | `-C` | `false` | Check for updates without installing |
+Phonewave stores its manifest in `.phonewave/config.yaml` (generated by `phonewave init`). Runtime state is tracked in `.phonewave/.run/resolved.yaml`. See [docs/phonewave-directory.md](docs/phonewave-directory.md) for the full directory structure.
 
 ## Tracing (OpenTelemetry)
 
@@ -249,22 +238,6 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run -v
 just jaeger-down
 ```
 
-## Setup
-
-```bash
-# Build and install
-just install
-
-# Initialize
-phonewave init /path/to/repo-a /path/to/repo-b
-
-# Check health
-phonewave doctor
-
-# Run daemon
-phonewave run -v
-```
-
 ## Development
 
 All code lives in `internal/` (Go convention). See [docs/conformance.md](docs/conformance.md) for layer architecture and directory responsibilities. Run `just --list` for available tasks.
@@ -280,7 +253,9 @@ See [docs/conformance.md](docs/conformance.md) for the full conformance table (s
 - [docs/phonewave-directory.md](docs/phonewave-directory.md) — `.phonewave/` directory structure (manifest + resolved state)
 - [docs/policies.md](docs/policies.md) — Event → Policy mapping
 - [docs/otel-backends.md](docs/otel-backends.md) — OTel backend configuration
+- [docs/testing.md](docs/testing.md) — Test strategy and conventions
 - [docs/adr/](docs/adr/README.md) — Architecture Decision Records
+- [docs/shared-adr/](docs/shared-adr/README.md) — Cross-tool shared ADRs
 
 ## Prerequisites
 

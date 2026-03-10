@@ -2,8 +2,11 @@ package session
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -29,9 +32,9 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	// Check each repository
 	for _, repo := range cfg.Repositories {
 		// 1. Verify repository path exists
-		if _, err := os.Stat(repo.Path); os.IsNotExist(err) {
+		if _, err := os.Stat(repo.Path); errors.Is(err, fs.ErrNotExist) {
 			report.AddErrorWithHint("", fmt.Sprintf("Repository path does not exist: %s", repo.Path),
-				`check phonewave.yaml repositories.path or run "phonewave remove <path>"`)
+				`check config.yaml repositories.path or run "phonewave remove <path>"`)
 			continue
 		}
 
@@ -48,7 +51,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 
 			// Check endpoint directory exists
 			epDir := filepath.Join(repo.Path, ep.Dir)
-			if _, err := os.Stat(epDir); os.IsNotExist(err) {
+			if _, err := os.Stat(epDir); errors.Is(err, fs.ErrNotExist) {
 				report.AddErrorWithHint(epLabel, fmt.Sprintf("Endpoint directory missing: %s", epDir),
 					`create the directory or run "phonewave sync" to reconcile`)
 				epHealth.OK = false
@@ -59,7 +62,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 			// Check and auto-create outbox/inbox
 			for _, sub := range []string{"outbox", "inbox"} {
 				subDir := filepath.Join(epDir, sub)
-				if _, err := os.Stat(subDir); os.IsNotExist(err) {
+				if _, err := os.Stat(subDir); errors.Is(err, fs.ErrNotExist) {
 					if err := os.MkdirAll(subDir, 0755); err != nil {
 						report.AddErrorWithHint(epLabel, fmt.Sprintf("Failed to create %s/: %v", sub, err),
 							"check file permissions on the endpoint directory")
@@ -76,7 +79,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 				skillPath := filepath.Join(skillDir, "SKILL.md")
 				data, err := os.ReadFile(skillPath)
 				if err != nil {
-					if os.IsNotExist(err) {
+					if errors.Is(err, fs.ErrNotExist) {
 						continue // SKILL.md does not exist; skip
 					}
 					report.AddWarnWithHint(epLabel, fmt.Sprintf("Failed to read %s SKILL.md: %v", skillName, err),
@@ -104,6 +107,9 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 		}
 	}
 
+	// Check skills-ref toolchain
+	checkSkillsRefToolchain(&report)
+
 	// Check orphaned routes (per-repo to match routing scope)
 	orphans := domain.DetectOrphansPerRepo(cfg)
 	for _, kind := range orphans.UnconsumedKinds {
@@ -117,7 +123,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 
 	// Check resolved state file exists
 	resolvedPath := filepath.Join(stateDir, ".run", domain.ResolvedStateFile)
-	if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+	if _, err := os.Stat(resolvedPath); errors.Is(err, fs.ErrNotExist) {
 		report.AddWarnWithHint("", "resolved.yaml not found: routes are being derived on-the-fly",
 			`run "phonewave sync" to generate resolved state`)
 	}
@@ -131,6 +137,42 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	report.DaemonStatus = checkDaemonStatus(stateDir)
 
 	return report
+}
+
+// checkSkillsRefToolchain reports skills-ref and uv availability and venv state.
+func checkSkillsRefToolchain(report *domain.DoctorReport) {
+	venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
+
+	// Check skills-ref on PATH
+	if _, err := exec.LookPath("skills-ref"); err == nil {
+		report.AddOK("skills-ref", "skills-ref found on PATH")
+		return // Global install; no uv/venv needed
+	}
+
+	// Check uv on PATH
+	_, uvErr := exec.LookPath("uv")
+	if uvErr != nil {
+		report.AddWarnWithHint("skills-ref",
+			"uv not found on PATH: SKILL.md spec validation is unavailable",
+			`install uv (https://docs.astral.sh/uv/) or "uv tool install skills-ref"`)
+		return
+	}
+
+	// Check submodule availability
+	subDir := findSkillsRefDir()
+	if subDir == "" {
+		report.AddWarnWithHint("skills-ref",
+			"uv found but skills-ref submodule not available",
+			`install globally: "uv tool install skills-ref"`)
+		return
+	}
+
+	// uv + submodule available; report venv state
+	if fi, err := os.Stat(venvDir); err == nil && fi.IsDir() {
+		report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv: %s)", venvDir))
+	} else {
+		report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv will be created at %s on first use)", venvDir))
+	}
 }
 
 func checkDaemonStatus(stateDir string) domain.DaemonHealthStatus {

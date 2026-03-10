@@ -2,7 +2,9 @@ package integration_test
 
 import (
 	"context"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -113,7 +115,7 @@ func waitForFileAbsent(t *testing.T, path string, timeout time.Duration) {
 		case <-deadline:
 			t.Fatalf("timeout waiting for file removal: %s", path)
 		default:
-			if _, err := os.Stat(path); os.IsNotExist(err) {
+			if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 				return
 			}
 			time.Sleep(50 * time.Millisecond)
@@ -324,7 +326,7 @@ description: "Unknown"
 	// Phase 9: Shutdown — PID file removed
 	// =====================================================================
 	pidPath := filepath.Join(stateDir, "watch.pid")
-	if _, err := os.Stat(pidPath); os.IsNotExist(err) {
+	if _, err := os.Stat(pidPath); errors.Is(err, fs.ErrNotExist) {
 		t.Error("PID file should exist while daemon is running")
 	}
 
@@ -333,7 +335,7 @@ description: "Unknown"
 		t.Errorf("daemon error on shutdown: %v", err)
 	}
 
-	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(pidPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("PID file should be removed after shutdown")
 	}
 

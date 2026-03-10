@@ -125,8 +125,8 @@ func TestLifecycleDocker_MultiContainer(t *testing.T) {
 		"sh", "-c", fmt.Sprintf("cd /shared && phonewave init %s", repoPath),
 	})
 
-	if !fileExistsInContainer(t, ctx, daemonContainer, "/shared/phonewave.yaml") {
-		t.Fatal("phonewave.yaml not created")
+	if !fileExistsInContainer(t, ctx, daemonContainer, "/shared/.phonewave/config.yaml") {
+		t.Fatal("config.yaml not created")
 	}
 
 	// Start daemon

@@ -2,6 +2,8 @@ package session_test
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -60,12 +62,12 @@ description: "Test spec"
 
 	// D-Mail should exist in inbox
 	deliveredPath := filepath.Join(inbox, "spec-001.md")
-	if _, err := os.Stat(deliveredPath); os.IsNotExist(err) {
+	if _, err := os.Stat(deliveredPath); errors.Is(err, fs.ErrNotExist) {
 		t.Error("D-Mail not found in inbox")
 	}
 
 	// D-Mail should be removed from outbox
-	if _, err := os.Stat(dmailPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(dmailPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("D-Mail should be removed from outbox after delivery")
 	}
 }
@@ -115,13 +117,13 @@ description: "Corrective feedback"
 
 	// Both inboxes should have the file
 	for _, inbox := range []string{inbox1, inbox2} {
-		if _, err := os.Stat(filepath.Join(inbox, "feedback-042.md")); os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(inbox, "feedback-042.md")); errors.Is(err, fs.ErrNotExist) {
 			t.Errorf("D-Mail not found in %s", inbox)
 		}
 	}
 
 	// Source removed
-	if _, err := os.Stat(dmailPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(dmailPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("source should be removed after delivery")
 	}
 }
@@ -283,7 +285,7 @@ description: "No inbox target"
 	}
 
 	// Source should still exist (not all targets flushed)
-	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
+	if _, err := os.Stat(dmailPath); errors.Is(err, fs.ErrNotExist) {
 		t.Error("source should still exist when not all targets flushed")
 	}
 }
@@ -329,7 +331,7 @@ description: "Partial failure test"
 	}
 
 	// inbox1 should have the file (partial success, no rollback in Stage→Flush)
-	if _, err := os.Stat(filepath.Join(inbox1, "fb-partial.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox1, "fb-partial.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("inbox1 should have file (partial flush success)")
 	}
 
@@ -339,7 +341,7 @@ description: "Partial failure test"
 	}
 
 	// Source should still exist (not all targets flushed)
-	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
+	if _, err := os.Stat(dmailPath); errors.Is(err, fs.ErrNotExist) {
 		t.Error("source should still exist (not all targets flushed)")
 	}
 }

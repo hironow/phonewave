@@ -103,7 +103,8 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when: factory should fail with lock already held
-	_, err = session.NewDaemonRunner(daemonCmd, configPath, baseDir, logger)
+	// baseDir param is now the state dir (configBase returns .phonewave/)
+	_, err = session.NewDaemonRunner(daemonCmd, configPath, stateDirPath, logger)
 
 	// then: must fail with "already running"
 	if err == nil {

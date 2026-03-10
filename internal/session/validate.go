@@ -2,7 +2,9 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,6 +62,15 @@ func skillsRefCommand(skillDir string) (*exec.Cmd, context.CancelFunc, error) {
 	if uvPath, err := exec.LookPath("uv"); err == nil {
 		if subDir := findSkillsRefDir(); subDir != "" {
 			cmd := exec.CommandContext(ctx, uvPath, "run", "--project", subDir, "skills-ref", "validate", skillDir)
+			// Redirect uv's venv to a temp directory so Python artifacts
+			// don't pollute the Go repository tree.
+			// NOTE: os.TempDir() is used instead of os.UserCacheDir() for
+			// simplicity and cross-platform consistency. The tradeoff is that
+			// temp dirs may be cleaned by the OS between reboots, causing a
+			// venv rebuild. If isolation becomes a concern, consider switching
+			// to os.UserCacheDir() here and in doctor.go / status.go.
+			venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
+			cmd.Env = append(os.Environ(), "UV_PROJECT_ENVIRONMENT="+venvDir)
 			cmd.Cancel = func() error { cancel(); return cmd.Process.Kill() }
 			return cmd, cancel, nil
 		}
@@ -129,7 +140,7 @@ func validateEndpointSkills(repoPath string, ep domain.EndpointConfig) []string 
 	for _, skillName := range []string{SkillSendable, SkillReadable} {
 		skillDir := filepath.Join(repoPath, ep.Dir, "skills", skillName)
 		if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				continue // SKILL.md does not exist on disk; nothing to validate
 			}
 			warnings = append(warnings, fmt.Sprintf("skills-ref: cannot access %s/%s SKILL.md: %v", epLabel, skillName, err))

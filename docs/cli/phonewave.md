@@ -13,7 +13,7 @@ phonewave [flags]
 ### Options
 
 ```
-  -c, --config string   Path to phonewave config file (default "phonewave.yaml")
+  -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
   -h, --help            help for phonewave
       --no-color        Disable colored output (respects NO_COLOR env)
   -o, --output string   Output format: text, json (default "text")
@@ -31,6 +31,6 @@ phonewave [flags]
 * [phonewave run](phonewave_run.md)	 - Start the courier daemon
 * [phonewave status](phonewave_status.md)	 - Show daemon and delivery status
 * [phonewave sync](phonewave_sync.md)	 - Re-scan all repositories, reconcile routing table
-* [phonewave update](phonewave_update.md)	 - Update phonewave to the latest version
+* [phonewave update](phonewave_update.md)	 - Self-update phonewave to the latest release
 * [phonewave version](phonewave_version.md)	 - Print version, commit, and build information
 

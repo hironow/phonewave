@@ -16,6 +16,7 @@ var phonewaveGitignoreEntries = []string{
 	"events/",
 	".run/",
 	".otel.env",
+	"!config.yaml",
 }
 
 // EnsureStateDir creates the .phonewave/ state directory structure and
@@ -24,6 +25,9 @@ var phonewaveGitignoreEntries = []string{
 func EnsureStateDir(base string) error {
 	stateDir := filepath.Join(base, domain.StateDir)
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(stateDir, "insights"), 0755); err != nil {
 		return err
 	}
 	return ensureGitignoreEntries(filepath.Join(stateDir, ".gitignore"), phonewaveGitignoreEntries)
