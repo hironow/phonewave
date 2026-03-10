@@ -3,6 +3,8 @@ package eventsource
 // white-box-reason: eventsource internals: tests unexported file rotation and lifecycle logic
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -121,7 +123,7 @@ func TestPruneEventFiles_DeletesSpecifiedFiles(t *testing.T) {
 		t.Errorf("expected 2 deleted, got %d", len(deleted))
 	}
 	for _, name := range deleted {
-		if _, statErr := os.Stat(filepath.Join(eventsDir, name)); !os.IsNotExist(statErr) {
+		if _, statErr := os.Stat(filepath.Join(eventsDir, name)); !errors.Is(statErr, fs.ErrNotExist) {
 			t.Errorf("file %s should have been deleted", name)
 		}
 	}

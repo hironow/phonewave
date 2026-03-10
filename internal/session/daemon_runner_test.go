@@ -4,7 +4,9 @@ package session
 
 import (
 	"context"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -82,12 +84,12 @@ description: "Pre-existing spec"
 	}
 
 	// File should be in inbox
-	if _, err := os.Stat(filepath.Join(inbox, "spec-startup.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox, "spec-startup.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("D-Mail not found in inbox after startup scan")
 	}
 
 	// File should be removed from outbox
-	if _, err := os.Stat(dmailPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(dmailPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("D-Mail should be removed from outbox after delivery")
 	}
 }
@@ -149,13 +151,13 @@ description: "Watch test"
 	waitForFile(t, filepath.Join(inbox, "spec-watch.md"), 5*time.Second)
 
 	// then — file should be in inbox
-	if _, err := os.Stat(filepath.Join(inbox, "spec-watch.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox, "spec-watch.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("D-Mail not found in inbox")
 	}
 
 	// Source should be removed
 	time.Sleep(100 * time.Millisecond) // allow removal to complete
-	if _, err := os.Stat(dmailPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(dmailPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("D-Mail should be removed from outbox")
 	}
 
@@ -266,7 +268,7 @@ func TestDaemon_PIDFile(t *testing.T) {
 
 	// then — PID file should exist
 	pidPath := filepath.Join(stateDir, "watch.pid")
-	if _, err := os.Stat(pidPath); os.IsNotExist(err) {
+	if _, err := os.Stat(pidPath); errors.Is(err, fs.ErrNotExist) {
 		t.Error("PID file not created")
 	}
 
@@ -277,7 +279,7 @@ func TestDaemon_PIDFile(t *testing.T) {
 	}
 
 	// PID file should be removed after shutdown
-	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(pidPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("PID file should be removed after shutdown")
 	}
 }
@@ -585,7 +587,7 @@ description: "Valid"
 		t.Errorf("kind = %q, want specification", results[0].Kind)
 	}
 
-	if _, err := os.Stat(filepath.Join(outbox, ".phonewave-tmp-12345")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(outbox, ".phonewave-tmp-12345")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("temp file should not be removed by ScanAndDeliver")
 	}
 }
@@ -645,14 +647,14 @@ description: "Also valid"
 		t.Errorf("errors = %d, want 1 (one invalid file)", len(errs))
 	}
 
-	if _, err := os.Stat(filepath.Join(inbox, "spec-001.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox, "spec-001.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("spec-001.md should be in inbox")
 	}
-	if _, err := os.Stat(filepath.Join(inbox, "spec-003.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox, "spec-003.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("spec-003.md should be in inbox")
 	}
 
-	if _, err := os.Stat(filepath.Join(outbox, "bad-002.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(outbox, "bad-002.md")); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("bad-002.md should be removed from outbox (moved to error queue)")
 	}
 
@@ -756,10 +758,10 @@ description: "Multi outbox test"
 	}
 bothDelivered:
 
-	if _, err := os.Stat(filepath.Join(inbox1, "spec-multi.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox1, "spec-multi.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("spec-multi.md not found in inbox1")
 	}
-	if _, err := os.Stat(filepath.Join(inbox2, "fb-multi.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox2, "fb-multi.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("fb-multi.md not found in inbox2")
 	}
 
@@ -903,7 +905,7 @@ description: "Preserve test"
 		Op:   fsnotify.Create,
 	})
 
-	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
+	if _, err := os.Stat(dmailPath); errors.Is(err, fs.ErrNotExist) {
 		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
 	}
 }
@@ -937,7 +939,7 @@ description: "Preserve test"
 	// nil errorQueue — file should be preserved in outbox
 	ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
 
-	if _, err := os.Stat(dmailPath); os.IsNotExist(err) {
+	if _, err := os.Stat(dmailPath); errors.Is(err, fs.ErrNotExist) {
 		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")
 	}
 }
@@ -993,7 +995,7 @@ description: "Rename event test"
 		Op:   fsnotify.Rename,
 	})
 
-	if _, err := os.Stat(filepath.Join(inbox, "spec-rename.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox, "spec-rename.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("D-Mail not delivered to inbox on Rename event")
 	}
 }
@@ -1094,7 +1096,7 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 
 	waitForFile(t, filepath.Join(inbox, "spec-retry.md"), 3*time.Second)
 
-	if _, err := os.Stat(filepath.Join(inbox, "spec-retry.md")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox, "spec-retry.md")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("D-Mail not found in inbox after retry")
 	}
 

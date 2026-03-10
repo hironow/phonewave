@@ -2,7 +2,9 @@ package session_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -81,7 +83,7 @@ func TestSQLiteDeliveryStore_StageMultipleTargets(t *testing.T) {
 		t.Fatalf("expected 2 flushed, got %d", len(flushed))
 	}
 	for _, target := range []string{target1, target2} {
-		if _, err := os.Stat(target); os.IsNotExist(err) {
+		if _, err := os.Stat(target); errors.Is(err, fs.ErrNotExist) {
 			t.Errorf("target %q should exist", target)
 		}
 	}

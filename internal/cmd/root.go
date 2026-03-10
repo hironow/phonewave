@@ -40,7 +40,7 @@ func NewRootCommand() *cobra.Command {
 		Long:          "Phonewave routes D-Mails between AI agent tool repositories via file-based message passing.",
 		Version:       Version,
 		SilenceUsage:  true,
-		SilenceErrors: true,
+		SilenceErrors: true, // nosemgrep: cobra-silence-errors-without-output — main.go prints err to os.Stderr when ExecuteContext fails [permanent]
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			noColor, _ := cmd.Flags().GetBool("no-color")
 			if noColor {
@@ -48,7 +48,7 @@ func NewRootCommand() *cobra.Command {
 			}
 			// Auto-migrate legacy phonewave.yaml → .phonewave/config.yaml
 			if migErr := session.MigrateConfigIfNeeded(projectRoot(cmd)); migErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: config migration: %v\n", migErr)
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: config migration: %v\n", migErr)
 			}
 			applyOtelEnv(configBase(cmd))
 			shutdownTracerFn = initTracer("phonewave", Version)

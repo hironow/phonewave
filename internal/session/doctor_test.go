@@ -2,7 +2,9 @@ package session_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -110,10 +112,10 @@ func TestDoctor_MissingDirs(t *testing.T) {
 	}
 
 	// outbox and inbox should now exist
-	if _, err := os.Stat(filepath.Join(repoDir, ".siren", "outbox")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(repoDir, ".siren", "outbox")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("outbox should have been auto-created")
 	}
-	if _, err := os.Stat(filepath.Join(repoDir, ".siren", "inbox")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(repoDir, ".siren", "inbox")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("inbox should have been auto-created")
 	}
 }

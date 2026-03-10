@@ -1,6 +1,8 @@
 package session_test
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -430,7 +432,7 @@ func TestMigrateConfigIfNeeded_MovesLegacyFile(t *testing.T) {
 		t.Fatalf("MigrateConfigIfNeeded: %v", err)
 	}
 	// legacy file should be gone
-	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(legacyPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("legacy phonewave.yaml should be removed after migration")
 	}
 	// new config should exist
@@ -483,7 +485,7 @@ func TestMigrateConfigIfNeeded_BothExist_RemovesLegacy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MigrateConfigIfNeeded: %v", err)
 	}
-	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+	if _, err := os.Stat(legacyPath); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("legacy file should be removed when both exist")
 	}
 	data, _ := os.ReadFile(newPath)

@@ -2,7 +2,9 @@ package session
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,7 +32,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	// Check each repository
 	for _, repo := range cfg.Repositories {
 		// 1. Verify repository path exists
-		if _, err := os.Stat(repo.Path); os.IsNotExist(err) {
+		if _, err := os.Stat(repo.Path); errors.Is(err, fs.ErrNotExist) {
 			report.AddErrorWithHint("", fmt.Sprintf("Repository path does not exist: %s", repo.Path),
 				`check config.yaml repositories.path or run "phonewave remove <path>"`)
 			continue
@@ -49,7 +51,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 
 			// Check endpoint directory exists
 			epDir := filepath.Join(repo.Path, ep.Dir)
-			if _, err := os.Stat(epDir); os.IsNotExist(err) {
+			if _, err := os.Stat(epDir); errors.Is(err, fs.ErrNotExist) {
 				report.AddErrorWithHint(epLabel, fmt.Sprintf("Endpoint directory missing: %s", epDir),
 					`create the directory or run "phonewave sync" to reconcile`)
 				epHealth.OK = false
@@ -60,7 +62,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 			// Check and auto-create outbox/inbox
 			for _, sub := range []string{"outbox", "inbox"} {
 				subDir := filepath.Join(epDir, sub)
-				if _, err := os.Stat(subDir); os.IsNotExist(err) {
+				if _, err := os.Stat(subDir); errors.Is(err, fs.ErrNotExist) {
 					if err := os.MkdirAll(subDir, 0755); err != nil {
 						report.AddErrorWithHint(epLabel, fmt.Sprintf("Failed to create %s/: %v", sub, err),
 							"check file permissions on the endpoint directory")
@@ -77,7 +79,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 				skillPath := filepath.Join(skillDir, "SKILL.md")
 				data, err := os.ReadFile(skillPath)
 				if err != nil {
-					if os.IsNotExist(err) {
+					if errors.Is(err, fs.ErrNotExist) {
 						continue // SKILL.md does not exist; skip
 					}
 					report.AddWarnWithHint(epLabel, fmt.Sprintf("Failed to read %s SKILL.md: %v", skillName, err),
@@ -121,7 +123,7 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 
 	// Check resolved state file exists
 	resolvedPath := filepath.Join(stateDir, ".run", domain.ResolvedStateFile)
-	if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+	if _, err := os.Stat(resolvedPath); errors.Is(err, fs.ErrNotExist) {
 		report.AddWarnWithHint("", "resolved.yaml not found: routes are being derived on-the-fly",
 			`run "phonewave sync" to generate resolved state`)
 	}

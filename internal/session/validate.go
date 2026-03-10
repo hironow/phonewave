@@ -2,7 +2,9 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -138,7 +140,7 @@ func validateEndpointSkills(repoPath string, ep domain.EndpointConfig) []string 
 	for _, skillName := range []string{SkillSendable, SkillReadable} {
 		skillDir := filepath.Join(repoPath, ep.Dir, "skills", skillName)
 		if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				continue // SKILL.md does not exist on disk; nothing to validate
 			}
 			warnings = append(warnings, fmt.Sprintf("skills-ref: cannot access %s/%s SKILL.md: %v", epLabel, skillName, err))

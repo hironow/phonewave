@@ -3,7 +3,9 @@
 package e2e
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -124,7 +126,7 @@ func TestCLI_MultiRepoInit(t *testing.T) {
 		t.Error("config missing repo2")
 	}
 
-	if _, err := os.Stat(filepath.Join(workDir, ".phonewave")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(workDir, ".phonewave")); errors.Is(err, fs.ErrNotExist) {
 		t.Error("state directory .phonewave not created")
 	}
 }
@@ -280,11 +282,11 @@ func TestCLI_ConfigFlag(t *testing.T) {
 		t.Fatalf("init with --config failed: %v", err)
 	}
 
-	if _, err := os.Stat(customPath); os.IsNotExist(err) {
+	if _, err := os.Stat(customPath); errors.Is(err, fs.ErrNotExist) {
 		t.Fatal("config not created at custom path")
 	}
 
-	if _, err := os.Stat(customStateDir); os.IsNotExist(err) {
+	if _, err := os.Stat(customStateDir); errors.Is(err, fs.ErrNotExist) {
 		t.Error("state dir .phonewave not created at custom location")
 	}
 }
