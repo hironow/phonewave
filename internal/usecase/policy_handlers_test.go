@@ -94,10 +94,10 @@ func TestPolicyHandler_ScanCompleted_NotifiesSideEffect(t *testing.T) {
 	engine := NewPolicyEngine(logger)
 	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{}, port.NopInsightAppender{}, nil)
 
-	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
-		"outbox":    "/some/outbox",
-		"delivered": "5",
-		"failed":    "1",
+	ev, err := domain.NewEvent(domain.EventScanCompleted, domain.ScanCompletedPayload{
+		Outbox:    "/some/outbox",
+		Delivered: 5,
+		Failed:    1,
 	}, time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)
@@ -223,10 +223,10 @@ func TestPolicyHandler_ScanCompleted_RecordsMetrics(t *testing.T) {
 	engine := NewPolicyEngine(logger)
 	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{}, nil)
 
-	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
-		"outbox":    "/some/outbox",
-		"delivered": "5",
-		"failed":    "1",
+	ev, err := domain.NewEvent(domain.EventScanCompleted, domain.ScanCompletedPayload{
+		Outbox:    "/some/outbox",
+		Delivered: 5,
+		Failed:    1,
 	}, time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)

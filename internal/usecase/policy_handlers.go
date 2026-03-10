@@ -74,16 +74,16 @@ func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier
 	})
 
 	engine.Register(domain.EventScanCompleted, func(ctx context.Context, event domain.Event) error {
-		var data map[string]string
-		if err := json.Unmarshal(event.Data, &data); err != nil {
+		var payload domain.ScanCompletedPayload
+		if err := json.Unmarshal(event.Data, &payload); err != nil {
 			logger.Debug("policy: scan completed parse error: %v", err)
 			return nil
 		}
-		logger.Info("policy: scan completed (delivered=%s, failed=%s)", data["delivered"], data["failed"])
+		logger.Info("policy: scan completed (delivered=%d, failed=%d)", payload.Delivered, payload.Failed)
 		notifyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if err := notifier.Notify(notifyCtx, "Phonewave",
-			fmt.Sprintf("Scan completed: %s delivered, %s failed", data["delivered"], data["failed"])); err != nil {
+			fmt.Sprintf("Scan completed: %d delivered, %d failed", payload.Delivered, payload.Failed)); err != nil {
 			logger.Debug("policy: notify error: %v", err)
 		}
 		metrics.RecordPolicyEvent(ctx, "scan.completed", "handled")
