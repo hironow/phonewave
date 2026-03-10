@@ -123,6 +123,14 @@ func (a *daemonRunnerAdapter) BuildInsightAppender() port.InsightAppender {
 	return a.insights
 }
 
+func (a *daemonRunnerAdapter) BuildInsightReader() port.InsightReader {
+	// InsightWriter already implements Read(filename) (*domain.InsightFile, error)
+	if w, ok := a.insights.(*InsightWriter); ok {
+		return w
+	}
+	return nil
+}
+
 func (a *daemonRunnerAdapter) RouteCount() int {
 	return a.routeCount
 }

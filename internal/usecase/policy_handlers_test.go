@@ -5,6 +5,7 @@ package usecase
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -62,7 +63,7 @@ func TestPolicyHandler_DeliveryCompleted_InfoOutput(t *testing.T) {
 	var buf bytes.Buffer
 	logger := platform.NewLogger(&buf, false)
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{}, port.NopInsightAppender{})
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{}, port.NopInsightAppender{}, nil)
 
 	ev, err := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{
 		"kind":   "specification",
@@ -91,7 +92,7 @@ func TestPolicyHandler_ScanCompleted_NotifiesSideEffect(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyNotifier{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{}, port.NopInsightAppender{})
+	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{}, port.NopInsightAppender{}, nil)
 
 	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
 		"outbox":    "/some/outbox",
@@ -127,7 +128,7 @@ func TestPolicyHandler_DeliveryCompleted_RecordsMetrics(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyPolicyMetrics{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{})
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{}, nil)
 
 	ev, err := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{
 		"kind":   "specification",
@@ -158,7 +159,7 @@ func TestPolicyHandler_DeliveryFailed_RecordsMetrics(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyPolicyMetrics{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{})
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{}, nil)
 
 	ev, err := domain.NewEvent(domain.EventDeliveryFailed, map[string]string{
 		"kind":  "specification",
@@ -189,7 +190,7 @@ func TestPolicyHandler_ErrorRetried_RecordsMetrics(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyPolicyMetrics{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{})
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{}, nil)
 
 	ev, err := domain.NewEvent(domain.EventErrorRetried, map[string]string{
 		"name": "failed-001.md",
@@ -220,7 +221,7 @@ func TestPolicyHandler_ScanCompleted_RecordsMetrics(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyPolicyMetrics{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{})
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, spy, port.NopInsightAppender{}, nil)
 
 	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
 		"outbox":    "/some/outbox",
@@ -252,7 +253,7 @@ func TestPolicyHandler_DeliveryFailed_NotifiesSideEffect(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyNotifier{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{}, port.NopInsightAppender{})
+	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{}, port.NopInsightAppender{}, nil)
 
 	ev, err := domain.NewEvent(domain.EventDeliveryFailed, map[string]string{
 		"kind":  "specification",
@@ -284,7 +285,7 @@ func TestPolicyHandler_ErrorRetried_NotifiesSideEffect(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyNotifier{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{}, port.NopInsightAppender{})
+	registerDaemonPolicies(engine, logger, spy, port.NopPolicyMetrics{}, port.NopInsightAppender{}, nil)
 
 	ev, err := domain.NewEvent(domain.EventErrorRetried, map[string]string{
 		"name": "failed-001.md",
@@ -316,7 +317,7 @@ func TestPolicyHandler_DeliveryFailed_WritesInsight(t *testing.T) {
 	logger := platform.NewLogger(&buf, false)
 	spy := &spyInsightAppender{}
 	engine := NewPolicyEngine(logger)
-	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{}, spy)
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{}, spy, nil)
 
 	now := time.Date(2026, 3, 10, 14, 30, 0, 0, time.UTC)
 	ev, err := domain.NewEvent(domain.EventDeliveryFailed, domain.DeliveryFailedPayload{
@@ -405,7 +406,7 @@ func TestPolicyHandler_DeliveryFailed_InsightErrorCategorization(t *testing.T) {
 			logger := platform.NewLogger(&buf, false)
 			spy := &spyInsightAppender{}
 			engine := NewPolicyEngine(logger)
-			registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{}, spy)
+			registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{}, spy, nil)
 
 			ev, err := domain.NewEvent(domain.EventDeliveryFailed, domain.DeliveryFailedPayload{
 				Path:  "/repo/.siren/outbox/test.md",
@@ -427,5 +428,56 @@ func TestPolicyHandler_DeliveryFailed_InsightErrorCategorization(t *testing.T) {
 				t.Errorf("expected why to contain %q, got: %s", tt.wantWhy, spy.calls[0].entry.Why)
 			}
 		})
+	}
+}
+
+type stubInsightReader struct {
+	entries []domain.InsightEntry
+}
+
+func (s *stubInsightReader) Read(filename string) (*domain.InsightFile, error) {
+	if s == nil {
+		return nil, fmt.Errorf("no reader")
+	}
+	return &domain.InsightFile{Entries: s.entries}, nil
+}
+
+func TestPolicyHandler_DeliveryFailed_DetectsRepeatFailure(t *testing.T) {
+	// given: 2 prior failures on the same route
+	var buf bytes.Buffer
+	logger := platform.NewLogger(&buf, false)
+	spy := &spyInsightAppender{}
+	route := "/repo/.siren/outbox -> targets"
+	reader := &stubInsightReader{
+		entries: []domain.InsightEntry{
+			{Title: "prior-1", Extra: map[string]string{"route": route}},
+			{Title: "prior-2", Extra: map[string]string{"route": route}},
+		},
+	}
+	engine := NewPolicyEngine(logger)
+	registerDaemonPolicies(engine, logger, &port.NopNotifier{}, port.NopPolicyMetrics{}, spy, reader)
+
+	ev, err := domain.NewEvent(domain.EventDeliveryFailed, domain.DeliveryFailedPayload{
+		Path:  "/repo/.siren/outbox/test.md",
+		Kind:  "specification",
+		Error: "permission denied",
+	}, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// when
+	engine.Dispatch(context.Background(), ev)
+
+	// then: insight How field should mention "2 prior"
+	if len(spy.calls) != 1 {
+		t.Fatalf("expected 1 Append call, got %d", len(spy.calls))
+	}
+	how := spy.calls[0].entry.How
+	if !strings.Contains(how, "2 prior") {
+		t.Errorf("expected How to contain '2 prior', got: %s", how)
+	}
+	if !strings.Contains(how, "Repeated failure") {
+		t.Errorf("expected How to contain 'Repeated failure', got: %s", how)
 	}
 }

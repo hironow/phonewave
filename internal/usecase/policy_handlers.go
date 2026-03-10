@@ -15,7 +15,7 @@ import (
 // registerDaemonPolicies registers POLICY handlers for daemon events.
 // Handlers are best-effort: errors are logged but never stop the daemon.
 // See ADR S0014 (POLICY pattern) and S0018 (Event Storming alignment).
-func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier port.Notifier, metrics port.PolicyMetrics, insights port.InsightAppender) {
+func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier port.Notifier, metrics port.PolicyMetrics, insights port.InsightAppender, reader port.InsightReader) {
 	// POLICY CONTRACT: observation-only — log + metrics.
 	// No notification needed: individual deliveries are frequent events;
 	// the aggregate scan.completed handler provides user-facing notification.
@@ -49,7 +49,7 @@ func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier
 		}
 
 		// Write delivery failure insight (best-effort).
-		writeDeliveryFailureInsight(logger, insights, payload, event)
+		writeDeliveryFailureInsight(logger, insights, reader, payload, event)
 
 		metrics.RecordPolicyEvent(ctx, "delivery.failed", "handled")
 		return nil
@@ -121,20 +121,46 @@ func containsAny(s string, substrs ...string) bool {
 // writeDeliveryFailureInsight creates an InsightEntry from a delivery failure
 // event and appends it to the delivery.md insight file.
 // Best-effort: errors are logged but never propagated.
-func writeDeliveryFailureInsight(logger domain.Logger, insights port.InsightAppender, payload domain.DeliveryFailedPayload, event domain.Event) {
+// countRouteFailures counts prior failure entries for a given route in the insight file.
+func countRouteFailures(reader port.InsightReader, route string) int {
+	if reader == nil {
+		return 0
+	}
+	file, err := reader.Read("delivery.md")
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, entry := range file.Entries {
+		if entry.Extra["route"] == route {
+			count++
+		}
+	}
+	return count
+}
+
+func writeDeliveryFailureInsight(logger domain.Logger, insights port.InsightAppender, reader port.InsightReader, payload domain.DeliveryFailedPayload, event domain.Event) {
 	sourceOutbox := filepath.Dir(payload.Path)
 	title := fmt.Sprintf("delivery-failed-%s-%s", payload.Kind, event.Timestamp.Format("20060102T150405"))
+	route := fmt.Sprintf("%s -> targets", sourceOutbox)
+
+	how := "Check target inbox directory permissions and disk space"
+	if reader != nil {
+		if count := countRouteFailures(reader, route); count > 0 {
+			how = fmt.Sprintf("Repeated failure (%d prior) on this route — check target inbox directory permissions and disk space", count)
+		}
+	}
 
 	entry := domain.InsightEntry{
 		Title:       title,
 		What:        fmt.Sprintf("Delivery failed for kind %s from %s: %s", payload.Kind, sourceOutbox, payload.Error),
 		Why:         categorizeDeliveryError(payload.Error),
-		How:         "Check target inbox directory permissions and disk space",
+		How:         how,
 		When:        "During delivery scan cycle",
 		Who:         fmt.Sprintf("phonewave courier daemon (event-%s)", event.ID),
 		Constraints: "Automatic retry via error queue",
 		Extra: map[string]string{
-			"route": fmt.Sprintf("%s -> targets", sourceOutbox),
+			"route": route,
 		},
 	}
 
