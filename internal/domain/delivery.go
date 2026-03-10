@@ -11,6 +11,9 @@ import (
 // SupportedDMailSchemaVersion is the only accepted dmail-schema-version value.
 const SupportedDMailSchemaVersion = "1"
 
+// UnknownKind is the canonical fallback when a D-Mail's kind cannot be determined.
+const UnknownKind = "unknown"
+
 // DeliveryFlushed represents a single target that was successfully flushed.
 type DeliveryFlushed struct {
 	DMailPath string

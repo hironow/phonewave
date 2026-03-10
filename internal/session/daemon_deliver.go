@@ -57,7 +57,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 	if err != nil {
 		kind, _ := domain.ExtractDMailKind(data)
 		if kind == "" {
-			kind = "unknown"
+			kind = domain.UnknownKind
 		}
 		d.logger.Error("Deliver %s: %v", event.Name, err)
 		span.RecordError(err)
