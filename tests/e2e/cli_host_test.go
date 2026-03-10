@@ -224,7 +224,7 @@ func TestCLI_Doctor_Healthy(t *testing.T) {
 	}
 
 	combined := stdout + stderr
-	if !strings.Contains(strings.ToLower(combined), "healthy") {
+	if !strings.Contains(combined, "All checks passed") {
 		t.Errorf("doctor output does not indicate healthy: %s", combined)
 	}
 }
