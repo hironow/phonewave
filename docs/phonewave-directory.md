@@ -3,7 +3,7 @@
 phonewave manages configuration, daemon state, and error recovery across two locations:
 the working directory (where `phonewave init` is run) and each monitored repository's endpoint directories.
 
-## Working Directory Tree
+## Directory Tree
 
 ```
 ./
@@ -21,6 +21,28 @@ the working directory (where `phonewave init` is run) and each monitored reposit
       error_queue.db          # SQLite error queue (dead letter)
       insights.lock           # flock-based lock for insight file writes (ephemeral)
 ```
+
+## Git Tracking Rules
+
+| Path | Tracked | Reason |
+|------|---------|--------|
+| `.phonewave/config.yaml` | Yes | Declarative manifest, shared across clones |
+| `.phonewave/delivery.log` | Yes | Append-only audit trail |
+| `.phonewave/insights/` | Yes | Semantic insight ledger (per ADR S0030) |
+| `.phonewave/events/` | No | Runtime event store, rebuild from source |
+| `.phonewave/.run/` | No | Ephemeral runtime state (resolved.yaml, error_queue.db, locks) |
+| `.phonewave/watch.pid` | No | Daemon PID, ephemeral |
+| `.phonewave/watch.started` | No | Daemon start timestamp, ephemeral |
+
+## Insight Ledger: `insights/`
+
+The insight ledger (`insights/`) is a git-tracked directory containing Markdown files with YAML frontmatter (`insight-schema-version: "1"`). Each entry has 6 required axes: what, why, how, when, who, constraints.
+
+| File | Content |
+|------|---------|
+| `delivery.md` | Delivery failure insights. The `How` axis is enriched with repeat failure detection: when prior failures exist on the same route, entries show "Repeated failure (N prior)" instead of generic advice |
+
+Entries are appended idempotently (title-based dedup) and written atomically via temp-file-rename with flock-based locking (`.run/insights.lock`).
 
 ## Repository Endpoint Tree
 
@@ -71,7 +93,7 @@ in each repository for SKILL.md files.
 | `.<endpoint>/inbox/*.md` | Delivered D-Mail files. Written atomically (temp → rename) by the delivery pipeline |
 | `.phonewave-tmp-*` | Temporary files created during atomic writes. Appear briefly in inbox directories, then renamed to final filename. Ignored by daemon event handler |
 
-## D-Mail Delivery Lifecycle
+## D-Mail Lifecycle
 
 ```
 Producer                  phonewave daemon               Consumer

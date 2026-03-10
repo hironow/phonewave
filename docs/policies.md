@@ -34,3 +34,7 @@ All handlers use `map[string]string` unmarshaling from `event.Data`.
 
 Best-effort (at-most-once). Handler failures are silently logged.
 No retry, no dead-letter queue, no error propagation to callers.
+
+## Skeleton Handlers
+
+Observation-only handlers log delivery events and update metrics without triggering side effects.
