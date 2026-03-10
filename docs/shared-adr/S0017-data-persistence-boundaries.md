@@ -1,7 +1,7 @@
 # S0017. Data Persistence Boundaries
 
 **Date:** 2026-03-01
-**Status:** Accepted
+**Status:** Superseded by S0030
 
 ## Context
 
