@@ -79,11 +79,11 @@ func registerDaemonPolicies(engine *PolicyEngine, logger domain.Logger, notifier
 			logger.Debug("policy: scan completed parse error: %v", err)
 			return nil
 		}
-		logger.Info("policy: scan completed (delivered=%s, errors=%s)", data["delivered"], data["errors"])
+		logger.Info("policy: scan completed (delivered=%s, failed=%s)", data["delivered"], data["failed"])
 		notifyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if err := notifier.Notify(notifyCtx, "Phonewave",
-			fmt.Sprintf("Scan completed: %s delivered, %s errors", data["delivered"], data["errors"])); err != nil {
+			fmt.Sprintf("Scan completed: %s delivered, %s failed", data["delivered"], data["failed"])); err != nil {
 			logger.Debug("policy: notify error: %v", err)
 		}
 		metrics.RecordPolicyEvent(ctx, "scan.completed", "handled")

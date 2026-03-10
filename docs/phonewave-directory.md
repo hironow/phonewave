@@ -27,7 +27,7 @@ the working directory (where `phonewave init` is run) and each monitored reposit
 | Path | Tracked | Reason |
 |------|---------|--------|
 | `.phonewave/config.yaml` | Yes | Declarative manifest, shared across clones |
-| `.phonewave/delivery.log` | Yes | Append-only audit trail |
+| `.phonewave/delivery.log` | No | Runtime audit trail, ephemeral per daemon instance |
 | `.phonewave/insights/` | Yes | Semantic insight ledger (per ADR S0030) |
 | `.phonewave/events/` | No | Runtime event store, rebuild from source |
 | `.phonewave/.run/` | No | Ephemeral runtime state (resolved.yaml, error_queue.db, locks) |

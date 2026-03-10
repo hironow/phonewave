@@ -97,7 +97,7 @@ func TestPolicyHandler_ScanCompleted_NotifiesSideEffect(t *testing.T) {
 	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
 		"outbox":    "/some/outbox",
 		"delivered": "5",
-		"errors":    "1",
+		"failed":    "1",
 	}, time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)
@@ -117,8 +117,8 @@ func TestPolicyHandler_ScanCompleted_NotifiesSideEffect(t *testing.T) {
 	if !strings.Contains(call.message, "5 delivered") {
 		t.Errorf("expected message to contain delivered count, got: %s", call.message)
 	}
-	if !strings.Contains(call.message, "1 errors") {
-		t.Errorf("expected message to contain error count, got: %s", call.message)
+	if !strings.Contains(call.message, "1 failed") {
+		t.Errorf("expected message to contain failed count, got: %s", call.message)
 	}
 }
 
@@ -226,7 +226,7 @@ func TestPolicyHandler_ScanCompleted_RecordsMetrics(t *testing.T) {
 	ev, err := domain.NewEvent(domain.EventScanCompleted, map[string]string{
 		"outbox":    "/some/outbox",
 		"delivered": "5",
-		"errors":    "1",
+		"failed":    "1",
 	}, time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)
