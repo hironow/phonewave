@@ -16,11 +16,11 @@ func (a *InitAdapter) ScanAndInit(repoPaths []string, cfgPath string) (*domain.I
 	if err != nil {
 		return nil, err
 	}
-	if err := WriteConfig(cfgPath, result.Config); err != nil {
-		return nil, fmt.Errorf("write config: %w", err)
-	}
 	if err := EnsureStateDir(filepath.Dir(filepath.Dir(cfgPath))); err != nil {
 		return nil, fmt.Errorf("create state dir: %w", err)
+	}
+	if err := WriteConfig(cfgPath, result.Config); err != nil {
+		return nil, fmt.Errorf("write config: %w", err)
 	}
 	return result, nil
 }
