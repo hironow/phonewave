@@ -25,4 +25,5 @@
 
 ## Architecture Decision Records
 
-See [adr/README.md](adr/README.md) for the full index.
+- [adr/](adr/README.md) — Tool-specific ADRs
+- [shared-adr/](shared-adr/README.md) — Cross-tool shared ADRs (S0001–S0031)
