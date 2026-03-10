@@ -80,6 +80,17 @@ type DaemonEventEmitter interface {
 	EmitRetry(name string, kind string, now time.Time) error
 }
 
+// InsightAppender writes insight entries to insight ledger files.
+// Best-effort: errors should be logged but not propagated to callers.
+type InsightAppender interface {
+	Append(filename, kind, tool string, entry domain.InsightEntry) error
+}
+
+// NopInsightAppender is a no-op InsightAppender for tests and quiet mode.
+type NopInsightAppender struct{}
+
+func (NopInsightAppender) Append(string, string, string, domain.InsightEntry) error { return nil }
+
 // DaemonRunner represents a fully-constructed daemon ready for emitter injection.
 // All infrastructure setup (config loading, store creation, lock acquisition) is done
 // before the DaemonRunner is constructed. The usecase layer uses it only for:
@@ -93,6 +104,8 @@ type DaemonRunner interface {
 	EventStore() EventStore
 	// BuildNotifier returns the configured notifier for policy handlers.
 	BuildNotifier() Notifier
+	// BuildInsightAppender returns the configured InsightAppender for policy handlers.
+	BuildInsightAppender() InsightAppender
 	// RouteCount returns the number of resolved delivery routes.
 	RouteCount() int
 	// OutboxCount returns the number of watched outbox directories.
@@ -106,10 +119,11 @@ type DaemonRunner interface {
 // NopDaemonRunner is a no-op DaemonRunner for tests.
 type NopDaemonRunner struct{}
 
-func (NopDaemonRunner) SetEmitter(DaemonEventEmitter) {}
-func (NopDaemonRunner) EventStore() EventStore        { return nil }
-func (NopDaemonRunner) BuildNotifier() Notifier       { return NopNotifier{} }
-func (NopDaemonRunner) RouteCount() int               { return 0 }
-func (NopDaemonRunner) OutboxCount() int              { return 0 }
-func (NopDaemonRunner) Run(context.Context) error     { return nil }
-func (NopDaemonRunner) Close() error                  { return nil }
+func (NopDaemonRunner) SetEmitter(DaemonEventEmitter)        {}
+func (NopDaemonRunner) EventStore() EventStore                { return nil }
+func (NopDaemonRunner) BuildNotifier() Notifier               { return NopNotifier{} }
+func (NopDaemonRunner) BuildInsightAppender() InsightAppender { return NopInsightAppender{} }
+func (NopDaemonRunner) RouteCount() int                       { return 0 }
+func (NopDaemonRunner) OutboxCount() int                      { return 0 }
+func (NopDaemonRunner) Run(context.Context) error             { return nil }
+func (NopDaemonRunner) Close() error                          { return nil }

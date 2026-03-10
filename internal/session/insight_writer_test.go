@@ -3,6 +3,7 @@ package session_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hironow/phonewave/internal/domain"
@@ -170,5 +171,107 @@ func TestInsightWriter_ReadEntries(t *testing.T) {
 	}
 	if len(file.Entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(file.Entries))
+	}
+}
+
+func TestInsightWriter_DeliveryFailureInsight(t *testing.T) {
+	// given: simulate what the delivery.failed policy handler writes
+	dir := t.TempDir()
+	insightsDir := filepath.Join(dir, "insights")
+	runDir := filepath.Join(dir, ".run")
+	os.MkdirAll(insightsDir, 0o755)
+	os.MkdirAll(runDir, 0o755)
+
+	w := session.NewInsightWriter(insightsDir, runDir)
+
+	entry := domain.InsightEntry{
+		Title:       "delivery-failed-specification-20260310T143000",
+		What:        "Delivery failed for kind specification from /repo/.siren/outbox: permission denied",
+		Why:         "Permission denied on target inbox directory",
+		How:         "Check target inbox directory permissions and disk space",
+		When:        "During delivery scan cycle",
+		Who:         "phonewave courier daemon (event-abc123)",
+		Constraints: "Automatic retry via error queue",
+		Extra: map[string]string{
+			"route": "/repo/.siren/outbox -> targets",
+		},
+	}
+
+	// when
+	err := w.Append("delivery.md", "delivery-failure", "phonewave", entry)
+
+	// then: file was created with correct content
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(insightsDir, "delivery.md"))
+	if err != nil {
+		t.Fatalf("read insight file: %v", err)
+	}
+
+	file, err := domain.UnmarshalInsightFile(data)
+	if err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if file.Kind != "delivery-failure" {
+		t.Errorf("expected kind 'delivery-failure', got %q", file.Kind)
+	}
+	if file.Tool != "phonewave" {
+		t.Errorf("expected tool 'phonewave', got %q", file.Tool)
+	}
+	if len(file.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(file.Entries))
+	}
+
+	e := file.Entries[0]
+	if !strings.Contains(e.Title, "delivery-failed-specification-") {
+		t.Errorf("expected title pattern, got: %s", e.Title)
+	}
+	if !strings.Contains(e.What, "permission denied") {
+		t.Errorf("expected what to contain error, got: %s", e.What)
+	}
+	if !strings.Contains(e.Why, "Permission denied") {
+		t.Errorf("expected why categorization, got: %s", e.Why)
+	}
+	if e.Extra["route"] == "" {
+		t.Error("expected extra 'route' to be set")
+	}
+}
+
+func TestInsightWriter_DeliveryFailureIdempotent(t *testing.T) {
+	// given: same insight title should be deduplicated
+	dir := t.TempDir()
+	insightsDir := filepath.Join(dir, "insights")
+	runDir := filepath.Join(dir, ".run")
+	os.MkdirAll(insightsDir, 0o755)
+	os.MkdirAll(runDir, 0o755)
+
+	w := session.NewInsightWriter(insightsDir, runDir)
+
+	entry := domain.InsightEntry{
+		Title:       "delivery-failed-specification-20260310T143000",
+		What:        "Delivery failed",
+		Why:         "Permission denied",
+		How:         "Check permissions",
+		When:        "During scan",
+		Who:         "phonewave",
+		Constraints: "Retry via error queue",
+	}
+
+	// when: append same entry twice
+	if err := w.Append("delivery.md", "delivery-failure", "phonewave", entry); err != nil {
+		t.Fatalf("first append: %v", err)
+	}
+	if err := w.Append("delivery.md", "delivery-failure", "phonewave", entry); err != nil {
+		t.Fatalf("second append: %v", err)
+	}
+
+	// then: only one entry (idempotent)
+	data, _ := os.ReadFile(filepath.Join(insightsDir, "delivery.md"))
+	file, _ := domain.UnmarshalInsightFile(data)
+	if len(file.Entries) != 1 {
+		t.Errorf("expected 1 entry (idempotent), got %d", len(file.Entries))
 	}
 }
