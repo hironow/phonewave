@@ -27,6 +27,9 @@ func EnsureStateDir(base string) error {
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Join(stateDir, "insights"), 0755); err != nil {
+		return err
+	}
 	return ensureGitignoreEntries(filepath.Join(stateDir, ".gitignore"), phonewaveGitignoreEntries)
 }
 
