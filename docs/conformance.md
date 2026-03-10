@@ -36,7 +36,7 @@ Key constraints enforced by semgrep (ERROR severity):
 - `cmd --> eventsource` PROHIBITED (ADR S0008)
 - `domain` has no I/O, no `context.Context`
 
-Ref: `.semgrep/layers.yaml`, ADR S0030
+Ref: `.semgrep/layers.yaml`, ADR S0007
 
 ## Domain Primitives & Parse-Don't-Validate
 
