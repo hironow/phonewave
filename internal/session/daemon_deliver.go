@@ -25,7 +25,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 
 	ctx, span := platform.Tracer.Start(context.Background(), "daemon.handle_event",
 		trace.WithAttributes(
-			attribute.String("event.name", event.Name),
+			attribute.String("event.name", platform.SanitizeUTF8(event.Name)),
 			attribute.String("event.op", event.Op.String()),
 		),
 	)

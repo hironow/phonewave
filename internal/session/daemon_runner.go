@@ -247,7 +247,7 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 		scanGroup.Submit(func() {
 			scanCtx, scanSpan := platform.Tracer.Start(ctx, "daemon.startup_scan", // nosemgrep: adr0003-otel-span-without-defer-end — span.End() called explicitly after SetAttributes [permanent]
 				trace.WithNewRoot(),
-				trace.WithAttributes(attribute.String("outbox.dir", dir)),
+				trace.WithAttributes(attribute.String("outbox.dir", platform.SanitizeUTF8(dir))),
 			)
 			var eq port.ErrorQueueStore
 			if d.session != nil {
