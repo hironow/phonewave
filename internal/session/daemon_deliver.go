@@ -25,8 +25,8 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 
 	ctx, span := platform.Tracer.Start(context.Background(), "daemon.handle_event",
 		trace.WithAttributes(
-			attribute.String("event.name", event.Name),
-			attribute.String("event.op", event.Op.String()),
+			attribute.String("event.name", platform.SanitizeUTF8(event.Name)),
+			attribute.String("event.op", event.Op.String()), // nosemgrep: otel-attribute-string-unsanitized — fsnotify Op.String() returns Go constant, always valid UTF-8 [permanent]
 		),
 	)
 	defer span.End()

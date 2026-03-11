@@ -50,8 +50,8 @@ func initTracer(serviceName, ver string) func(context.Context) error {
 	if entity := os.Getenv("WANDB_ENTITY"); entity != "" {
 		res, _ = resource.Merge(res, resource.NewWithAttributes(
 			semconv.SchemaURL,
-			attribute.String("wandb.entity", entity),
-			attribute.String("wandb.project", os.Getenv("WANDB_PROJECT")),
+			attribute.String("wandb.entity", platform.SanitizeUTF8(entity)),
+			attribute.String("wandb.project", platform.SanitizeUTF8(os.Getenv("WANDB_PROJECT"))),
 		))
 	}
 
@@ -131,8 +131,8 @@ var rootSpan trace.Span
 func startRootSpan(ctx context.Context, command string) context.Context {
 	ctx, rootSpan = platform.Tracer.Start(ctx, "phonewave."+command,
 		trace.WithAttributes(
-			attribute.String("phonewave.command", command),
-			attribute.String("otel.detail_level", string(platform.OTELDetailLevel)),
+			attribute.String("phonewave.command", command),                                    // nosemgrep: otel-attribute-string-unsanitized — cobra command name, always valid ASCII [permanent]
+			attribute.String("otel.detail_level", string(platform.OTELDetailLevel)),            // nosemgrep: otel-attribute-string-unsanitized — Go const string, always valid UTF-8 [permanent]
 		),
 	)
 	return ctx

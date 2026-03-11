@@ -16,8 +16,8 @@ func RecordDelivery(ctx context.Context, status, kind string) {
 	)
 	c.Add(ctx, 1,
 		metric.WithAttributes(
-			attribute.String("status", status),
-			attribute.String("kind", kind),
+			attribute.String("status", status), // nosemgrep: otel-attribute-string-unsanitized — caller-provided Go string constant [permanent]
+			attribute.String("kind", SanitizeUTF8(kind)),
 		),
 	)
 }

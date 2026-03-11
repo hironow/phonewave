@@ -36,8 +36,8 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 
 	ctx, span := platform.Tracer.Start(ctx, "delivery.deliver",
 		trace.WithAttributes(
-			attribute.String("dmail.path", dmailPath),
-			attribute.String("dmail.kind", kind),
+			attribute.String("dmail.path", platform.SanitizeUTF8(dmailPath)),
+			attribute.String("dmail.kind", platform.SanitizeUTF8(kind)),
 		),
 	)
 	defer span.End()
