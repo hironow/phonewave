@@ -2,18 +2,20 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 
 	cmd "github.com/hironow/phonewave/internal/cmd"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func main() {
 	os.Exit(run())
 }
 
-func run() (exitCode int) {
+func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(),
 		shutdownSignals...)
 	defer stop()
@@ -25,9 +27,12 @@ func run() (exitCode int) {
 	}
 	rootCmd.SetArgs(args)
 
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return 1
+	err := rootCmd.ExecuteContext(ctx)
+	if err != nil {
+		var silent *domain.SilentError
+		if !errors.As(err, &silent) {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		}
 	}
-	return 0
+	return domain.ExitCode(err)
 }

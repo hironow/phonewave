@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +38,7 @@ func newDoctorCmd() *cobra.Command {
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(data))
 				if !report.Healthy {
-					return fmt.Errorf("ecosystem has issues")
+					return &domain.SilentError{Err: fmt.Errorf("ecosystem has issues")}
 				}
 				return nil
 			}
@@ -85,7 +86,7 @@ func newDoctorCmd() *cobra.Command {
 					parts = append(parts, fmt.Sprintf("%d warning(s)", warns))
 				}
 				fmt.Fprintln(w, strings.Join(parts, ", ")+".")
-				return fmt.Errorf("ecosystem has issues")
+				return &domain.SilentError{Err: fmt.Errorf("ecosystem has issues")}
 			}
 			fmt.Fprintln(w, "All checks passed.")
 			return nil
