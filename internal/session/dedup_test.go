@@ -2,6 +2,8 @@ package session_test
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -125,7 +127,7 @@ description: "Already delivered"
 	}
 
 	// file must NOT be in inbox
-	if _, err := os.Stat(filepath.Join(inbox, "spec-skip.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(inbox, "spec-skip.md")); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("skipped file should not appear in inbox")
 	}
 }
@@ -141,7 +143,7 @@ func TestSaveDeliveryFilter_NilFilter_NoOp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("save nil: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(stateDir, ".run", "delivered.bloom")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(stateDir, ".run", "delivered.bloom")); !errors.Is(err, fs.ErrNotExist) {
 		t.Error("no file should be created for nil filter")
 	}
 }
