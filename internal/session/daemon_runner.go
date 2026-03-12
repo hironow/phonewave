@@ -30,6 +30,7 @@ type Daemon struct {
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
 	session       *DaemonSession
+	bloomFilter   *domain.BloomFilter // advisory dedup filter (nil = disabled)
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -72,6 +73,21 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	d.deliveryStore = ds
 	defer d.deliveryStore.Close()
+
+	// Load Bloom filter for delivery dedup (advisory — nil is safe)
+	bf, bfErr := LoadDeliveryFilter(d.opts.StateDir)
+	if bfErr != nil {
+		d.logger.Warn("Load delivery filter: %v", bfErr)
+	}
+	if bf == nil {
+		bf = domain.NewBloomFilter(10000, 0.01) // sized for ~10K deliveries at 1% FPR
+	}
+	d.bloomFilter = bf
+	defer func() {
+		if saveErr := SaveDeliveryFilter(d.opts.StateDir, d.bloomFilter); saveErr != nil {
+			d.logger.Warn("Save delivery filter: %v", saveErr)
+		}
+	}()
 
 	// Recover unflushed deliveries from crash-interrupted sessions
 	unflushed, recoverErr := ds.RecoverUnflushed()
@@ -253,7 +269,7 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 			if d.session != nil {
 				eq = d.errorQueueStore()
 			}
-			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore, eq)
+			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore, eq, d.bloomFilter)
 			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
 			scanSpan.End()
 			for _, r := range results {
@@ -265,6 +281,10 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 					if _, statErr := os.Stat(r.SourcePath); errors.Is(statErr, os.ErrNotExist) {
 						d.dlog.Removed(r.SourcePath)
 					}
+				}
+				// Mark as delivered in Bloom filter for future dedup
+				if d.bloomFilter != nil && len(r.DeliveredTo) > 0 {
+					d.bloomFilter.Add(r.SourcePath)
 				}
 				if d.opts.Verbose {
 					d.logger.OK("Startup: delivered %s (kind=%s) to %v", r.SourcePath, r.Kind, r.DeliveredTo)

@@ -39,6 +39,14 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
+	// Bloom filter dedup: skip files that were already delivered.
+	if d.bloomFilter != nil && d.bloomFilter.MayContain(event.Name) {
+		if d.opts.Verbose {
+			d.logger.Info("Bloom filter skip: %s (already delivered)", event.Name)
+		}
+		return
+	}
+
 	// Read file content upfront (needed for error queue on failure).
 	// Silently ignore ErrNotExist: Rename events fire for both the
 	// source (gone) and target (arrived) paths.
@@ -81,6 +89,11 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		}
 	}
 	d.recordDeliveryEvent(result)
+
+	// Mark as delivered in Bloom filter for future dedup
+	if d.bloomFilter != nil && len(result.DeliveredTo) > 0 {
+		d.bloomFilter.Add(event.Name)
+	}
 
 	if d.opts.Verbose {
 		d.logger.OK("Delivered %s (kind=%s) to %v", result.SourcePath, result.Kind, result.DeliveredTo)
@@ -165,6 +178,11 @@ func (d *Daemon) retryPending() int {
 				}
 			}
 			d.recordRetryEvent(e.OriginalName, result.Kind)
+
+			// Mark as delivered in Bloom filter for future dedup
+			if d.bloomFilter != nil && len(result.DeliveredTo) > 0 {
+				d.bloomFilter.Add(originalPath)
+			}
 
 			if d.opts.Verbose {
 				d.logger.OK("Retry: delivered %s (kind=%s) to %v", e.OriginalName, result.Kind, result.DeliveredTo)
