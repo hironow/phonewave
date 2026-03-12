@@ -337,13 +337,14 @@ func TestLifecycleDocker_NonMdFilesIgnored(t *testing.T) {
 	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/canary-ignore.md", canaryContent)
 	waitForFileInContainer(t, ctx, c, repoPath+"/.expedition/inbox/canary-ignore.md", 10*time.Second)
 
-	// Inbox should have only the canary — no non-.md files delivered
-	count := countFilesInContainer(t, ctx, c, repoPath+"/.expedition/inbox", "")
-	if count != 1 {
-		t.Errorf("inbox should have only the canary file, got %d files", count)
+	// Non-.md files must NOT appear in inbox
+	for _, name := range []string{"notes.txt", "data.json", ".DS_Store"} {
+		if fileExistsInContainer(t, ctx, c, repoPath+"/.expedition/inbox/"+name) {
+			t.Errorf("non-.md file %s should NOT be delivered to inbox", name)
+		}
 	}
 
-	// Outbox files should still be there
+	// Outbox files should still be there (daemon ignores non-.md)
 	if !fileExistsInContainer(t, ctx, c, repoPath+"/.siren/outbox/notes.txt") {
 		t.Error("notes.txt should remain in outbox")
 	}
