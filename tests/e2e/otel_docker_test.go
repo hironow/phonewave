@@ -135,8 +135,9 @@ func TestLifecycleDocker_OTelTracing(t *testing.T) {
 	// all in-flight deliveries complete before we query Jaeger.
 	stopDaemonInContainer(t, ctx, pw, "/workspace")
 
-	// Wait for batch processor periodic export + Jaeger ingestion
-	time.Sleep(10 * time.Second)
+	// Wait for batch processor periodic export (5s interval) + Jaeger ingestion.
+	// Reduced from 10s — the batch exporter flushes every 5s; one cycle is enough.
+	time.Sleep(5 * time.Second)
 
 	// Query Jaeger API for phonewave traces
 	jaegerHost, err := jaeger.Host(ctx)

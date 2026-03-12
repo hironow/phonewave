@@ -70,7 +70,7 @@ description: "Pre-existing spec"
 	ds := newTestDeliveryStore(t)
 
 	// when — scan existing outbox files
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil, nil)
 
 	// then
 	if len(errs) != 0 {
@@ -575,7 +575,7 @@ description: "Valid"
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil, nil)
 
 	if len(errs) != 0 {
 		t.Errorf("unexpected errors: %v", errs)
@@ -638,7 +638,7 @@ description: "Also valid"
 	}
 	t.Cleanup(func() { errorQueue.Close() })
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, errorQueue)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, errorQueue, nil)
 
 	if len(results) != 2 {
 		t.Errorf("results = %d, want 2 (valid D-Mails delivered)", len(results))
@@ -677,7 +677,7 @@ func TestScanAndDeliver_EmptyOutbox(t *testing.T) {
 
 	ds := newTestDeliveryStore(t)
 
-	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
+	results, errs := ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil, nil)
 
 	if len(results) != 0 {
 		t.Errorf("results = %d, want 0", len(results))
@@ -937,7 +937,7 @@ description: "Preserve test"
 	ds := newTestDeliveryStore(t)
 
 	// nil errorQueue — file should be preserved in outbox
-	ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil)
+	ScanAndDeliver(context.Background(), outbox, routes, stateDir, platform.NewLogger(io.Discard, false), ds, nil, nil)
 
 	if _, err := os.Stat(dmailPath); errors.Is(err, fs.ErrNotExist) {
 		t.Error("outbox file was deleted even though error queue write failed — D-Mail lost permanently")

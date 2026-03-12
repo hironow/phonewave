@@ -31,8 +31,8 @@ func TestLifecycleDocker_DryRunMode(t *testing.T) {
 	dmailContent := "---\ndmail-schema-version: \"1\"\nname: spec-dry\nkind: specification\ndescription: Dry run test\n---\n\n# Dry\n"
 	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/spec-dry.md", dmailContent)
 
-	// Wait a bit for the daemon to process
-	time.Sleep(3 * time.Second)
+	// Wait for daemon to log the dry-run detection (replaces fixed 3s sleep)
+	waitForStringInFile(t, ctx, c, "/tmp/phonewave.log", "[dry-run]", 5*time.Second)
 
 	// File should STILL be in outbox (not delivered in dry-run)
 	if !fileExistsInContainer(t, ctx, c, repoPath+"/.siren/outbox/spec-dry.md") {
@@ -42,12 +42,6 @@ func TestLifecycleDocker_DryRunMode(t *testing.T) {
 	// File should NOT be in inbox
 	if fileExistsInContainer(t, ctx, c, repoPath+"/.expedition/inbox/spec-dry.md") {
 		t.Error("file should NOT appear in inbox during dry-run")
-	}
-
-	// Daemon log should contain [dry-run]
-	daemonLog := readFileInContainer(t, ctx, c, "/tmp/phonewave.log")
-	if !strings.Contains(daemonLog, "[dry-run]") {
-		t.Errorf("daemon log should contain [dry-run]: %s", daemonLog)
 	}
 }
 
@@ -133,9 +127,9 @@ func TestLifecycleDocker_MaxRetriesExceeded(t *testing.T) {
 	// Verify FAILED in delivery log
 	waitForStringInFile(t, ctx, c, "/workspace/.phonewave/delivery.log", "FAILED", 5*time.Second)
 
-	// Wait for several retry intervals — daemon should NOT retry because
-	// retry_count(1) >= max_retries(1)
-	time.Sleep(6 * time.Second)
+	// Wait for two retry intervals (2s each) — daemon should NOT retry
+	// because retry_count(1) >= max_retries(1). Reduced from 6s.
+	time.Sleep(4 * time.Second)
 
 	// Verify no RETRIED in delivery log (max retries exceeded, no retry attempted)
 	dlog := readFileInContainer(t, ctx, c, "/workspace/.phonewave/delivery.log")
@@ -170,8 +164,8 @@ func TestLifecycleDocker_PartialDeliveryRollback(t *testing.T) {
 	fbContent := "---\ndmail-schema-version: \"1\"\nname: fb-rollback\nkind: design-feedback\ndescription: Rollback test\n---\n\n# Rollback\n"
 	heredocWrite(t, ctx, c, repoPath+"/.gate/outbox/fb-rollback.md", fbContent)
 
-	// Wait for the file to be processed
-	time.Sleep(5 * time.Second)
+	// Wait for daemon to process (detect FAILED or DELIVERED in delivery log)
+	waitForStringInFile(t, ctx, c, "/workspace/.phonewave/delivery.log", "kind=design-feedback", 10*time.Second)
 
 	// Implementation uses at-least-once delivery with 2-phase flush:
 	// - Stage: all targets recorded in SQLite (atomic)
@@ -270,9 +264,10 @@ func TestLifecycleDocker_BurstDelivery(t *testing.T) {
 	}
 
 	// Wait for all 10 to appear in expedition inbox
+	// 5s per file is ample — container-internal copy is sub-millisecond.
 	for i := 0; i < 10; i++ {
 		waitForFileInContainer(t, ctx, c,
-			fmt.Sprintf("%s/.expedition/inbox/burst-%02d.md", repoPath, i), 30*time.Second)
+			fmt.Sprintf("%s/.expedition/inbox/burst-%02d.md", repoPath, i), 5*time.Second)
 	}
 
 	// Verify delivery log has 10 DELIVERED entries
@@ -303,8 +298,8 @@ func TestLifecycleDocker_MalformedDMail(t *testing.T) {
 	// Write a file with no frontmatter
 	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/malformed.md", "No frontmatter here, just text.")
 
-	// Wait a bit for processing
-	time.Sleep(3 * time.Second)
+	// Wait for daemon to process the malformed file (replaces fixed 3s sleep)
+	waitForStringInFile(t, ctx, c, "/tmp/phonewave.log", "malformed", 5*time.Second)
 
 	// Daemon should still be alive — write a valid D-Mail
 	validContent := "---\ndmail-schema-version: \"1\"\nname: spec-after\nkind: specification\ndescription: After malformed\n---\n\n# After\n"
@@ -336,15 +331,20 @@ func TestLifecycleDocker_NonMdFilesIgnored(t *testing.T) {
 	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/data.json", "{}")
 	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/.DS_Store", "junk")
 
-	time.Sleep(3 * time.Second)
+	// Send a canary D-Mail after the non-.md files. Once the canary is
+	// delivered we know the daemon has processed all preceding events.
+	canaryContent := "---\ndmail-schema-version: \"1\"\nname: canary-ignore\nkind: specification\ndescription: Canary\n---\n\n# Canary\n"
+	heredocWrite(t, ctx, c, repoPath+"/.siren/outbox/canary-ignore.md", canaryContent)
+	waitForFileInContainer(t, ctx, c, repoPath+"/.expedition/inbox/canary-ignore.md", 10*time.Second)
 
-	// Inbox should be empty
-	count := countFilesInContainer(t, ctx, c, repoPath+"/.expedition/inbox", "")
-	if count > 0 {
-		t.Errorf("inbox should be empty for non-.md files, got %d files", count)
+	// Non-.md files must NOT appear in inbox
+	for _, name := range []string{"notes.txt", "data.json", ".DS_Store"} {
+		if fileExistsInContainer(t, ctx, c, repoPath+"/.expedition/inbox/"+name) {
+			t.Errorf("non-.md file %s should NOT be delivered to inbox", name)
+		}
 	}
 
-	// Outbox files should still be there
+	// Outbox files should still be there (daemon ignores non-.md)
 	if !fileExistsInContainer(t, ctx, c, repoPath+"/.siren/outbox/notes.txt") {
 		t.Error("notes.txt should remain in outbox")
 	}

@@ -18,7 +18,7 @@ import (
 // delivering each one according to the provided routes. Files are delivered
 // sequentially. Failed deliveries are enqueued via errorQueue (SQLite).
 // If errorQueue is nil, failed files remain in the outbox for next startup.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds port.DeliveryStore, errorQueue port.ErrorQueueStore) ([]*domain.DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds port.DeliveryStore, errorQueue port.ErrorQueueStore, bf *domain.BloomFilter) ([]*domain.DeliveryResult, []error) {
 	ctx, span := platform.Tracer.Start(ctx, "phonewave.deliver")
 	defer span.End()
 
@@ -62,6 +62,16 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 	var errs []error
 	for _, entry := range filtered {
 		dmailPath := filepath.Join(outboxDir, entry.Name())
+
+		// Bloom filter dedup: skip files that were already delivered.
+		// False positives are acceptable (file stays in outbox for next scan);
+		// false negatives never occur (BF guarantee).
+		if bf != nil && bf.MayContain(dmailPath) {
+			if logger != nil {
+				logger.Info("Bloom filter skip: %s (already delivered)", dmailPath)
+			}
+			continue
+		}
 
 		data, readErr := os.ReadFile(dmailPath)
 		if readErr != nil {
