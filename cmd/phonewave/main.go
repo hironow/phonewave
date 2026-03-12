@@ -16,8 +16,7 @@ func main() {
 }
 
 func run() int {
-	ctx, stop := signal.NotifyContext(context.Background(),
-		shutdownSignals...)
+	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals...)
 	defer stop()
 
 	rootCmd := cmd.NewRootCommand()
