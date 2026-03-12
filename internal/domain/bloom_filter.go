@@ -60,8 +60,8 @@ func (bf *BloomFilter) MayContain(key string) bool {
 func hash(data []byte) (uint, uint) {
 	// FNV-1a 64-bit
 	const (
-		offset64 = 14695981039346656037
-		prime64  = 1099511628211
+		offset64 = 14695981039346656037 // nosemgrep: semgrep.raw-nanosecond-duration — FNV-1a hash offset basis, not a duration [permanent]
+		prime64  = 1099511628211        // nosemgrep: semgrep.raw-nanosecond-duration — FNV-1a hash prime, not a duration [permanent]
 	)
 	h1 := uint64(offset64)
 	for _, b := range data {
