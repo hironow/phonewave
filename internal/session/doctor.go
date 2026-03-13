@@ -15,6 +15,39 @@ import (
 	"github.com/hironow/phonewave/internal/domain"
 )
 
+// lookPathFn is injectable for testing.
+var lookPathFn = exec.LookPath
+
+// findSkillsRefDirFn is injectable for testing.
+var findSkillsRefDirFn = findSkillsRefDir
+
+// installSkillsRefFn runs "uv tool install skills-ref". Injectable for testing.
+var installSkillsRefFn = func() error {
+	cmd := exec.Command("uv", "tool", "install", "skills-ref")
+	return cmd.Run()
+}
+
+// OverrideRepairInstallSkillsRef replaces the skills-ref installer for testing.
+func OverrideRepairInstallSkillsRef(fn func() error) func() {
+	old := installSkillsRefFn
+	installSkillsRefFn = fn
+	return func() { installSkillsRefFn = old }
+}
+
+// OverrideLookPath replaces exec.LookPath for testing.
+func OverrideLookPath(fn func(string) (string, error)) func() {
+	old := lookPathFn
+	lookPathFn = fn
+	return func() { lookPathFn = old }
+}
+
+// OverrideFindSkillsRefDir replaces findSkillsRefDir for testing.
+func OverrideFindSkillsRefDir(fn func() string) func() {
+	old := findSkillsRefDirFn
+	findSkillsRefDirFn = fn
+	return func() { findSkillsRefDirFn = old }
+}
+
 // FormatDoctorJSON marshals a DoctorReport to indented JSON.
 func FormatDoctorJSON(report domain.DoctorReport) ([]byte, error) {
 	return json.MarshalIndent(report, "", "  ")
@@ -108,7 +141,7 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool) domain.DoctorRepor
 	}
 
 	// Check skills-ref toolchain
-	checkSkillsRefToolchain(&report)
+	checkSkillsRefToolchain(&report, repair)
 
 	// Check orphaned routes (per-repo to match routing scope)
 	orphans := domain.DetectOrphansPerRepo(cfg)
@@ -148,17 +181,15 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool) domain.DoctorRepor
 }
 
 // checkSkillsRefToolchain reports skills-ref and uv availability and venv state.
-func checkSkillsRefToolchain(report *domain.DoctorReport) {
-	venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
-
-	// Check skills-ref on PATH
-	if _, err := exec.LookPath("skills-ref"); err == nil {
+func checkSkillsRefToolchain(report *domain.DoctorReport, repair bool) {
+	// Check skills-ref on PATH (global install)
+	if _, err := lookPathFn("skills-ref"); err == nil {
 		report.AddOK("skills-ref", "skills-ref found on PATH")
-		return // Global install; no uv/venv needed
+		return
 	}
 
 	// Check uv on PATH
-	_, uvErr := exec.LookPath("uv")
+	_, uvErr := lookPathFn("uv")
 	if uvErr != nil {
 		report.AddWarnWithHint("skills-ref",
 			"uv not found on PATH: SKILL.md spec validation is unavailable",
@@ -166,21 +197,33 @@ func checkSkillsRefToolchain(report *domain.DoctorReport) {
 		return
 	}
 
-	// Check submodule availability
-	subDir := findSkillsRefDir()
-	if subDir == "" {
-		report.AddWarnWithHint("skills-ref",
-			"uv found but skills-ref submodule not available",
-			`install globally: "uv tool install skills-ref"`)
+	// Check submodule availability FIRST (idempotent — no side effects)
+	subDir := findSkillsRefDirFn()
+	if subDir != "" {
+		venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
+		if fi, err := os.Stat(venvDir); err == nil && fi.IsDir() {
+			report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv: %s)", venvDir))
+		} else {
+			report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv will be created at %s on first use)", venvDir))
+		}
 		return
 	}
 
-	// uv + submodule available; report venv state
-	if fi, err := os.Stat(venvDir); err == nil && fi.IsDir() {
-		report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv: %s)", venvDir))
-	} else {
-		report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv will be created at %s on first use)", venvDir))
+	// No submodule, no global install — attempt repair if requested
+	if repair {
+		if err := installSkillsRefFn(); err != nil {
+			report.AddWarnWithHint("skills-ref",
+				fmt.Sprintf("uv tool install skills-ref failed: %v", err),
+				`try manually: "uv tool install skills-ref"`)
+		} else {
+			report.AddFixed("skills-ref", "installed skills-ref via uv tool install")
+		}
+		return
 	}
+
+	report.AddWarnWithHint("skills-ref",
+		"uv found but skills-ref not installed",
+		`run "phonewave doctor --repair" or "uv tool install skills-ref"`)
 }
 
 func checkDaemonStatus(stateDir string) domain.DaemonHealthStatus {

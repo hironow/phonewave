@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -36,6 +37,94 @@ func TestDoctor_RepairStalePID(t *testing.T) {
 	// daemon status should reflect cleanup
 	if report.DaemonStatus.Running {
 		t.Error("daemon should not be running after stale PID cleanup")
+	}
+}
+
+func TestDoctor_RepairSkillsRef_UvAvailable_NoSubmodule(t *testing.T) {
+	// given — uv is on PATH but skills-ref is not, and no submodule
+	cfg := &domain.Config{}
+	stateDir := filepath.Join(t.TempDir(), domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+
+	var installCalled bool
+	cleanup := session.OverrideRepairInstallSkillsRef(func() error {
+		installCalled = true
+		return nil
+	})
+	defer cleanup()
+
+	cleanup2 := session.OverrideLookPath(func(name string) (string, error) {
+		if name == "uv" {
+			return "/usr/bin/uv", nil
+		}
+		return "", exec.ErrNotFound
+	})
+	defer cleanup2()
+
+	cleanup3 := session.OverrideFindSkillsRefDir(func() string {
+		return "" // no submodule
+	})
+	defer cleanup3()
+
+	// when — repair=true
+	report := session.Doctor(cfg, stateDir, true)
+
+	// then — install should have been called
+	if !installCalled {
+		t.Error("expected uv tool install skills-ref to be called")
+	}
+	hasFixed := false
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "skills-ref" && issue.Severity == "fixed" {
+			hasFixed = true
+		}
+	}
+	if !hasFixed {
+		t.Errorf("expected fixed issue for skills-ref, got: %v", report.Issues)
+	}
+}
+
+func TestDoctor_RepairSkillsRef_SubmoduleAvailable_NoInstall(t *testing.T) {
+	// given — uv on PATH, skills-ref NOT on PATH, but submodule IS available
+	cfg := &domain.Config{}
+	stateDir := filepath.Join(t.TempDir(), domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+
+	var installCalled bool
+	cleanup := session.OverrideRepairInstallSkillsRef(func() error {
+		installCalled = true
+		return nil
+	})
+	defer cleanup()
+
+	cleanup2 := session.OverrideLookPath(func(name string) (string, error) {
+		if name == "uv" {
+			return "/usr/bin/uv", nil
+		}
+		return "", exec.ErrNotFound
+	})
+	defer cleanup2()
+
+	cleanup3 := session.OverrideFindSkillsRefDir(func() string {
+		return "/some/submodule/path" // submodule available
+	})
+	defer cleanup3()
+
+	// when — repair=true
+	report := session.Doctor(cfg, stateDir, true)
+
+	// then — install should NOT have been called (submodule suffices)
+	if installCalled {
+		t.Error("should not install skills-ref when submodule is available")
+	}
+	hasOK := false
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "skills-ref" && issue.Severity == "ok" {
+			hasOK = true
+		}
+	}
+	if !hasOK {
+		t.Errorf("expected OK issue for skills-ref with submodule, got: %v", report.Issues)
 	}
 }
 
