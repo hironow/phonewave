@@ -49,17 +49,16 @@ func OverrideFindSkillsRefDir(fn func() string) func() {
 	return func() { findSkillsRefDirFn = old }
 }
 
-// repairSyncFn runs Sync(cfg) + WriteConfig to generate resolved state.
-// Injectable for testing. Takes cfg and configPath (the actual config file path).
-var repairSyncFn = func(cfg *domain.Config, configPath string) error {
-	if _, err := Sync(cfg); err != nil {
-		return err
-	}
-	return WriteConfig(configPath, cfg)
+// repairSyncFn regenerates resolved.yaml from existing config without rescanning
+// the filesystem. This preserves config.yaml content (no repo entries are dropped).
+// Injectable for testing. Takes cfg and stateDir (the .phonewave directory).
+var repairSyncFn = func(cfg *domain.Config, stateDir string) error {
+	cfg.UpdateRoutes()
+	return WriteResolvedOnly(stateDir, cfg)
 }
 
-// OverrideRepairSync replaces the sync+write function for testing.
-// The function receives (cfg, configPath) where configPath is the actual config file path.
+// OverrideRepairSync replaces the resolved-state regeneration function for testing.
+// The function receives (cfg, stateDir) where stateDir is the .phonewave directory.
 func OverrideRepairSync(fn func(*domain.Config, string) error) func() {
 	old := repairSyncFn
 	repairSyncFn = fn
@@ -72,12 +71,9 @@ func FormatDoctorJSON(report domain.DoctorReport) ([]byte, error) {
 }
 
 // Doctor verifies ecosystem health and returns a report.
-// configPath is the actual path to the config file (used by repair to write back).
-// If empty, defaults to stateDir + ConfigFile.
-func Doctor(cfg *domain.Config, stateDir string, repair bool, configPath string) domain.DoctorReport {
-	if configPath == "" {
-		configPath = filepath.Join(stateDir, domain.ConfigFile)
-	}
+// configPath is accepted for backward compatibility but no longer used by repair
+// (repair now regenerates resolved.yaml without touching config.yaml).
+func Doctor(cfg *domain.Config, stateDir string, repair bool, _ string) domain.DoctorReport {
 	report := domain.DoctorReport{
 		Healthy: true,
 		DaemonStatus: domain.DaemonHealthStatus{
@@ -182,7 +178,7 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool, configPath string)
 	resolvedPath := filepath.Join(stateDir, ".run", domain.ResolvedStateFile)
 	if _, err := os.Stat(resolvedPath); errors.Is(err, fs.ErrNotExist) {
 		if repair {
-			if err := repairSyncFn(cfg, configPath); err != nil {
+			if err := repairSyncFn(cfg, stateDir); err != nil {
 				report.AddWarnWithHint("", fmt.Sprintf("resolved.yaml repair failed: %v", err),
 					`run "phonewave sync" manually`)
 			} else {
@@ -202,11 +198,15 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool, configPath string)
 	// Check daemon status
 	report.DaemonStatus = checkDaemonStatus(stateDir)
 
-	// Repair: clean up stale PID file if daemon is not running
+	// Repair: clean up stale PID file and associated watch.started if daemon is not running
 	if repair && !report.DaemonStatus.Running {
 		pidPath := filepath.Join(stateDir, "watch.pid")
 		if _, err := os.Stat(pidPath); err == nil {
 			os.Remove(pidPath)
+			// Also remove watch.started to avoid inconsistent state
+			// (stopped daemon showing stale uptime)
+			startedPath := filepath.Join(stateDir, "watch.started")
+			os.Remove(startedPath) // best-effort; ignore error if file doesn't exist
 		}
 	}
 
