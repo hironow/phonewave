@@ -15,6 +15,30 @@ import (
 	"github.com/hironow/phonewave/internal/session"
 )
 
+func TestDoctor_RepairStalePID(t *testing.T) {
+	// given — stale PID file with non-existent process
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+
+	pidPath := filepath.Join(stateDir, "watch.pid")
+	os.WriteFile(pidPath, []byte("999999999"), 0644)
+
+	cfg := &domain.Config{}
+
+	// when — repair=true
+	report := session.Doctor(cfg, stateDir, true)
+
+	// then — stale PID file should be removed
+	if _, err := os.Stat(pidPath); !errors.Is(err, fs.ErrNotExist) {
+		t.Error("expected stale PID file to be removed")
+	}
+	// daemon status should reflect cleanup
+	if report.DaemonStatus.Running {
+		t.Error("daemon should not be running after stale PID cleanup")
+	}
+}
+
 func TestDoctor_HealthyEcosystem(t *testing.T) {
 	// given — a fully set up repo with all dirs and SKILL.md files
 	repoDir := t.TempDir()
@@ -62,7 +86,7 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then
 	if !report.Healthy {
@@ -98,7 +122,7 @@ func TestDoctor_MissingDirs(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — should have warnings about missing dirs but auto-create them
 	hasCreated := false
@@ -136,7 +160,7 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then
 	if report.Healthy {
@@ -184,7 +208,7 @@ func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — should have a warning about invalid kind
 	hasKindWarn := false
@@ -209,7 +233,7 @@ func TestDoctor_DaemonNotRunning(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then
 	if !report.DaemonStatus.Checked {
@@ -257,7 +281,7 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — should have a warning from skills-ref validation
 	hasSpecWarn := false
@@ -323,7 +347,7 @@ func TestDoctor_IncludesSuccessRate(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — should include a success-rate issue with correct stats
 	var found bool
@@ -346,7 +370,7 @@ func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — should still include success-rate with "no deliveries"
 	var found bool
@@ -380,7 +404,7 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — daemon should NOT be reported as running (stale PID)
 	if report.DaemonStatus.Running {
@@ -404,7 +428,7 @@ func TestDoctor_MissingRepoPath_HintReferencesConfigYAML(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — hint should reference config.yaml
 	for _, issue := range report.Issues {
@@ -441,7 +465,7 @@ func TestDoctor_WarnsWhenResolvedStateMissing(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — should have a warning about missing resolved state
 	hasResolvedWarn := false
@@ -471,7 +495,7 @@ func TestDoctor_NoWarningWhenResolvedStateExists(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — should NOT have a warning about missing resolved state
 	for _, issue := range report.Issues {
@@ -488,7 +512,7 @@ func TestDoctor_SkillsRefToolchainCheck(t *testing.T) {
 	os.MkdirAll(stateDir, 0755)
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false)
 
 	// then — should have a skills-ref related issue (ok or warn)
 	hasSkillsRef := false

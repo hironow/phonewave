@@ -21,7 +21,7 @@ func FormatDoctorJSON(report domain.DoctorReport) ([]byte, error) {
 }
 
 // Doctor verifies ecosystem health and returns a report.
-func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
+func Doctor(cfg *domain.Config, stateDir string, repair bool) domain.DoctorReport {
 	report := domain.DoctorReport{
 		Healthy: true,
 		DaemonStatus: domain.DaemonHealthStatus{
@@ -135,6 +135,14 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 
 	// Check daemon status
 	report.DaemonStatus = checkDaemonStatus(stateDir)
+
+	// Repair: clean up stale PID file if daemon is not running
+	if repair && !report.DaemonStatus.Running {
+		pidPath := filepath.Join(stateDir, "watch.pid")
+		if _, err := os.Stat(pidPath); err == nil {
+			os.Remove(pidPath)
+		}
+	}
 
 	return report
 }

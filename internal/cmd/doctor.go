@@ -20,6 +20,7 @@ func newDoctorCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			outputFmt, _ := cmd.Flags().GetString("output")
 			jsonOut := outputFmt == "json"
+			repair, _ := cmd.Flags().GetBool("repair")
 
 			cfgPath := configPath(cmd)
 			stateDir := configBase(cmd)
@@ -33,7 +34,7 @@ func newDoctorCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			report := session.Doctor(cfg, stateDir)
+			report := session.Doctor(cfg, stateDir, repair)
 
 			if jsonOut {
 				data, err := session.FormatDoctorJSON(report)
@@ -99,6 +100,8 @@ func newDoctorCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().Bool("repair", false, "Auto-fix repairable issues")
 
 	return cmd
 }
