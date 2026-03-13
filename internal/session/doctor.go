@@ -79,6 +79,10 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool) domain.DoctorRepor
 		},
 	}
 
+	// Check skills-ref toolchain BEFORE endpoint validation so repair
+	// installs skills-ref before ValidateSkillDir runs.
+	checkSkillsRefToolchain(&report, repair)
+
 	// Check each repository
 	for _, repo := range cfg.Repositories {
 		// 1. Verify repository path exists
@@ -156,9 +160,6 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool) domain.DoctorRepor
 			report.Endpoints = append(report.Endpoints, epHealth)
 		}
 	}
-
-	// Check skills-ref toolchain
-	checkSkillsRefToolchain(&report, repair)
 
 	// Check orphaned routes (per-repo to match routing scope)
 	orphans := domain.DetectOrphansPerRepo(cfg)
@@ -274,7 +275,12 @@ func checkDaemonStatus(stateDir string) domain.DaemonHealthStatus {
 
 	// On Unix, FindProcess always succeeds. Send signal 0 to check.
 	if err := process.Signal(syscall.Signal(0)); err != nil {
-		return status // Process not running (stale PID file)
+		if errors.Is(err, syscall.EPERM) {
+			status.Running = true // Process exists, just can't signal it
+			status.PID = pid
+			return status
+		}
+		return status // Process not running (ESRCH)
 	}
 
 	status.Running = true

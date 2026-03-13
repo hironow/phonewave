@@ -293,6 +293,8 @@ rules:
           $CMD := $FUNC($CTX, $NAME, ..., "--output-format", "stream-json", ...)
       - pattern-not: |
           $CMD := $FUNC($CTX, $NAME, ..., "--verbose", ..., "--output-format", "stream-json", ...)
+      - pattern-not: |
+          $CMD := $FUNC($CTX, $NAME, ..., "--output-format", "stream-json", ..., "--verbose", ...)
 
   # Rule 17: args append with stream-json without --verbose
   - id: s0032-args-append-stream-json-without-verbose
@@ -302,8 +304,17 @@ rules:
       Claude CLI 2.1.x では --verbose が必須です。
       Ref: Shared ADR S0032
     severity: ERROR
-    pattern: |
-      $ARGS = append($ARGS, "--output-format", "stream-json")
+    patterns:
+      - pattern: |
+          $ARGS = append($ARGS, "--output-format", "stream-json")
+      - pattern-not-inside: |
+          $ARGS = append($ARGS, "--verbose")
+          ...
+          $ARGS = append($ARGS, "--output-format", "stream-json")
+      - pattern-not-inside: |
+          $ARGS = append($ARGS, ..., "--verbose", ...)
+          ...
+          $ARGS = append($ARGS, "--output-format", "stream-json")
     fix: |
       $ARGS = append($ARGS, "--verbose", "--output-format", "stream-json")
 
@@ -320,6 +331,8 @@ rules:
           []string{..., "--output-format", "stream-json", ...}
       - pattern-not: |
           []string{..., "--verbose", ..., "--output-format", "stream-json", ...}
+      - pattern-not: |
+          []string{..., "--output-format", "stream-json", ..., "--verbose", ...}
 
   # --- D4: Resource leak detection ---
 
