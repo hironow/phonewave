@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/alitto/pond/v2 v2.6.2
+	github.com/alitto/pond/v2 v2.7.0
 	github.com/creativeprojects/go-selfupdate v1.5.2
 	github.com/docker/docker v28.5.1+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
