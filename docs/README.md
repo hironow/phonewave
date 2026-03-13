@@ -12,17 +12,17 @@
 ## CLI Reference
 
 - [phonewave](cli/phonewave.md) — Root command
-- [phonewave init](cli/phonewave_init.md) — Initialize routing for repositories
+- [phonewave init](cli/phonewave_init.md) — Scan repositories, discover tools, generate routing table
 - [phonewave run](cli/phonewave_run.md) — Start the courier daemon
-- [phonewave add](cli/phonewave_add.md) — Add a repository to the routing table
-- [phonewave remove](cli/phonewave_remove.md) — Remove a repository
-- [phonewave sync](cli/phonewave_sync.md) — Sync routing table
-- [phonewave status](cli/phonewave_status.md) — Show daemon status
-- [phonewave doctor](cli/phonewave_doctor.md) — Diagnose configuration issues
-- [phonewave clean](cli/phonewave_clean.md) — Clean state files
-- [phonewave archive-prune](cli/phonewave_archive-prune.md) — Prune archived D-Mails
-- [phonewave version](cli/phonewave_version.md) — Show version
-- [phonewave update](cli/phonewave_update.md) — Self-update
+- [phonewave add](cli/phonewave_add.md) — Add a new repository to the ecosystem
+- [phonewave remove](cli/phonewave_remove.md) — Remove a repository from the ecosystem
+- [phonewave sync](cli/phonewave_sync.md) — Re-scan all repositories, reconcile routing table
+- [phonewave status](cli/phonewave_status.md) — Show daemon and delivery status
+- [phonewave doctor](cli/phonewave_doctor.md) — Verify ecosystem health
+- [phonewave clean](cli/phonewave_clean.md) — Remove runtime state from .phonewave/
+- [phonewave archive-prune](cli/phonewave_archive-prune.md) — Prune expired event files
+- [phonewave version](cli/phonewave_version.md) — Print version, commit, and build information
+- [phonewave update](cli/phonewave_update.md) — Self-update phonewave to the latest release
 
 ## Architecture Decision Records
 

@@ -2,20 +2,21 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 
 	cmd "github.com/hironow/phonewave/internal/cmd"
+	"github.com/hironow/phonewave/internal/domain"
 )
 
 func main() {
 	os.Exit(run())
 }
 
-func run() (exitCode int) {
-	ctx, stop := signal.NotifyContext(context.Background(),
-		shutdownSignals...)
+func run() int {
+	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals...)
 	defer stop()
 
 	rootCmd := cmd.NewRootCommand()
@@ -25,9 +26,20 @@ func run() (exitCode int) {
 	}
 	rootCmd.SetArgs(args)
 
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		return 1
+	err := rootCmd.ExecuteContext(ctx)
+
+	// Signal-induced context cancellation is not an application error.
+	// Exit with 128+SIGINT=130 per UNIX convention instead of printing
+	// "error: context canceled" and exiting with code 1.
+	if err != nil && errors.Is(err, context.Canceled) && ctx.Err() != nil {
+		return 130
 	}
-	return 0
+
+	if err != nil {
+		var silent *domain.SilentError
+		if !errors.As(err, &silent) {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		}
+	}
+	return domain.ExitCode(err)
 }

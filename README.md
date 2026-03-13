@@ -144,6 +144,8 @@ phonewave run -v
 
 ## Subcommands
 
+Running `phonewave` without a subcommand defaults to `run` (start the courier daemon). This is the primary operation — watching outboxes and routing D-Mails.
+
 | Command | Description |
 |---------|-------------|
 | `phonewave init <repo...>` | Scan repositories, discover endpoints, derive routes, generate `.phonewave/config.yaml` |

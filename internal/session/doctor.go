@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -15,19 +16,74 @@ import (
 	"github.com/hironow/phonewave/internal/domain"
 )
 
+// lookPathFn is injectable for testing.
+var lookPathFn = exec.LookPath
+
+// findSkillsRefDirFn is injectable for testing.
+var findSkillsRefDirFn = findSkillsRefDir
+
+// installSkillsRefFn runs "uv tool install skills-ref". Injectable for testing.
+var installSkillsRefFn = func() error {
+	cmd := exec.Command("uv", "tool", "install", "skills-ref")
+	return cmd.Run()
+}
+
+// OverrideRepairInstallSkillsRef replaces the skills-ref installer for testing.
+func OverrideRepairInstallSkillsRef(fn func() error) func() {
+	old := installSkillsRefFn
+	installSkillsRefFn = fn
+	return func() { installSkillsRefFn = old }
+}
+
+// OverrideLookPath replaces exec.LookPath for testing.
+func OverrideLookPath(fn func(string) (string, error)) func() {
+	old := lookPathFn
+	lookPathFn = fn
+	return func() { lookPathFn = old }
+}
+
+// OverrideFindSkillsRefDir replaces findSkillsRefDir for testing.
+func OverrideFindSkillsRefDir(fn func() string) func() {
+	old := findSkillsRefDirFn
+	findSkillsRefDirFn = fn
+	return func() { findSkillsRefDirFn = old }
+}
+
+// repairSyncFn regenerates resolved.yaml from existing config without rescanning
+// the filesystem. This preserves config.yaml content (no repo entries are dropped).
+// Injectable for testing. Takes cfg and stateDir (the .phonewave directory).
+var repairSyncFn = func(cfg *domain.Config, stateDir string) error {
+	cfg.UpdateRoutes()
+	return WriteResolvedOnly(stateDir, cfg)
+}
+
+// OverrideRepairSync replaces the resolved-state regeneration function for testing.
+// The function receives (cfg, stateDir) where stateDir is the .phonewave directory.
+func OverrideRepairSync(fn func(*domain.Config, string) error) func() {
+	old := repairSyncFn
+	repairSyncFn = fn
+	return func() { repairSyncFn = old }
+}
+
 // FormatDoctorJSON marshals a DoctorReport to indented JSON.
 func FormatDoctorJSON(report domain.DoctorReport) ([]byte, error) {
 	return json.MarshalIndent(report, "", "  ")
 }
 
 // Doctor verifies ecosystem health and returns a report.
-func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
+// configPath is accepted for backward compatibility but no longer used by repair
+// (repair now regenerates resolved.yaml without touching config.yaml).
+func Doctor(cfg *domain.Config, stateDir string, repair bool, _ string) domain.DoctorReport {
 	report := domain.DoctorReport{
 		Healthy: true,
 		DaemonStatus: domain.DaemonHealthStatus{
 			Checked: true,
 		},
 	}
+
+	// Check skills-ref toolchain BEFORE endpoint validation so repair
+	// installs skills-ref before ValidateSkillDir runs.
+	checkSkillsRefToolchain(&report, repair)
 
 	// Check each repository
 	for _, repo := range cfg.Repositories {
@@ -107,9 +163,6 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 		}
 	}
 
-	// Check skills-ref toolchain
-	checkSkillsRefToolchain(&report)
-
 	// Check orphaned routes (per-repo to match routing scope)
 	orphans := domain.DetectOrphansPerRepo(cfg)
 	for _, kind := range orphans.UnconsumedKinds {
@@ -124,8 +177,17 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	// Check resolved state file exists
 	resolvedPath := filepath.Join(stateDir, ".run", domain.ResolvedStateFile)
 	if _, err := os.Stat(resolvedPath); errors.Is(err, fs.ErrNotExist) {
-		report.AddWarnWithHint("", "resolved.yaml not found: routes are being derived on-the-fly",
-			`run "phonewave sync" to generate resolved state`)
+		if repair {
+			if err := repairSyncFn(cfg, stateDir); err != nil {
+				report.AddWarnWithHint("", fmt.Sprintf("resolved.yaml repair failed: %v", err),
+					`run "phonewave sync" manually`)
+			} else {
+				report.AddFixed("", "generated resolved.yaml via sync")
+			}
+		} else {
+			report.AddWarnWithHint("", "resolved.yaml not found: routes are being derived on-the-fly",
+				`run "phonewave doctor --repair" or "phonewave sync" to generate resolved state`)
+		}
 	}
 
 	// Success rate (informational)
@@ -136,21 +198,31 @@ func Doctor(cfg *domain.Config, stateDir string) domain.DoctorReport {
 	// Check daemon status
 	report.DaemonStatus = checkDaemonStatus(stateDir)
 
+	// Repair: clean up stale PID file and associated watch.started if daemon is not running
+	if repair && !report.DaemonStatus.Running {
+		pidPath := filepath.Join(stateDir, "watch.pid")
+		if _, err := os.Stat(pidPath); err == nil {
+			os.Remove(pidPath)
+			// Also remove watch.started to avoid inconsistent state
+			// (stopped daemon showing stale uptime)
+			startedPath := filepath.Join(stateDir, "watch.started")
+			os.Remove(startedPath) // best-effort; ignore error if file doesn't exist
+		}
+	}
+
 	return report
 }
 
 // checkSkillsRefToolchain reports skills-ref and uv availability and venv state.
-func checkSkillsRefToolchain(report *domain.DoctorReport) {
-	venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
-
-	// Check skills-ref on PATH
-	if _, err := exec.LookPath("skills-ref"); err == nil {
+func checkSkillsRefToolchain(report *domain.DoctorReport, repair bool) {
+	// Check skills-ref on PATH (global install)
+	if _, err := lookPathFn("skills-ref"); err == nil {
 		report.AddOK("skills-ref", "skills-ref found on PATH")
-		return // Global install; no uv/venv needed
+		return
 	}
 
 	// Check uv on PATH
-	_, uvErr := exec.LookPath("uv")
+	_, uvErr := lookPathFn("uv")
 	if uvErr != nil {
 		report.AddWarnWithHint("skills-ref",
 			"uv not found on PATH: SKILL.md spec validation is unavailable",
@@ -158,21 +230,40 @@ func checkSkillsRefToolchain(report *domain.DoctorReport) {
 		return
 	}
 
-	// Check submodule availability
-	subDir := findSkillsRefDir()
-	if subDir == "" {
-		report.AddWarnWithHint("skills-ref",
-			"uv found but skills-ref submodule not available",
-			`install globally: "uv tool install skills-ref"`)
+	// Check submodule availability FIRST (idempotent — no side effects)
+	subDir := findSkillsRefDirFn()
+	if subDir != "" {
+		venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
+		if fi, err := os.Stat(venvDir); err == nil && fi.IsDir() {
+			report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv: %s)", venvDir))
+		} else {
+			report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv will be created at %s on first use)", venvDir))
+		}
 		return
 	}
 
-	// uv + submodule available; report venv state
-	if fi, err := os.Stat(venvDir); err == nil && fi.IsDir() {
-		report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv: %s)", venvDir))
-	} else {
-		report.AddOK("skills-ref", fmt.Sprintf("uv + submodule ready (venv will be created at %s on first use)", venvDir))
+	// No submodule, no global install — attempt repair if requested
+	if repair {
+		if err := installSkillsRefFn(); err != nil {
+			report.AddWarnWithHint("skills-ref",
+				fmt.Sprintf("uv tool install skills-ref failed: %v", err),
+				`try manually: "uv tool install skills-ref"`)
+		} else {
+			// Verify the binary is actually on PATH after install
+			if _, err := lookPathFn("skills-ref"); err != nil {
+				report.AddWarnWithHint("skills-ref",
+					"uv tool install skills-ref succeeded but skills-ref is not on PATH",
+					`add uv's tool bin directory to your PATH (e.g. ~/.local/bin)`)
+			} else {
+				report.AddFixed("skills-ref", "installed skills-ref via uv tool install")
+			}
+		}
+		return
 	}
+
+	report.AddWarnWithHint("skills-ref",
+		"uv found but skills-ref not installed",
+		`run "phonewave doctor --repair" or "uv tool install skills-ref"`)
 }
 
 func checkDaemonStatus(stateDir string) domain.DaemonHealthStatus {
@@ -189,18 +280,42 @@ func checkDaemonStatus(stateDir string) domain.DaemonHealthStatus {
 		return status
 	}
 
-	// Check if process is actually running
+	if IsProcessAlive(pid) {
+		status.Running = true
+		status.PID = pid
+	}
+
+	return status
+}
+
+// IsProcessAlive checks whether a process with the given PID is running.
+// On Unix, it sends signal 0 to verify liveness. On Windows, it uses
+// FindProcess which succeeds if the process exists.
+func IsProcessAlive(pid int) bool {
+	if runtime.GOOS == "windows" {
+		// On Windows, FindProcess succeeds only if the process exists.
+		p, err := os.FindProcess(pid)
+		if err != nil {
+			return false
+		}
+		// On Windows, FindProcess does not fail for non-existent PIDs in Go,
+		// but we can attempt to open the process handle via Signal to verify.
+		// However, Signal(0) is not supported on Windows, so we treat
+		// FindProcess success as "alive" (best-effort).
+		_ = p
+		return true
+	}
+
+	// Unix: FindProcess always succeeds; send signal 0 to check.
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		return status
+		return false
 	}
 
-	// On Unix, FindProcess always succeeds. Send signal 0 to check.
 	if err := process.Signal(syscall.Signal(0)); err != nil {
-		return status // Process not running (stale PID file)
+		// EPERM means process exists but we lack permission to signal it
+		return errors.Is(err, syscall.EPERM)
 	}
 
-	status.Running = true
-	status.PID = pid
-	return status
+	return true
 }

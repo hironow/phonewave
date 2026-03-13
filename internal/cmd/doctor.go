@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -18,17 +20,21 @@ func newDoctorCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			outputFmt, _ := cmd.Flags().GetString("output")
 			jsonOut := outputFmt == "json"
+			repair, _ := cmd.Flags().GetBool("repair")
 
 			cfgPath := configPath(cmd)
 			stateDir := configBase(cmd)
 
 			cfg, err := session.LoadConfig(cfgPath)
 			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "  [%-4s] %-16s %s\n", "FAIL", "config", "Run 'phonewave init' first")
+				w := cmd.ErrOrStderr()
+				earlyLogger := platform.NewLogger(w, false)
+				failLabel := earlyLogger.Colorize(fmt.Sprintf("%-4s", "FAIL"), platform.SeverityColor("error"))
+				fmt.Fprintf(w, "  [%s] %-16s %s\n", failLabel, "config", "Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			report := session.Doctor(cfg, stateDir)
+			report := session.Doctor(cfg, stateDir, repair, cfgPath)
 
 			if jsonOut {
 				data, err := session.FormatDoctorJSON(report)
@@ -37,13 +43,14 @@ func newDoctorCmd() *cobra.Command {
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(data))
 				if !report.Healthy {
-					return fmt.Errorf("ecosystem has issues")
+					return &domain.SilentError{Err: fmt.Errorf("ecosystem has issues")}
 				}
 				return nil
 			}
 
 			// text output — aligned with amadeus/sightjack/paintress format
 			w := cmd.ErrOrStderr()
+			logger := platform.NewLogger(w, false)
 			fmt.Fprintln(w, "phonewave doctor — ecosystem health check")
 			fmt.Fprintln(w)
 
@@ -55,7 +62,8 @@ func newDoctorCmd() *cobra.Command {
 					name = "-"
 				}
 
-				fmt.Fprintf(w, "  [%-4s] %-16s %s\n", status, name, issue.Message)
+				label := logger.Colorize(fmt.Sprintf("%-4s", status), platform.SeverityColor(issue.Severity))
+				fmt.Fprintf(w, "  [%s] %-16s %s\n", label, name, issue.Message)
 				if issue.Hint != "" {
 					fmt.Fprintf(w, "         %-16s hint: %s\n", "", issue.Hint)
 				}
@@ -69,10 +77,11 @@ func newDoctorCmd() *cobra.Command {
 			}
 
 			// Daemon status
+			daemonLabel := logger.Colorize(fmt.Sprintf("%-4s", "OK"), platform.SeverityColor("ok"))
 			if report.DaemonStatus.Running {
-				fmt.Fprintf(w, "  [%-4s] %-16s running (PID %d)\n", "OK", "daemon", report.DaemonStatus.PID)
+				fmt.Fprintf(w, "  [%s] %-16s running (PID %d)\n", daemonLabel, "daemon", report.DaemonStatus.PID)
 			} else {
-				fmt.Fprintf(w, "  [%-4s] %-16s not running\n", "OK", "daemon")
+				fmt.Fprintf(w, "  [%s] %-16s not running\n", daemonLabel, "daemon")
 			}
 
 			fmt.Fprintln(w)
@@ -85,12 +94,14 @@ func newDoctorCmd() *cobra.Command {
 					parts = append(parts, fmt.Sprintf("%d warning(s)", warns))
 				}
 				fmt.Fprintln(w, strings.Join(parts, ", ")+".")
-				return fmt.Errorf("ecosystem has issues")
+				return &domain.SilentError{Err: fmt.Errorf("ecosystem has issues")}
 			}
 			fmt.Fprintln(w, "All checks passed.")
 			return nil
 		},
 	}
+
+	cmd.Flags().Bool("repair", false, "Auto-fix repairable issues")
 
 	return cmd
 }

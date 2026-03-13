@@ -19,7 +19,8 @@ phonewave doctor [flags]
 ### Options
 
 ```
-  -h, --help   help for doctor
+  -h, --help     help for doctor
+      --repair   Auto-fix repairable issues
 ```
 
 ### Options inherited from parent commands

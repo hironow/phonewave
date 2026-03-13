@@ -25,7 +25,7 @@ func TestDoctor_MissingRepoPath_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
 	for _, issue := range report.Issues {
@@ -62,7 +62,7 @@ func TestDoctor_MissingEndpointDir_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
 	for _, issue := range report.Issues {
@@ -102,7 +102,7 @@ func TestDoctor_OrphanedKind_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
 	for _, issue := range report.Issues {

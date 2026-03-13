@@ -154,6 +154,33 @@ func WriteConfig(path string, cfg *domain.Config) error {
 	return nil
 }
 
+// WriteResolvedOnly writes only the .run/resolved.yaml file from the current
+// cfg state (routes, last_synced) without touching config.yaml. This is used by
+// doctor --repair to regenerate resolved state without rescanning the filesystem.
+// stateDir is the .phonewave directory (parent of .run/).
+func WriteResolvedOnly(stateDir string, cfg *domain.Config) error {
+	projectRoot := filepath.Dir(stateDir)
+	rel := convertToRelPaths(cfg, projectRoot)
+
+	runDir := filepath.Join(stateDir, ".run")
+	if err := os.MkdirAll(runDir, 0755); err != nil {
+		return fmt.Errorf("create .run dir: %w", err)
+	}
+	rs := domain.ResolvedState{
+		LastSynced: rel.LastSynced,
+		Routes:     rel.Routes,
+	}
+	rsdata, err := yaml.Marshal(rs)
+	if err != nil {
+		return err
+	}
+	resolvedPath := filepath.Join(runDir, domain.ResolvedStateFile)
+	if err := os.WriteFile(resolvedPath, rsdata, 0644); err != nil {
+		return fmt.Errorf("write resolved state: %w", err)
+	}
+	return nil
+}
+
 // convertToRelPaths returns a shallow copy of cfg with absolute paths
 // converted to relative paths. Paths that cannot be relativised (e.g.
 // different Windows drive letters) are kept absolute.

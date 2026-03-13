@@ -5,6 +5,25 @@ import (
 	"time"
 )
 
+// SilentError wraps an error whose message has already been printed to stderr
+// by the command itself. main.go should suppress output for this error
+// while still honouring the exit code.
+type SilentError struct{ Err error }
+
+func (e *SilentError) Error() string { return e.Err.Error() }
+func (e *SilentError) Unwrap() error { return e.Err }
+
+// ExitCode maps an error to a process exit code.
+//
+//	nil   → 0 (success)
+//	other → 1 (runtime error)
+func ExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	return 1
+}
+
 // StateDir is the name of the phonewave state directory.
 const StateDir = ".phonewave"
 
