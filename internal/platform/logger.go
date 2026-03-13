@@ -24,7 +24,7 @@ var _ domain.Logger = (*Logger)(nil)
 const (
 	ansiReset     = "\033[0m"
 	ansiCyan      = "\033[36m"   // INFO — blue axis, universally visible
-	ansiBoldGreen = "\033[1;32m" // OK   — convention + bold brightness for CVD
+	ansiBoldBlue = "\033[1;34m" // OK   — blue axis, universally visible for red-green CVD
 	ansiYellow    = "\033[33m"   // WARN — yellow axis, safe for common CVD
 	ansiBoldRed   = "\033[1;31m" // ERR  — convention + bold brightness for CVD
 	ansiGray      = "\033[90m"   // DBUG — brightness-only, no hue dependency
@@ -103,7 +103,7 @@ func (l *Logger) Info(format string, args ...any) {
 
 // OK prints a success message.
 func (l *Logger) OK(format string, args ...any) {
-	l.logLine(" OK ", ansiBoldGreen, format, args...)
+	l.logLine(" OK ", ansiBoldBlue, format, args...)
 }
 
 // Warn prints a warning message.
