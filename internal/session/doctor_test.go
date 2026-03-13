@@ -128,6 +128,55 @@ func TestDoctor_RepairSkillsRef_SubmoduleAvailable_NoInstall(t *testing.T) {
 	}
 }
 
+func TestDoctor_RepairResolvedState(t *testing.T) {
+	// given — resolved.yaml does not exist
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, domain.StateDir)
+	runDir := filepath.Join(stateDir, ".run")
+	os.MkdirAll(runDir, 0755)
+	os.MkdirAll(filepath.Join(repoDir, ".siren", "outbox"), 0755)
+	os.MkdirAll(filepath.Join(repoDir, ".siren", "inbox"), 0755)
+
+	cfg := &domain.Config{
+		Repositories: []domain.RepoConfig{
+			{
+				Path: repoDir,
+				Endpoints: []domain.EndpointConfig{
+					{Dir: ".siren", Produces: []string{"spec"}},
+				},
+			},
+		},
+	}
+
+	// Inject repair sync+write function
+	var repairCalled bool
+	cleanup := session.OverrideRepairSync(func(c *domain.Config, sd string) error {
+		repairCalled = true
+		// Simulate: Sync updates cfg, then WriteConfig writes resolved.yaml
+		return os.WriteFile(
+			filepath.Join(sd, ".run", domain.ResolvedStateFile),
+			[]byte("routes: []\n"), 0644)
+	})
+	defer cleanup()
+
+	// when — repair=true
+	report := session.Doctor(cfg, stateDir, true)
+
+	// then
+	if !repairCalled {
+		t.Error("expected repair sync to be called for missing resolved.yaml")
+	}
+	hasFixed := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "fixed" && strings.Contains(issue.Message, "resolved") {
+			hasFixed = true
+		}
+	}
+	if !hasFixed {
+		t.Errorf("expected fixed issue for resolved.yaml, got: %v", report.Issues)
+	}
+}
+
 func TestDoctor_HealthyEcosystem(t *testing.T) {
 	// given — a fully set up repo with all dirs and SKILL.md files
 	repoDir := t.TempDir()

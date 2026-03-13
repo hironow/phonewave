@@ -48,6 +48,23 @@ func OverrideFindSkillsRefDir(fn func() string) func() {
 	return func() { findSkillsRefDirFn = old }
 }
 
+// repairSyncFn runs Sync(cfg) + WriteConfig to generate resolved state.
+// Injectable for testing. Takes cfg and stateDir.
+var repairSyncFn = func(cfg *domain.Config, stateDir string) error {
+	if _, err := Sync(cfg); err != nil {
+		return err
+	}
+	configPath := filepath.Join(stateDir, domain.ConfigFile)
+	return WriteConfig(configPath, cfg)
+}
+
+// OverrideRepairSync replaces the sync+write function for testing.
+func OverrideRepairSync(fn func(*domain.Config, string) error) func() {
+	old := repairSyncFn
+	repairSyncFn = fn
+	return func() { repairSyncFn = old }
+}
+
 // FormatDoctorJSON marshals a DoctorReport to indented JSON.
 func FormatDoctorJSON(report domain.DoctorReport) ([]byte, error) {
 	return json.MarshalIndent(report, "", "  ")
@@ -157,8 +174,17 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool) domain.DoctorRepor
 	// Check resolved state file exists
 	resolvedPath := filepath.Join(stateDir, ".run", domain.ResolvedStateFile)
 	if _, err := os.Stat(resolvedPath); errors.Is(err, fs.ErrNotExist) {
-		report.AddWarnWithHint("", "resolved.yaml not found: routes are being derived on-the-fly",
-			`run "phonewave sync" to generate resolved state`)
+		if repair {
+			if err := repairSyncFn(cfg, stateDir); err != nil {
+				report.AddWarnWithHint("", fmt.Sprintf("resolved.yaml repair failed: %v", err),
+					`run "phonewave sync" manually`)
+			} else {
+				report.AddFixed("", "generated resolved.yaml via sync")
+			}
+		} else {
+			report.AddWarnWithHint("", "resolved.yaml not found: routes are being derived on-the-fly",
+				`run "phonewave doctor --repair" or "phonewave sync" to generate resolved state`)
+		}
 	}
 
 	// Success rate (informational)
