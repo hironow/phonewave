@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -49,16 +50,16 @@ func OverrideFindSkillsRefDir(fn func() string) func() {
 }
 
 // repairSyncFn runs Sync(cfg) + WriteConfig to generate resolved state.
-// Injectable for testing. Takes cfg and stateDir.
-var repairSyncFn = func(cfg *domain.Config, stateDir string) error {
+// Injectable for testing. Takes cfg and configPath (the actual config file path).
+var repairSyncFn = func(cfg *domain.Config, configPath string) error {
 	if _, err := Sync(cfg); err != nil {
 		return err
 	}
-	configPath := filepath.Join(stateDir, domain.ConfigFile)
 	return WriteConfig(configPath, cfg)
 }
 
 // OverrideRepairSync replaces the sync+write function for testing.
+// The function receives (cfg, configPath) where configPath is the actual config file path.
 func OverrideRepairSync(fn func(*domain.Config, string) error) func() {
 	old := repairSyncFn
 	repairSyncFn = fn
@@ -71,7 +72,12 @@ func FormatDoctorJSON(report domain.DoctorReport) ([]byte, error) {
 }
 
 // Doctor verifies ecosystem health and returns a report.
-func Doctor(cfg *domain.Config, stateDir string, repair bool) domain.DoctorReport {
+// configPath is the actual path to the config file (used by repair to write back).
+// If empty, defaults to stateDir + ConfigFile.
+func Doctor(cfg *domain.Config, stateDir string, repair bool, configPath string) domain.DoctorReport {
+	if configPath == "" {
+		configPath = filepath.Join(stateDir, domain.ConfigFile)
+	}
 	report := domain.DoctorReport{
 		Healthy: true,
 		DaemonStatus: domain.DaemonHealthStatus{
@@ -176,7 +182,7 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool) domain.DoctorRepor
 	resolvedPath := filepath.Join(stateDir, ".run", domain.ResolvedStateFile)
 	if _, err := os.Stat(resolvedPath); errors.Is(err, fs.ErrNotExist) {
 		if repair {
-			if err := repairSyncFn(cfg, stateDir); err != nil {
+			if err := repairSyncFn(cfg, configPath); err != nil {
 				report.AddWarnWithHint("", fmt.Sprintf("resolved.yaml repair failed: %v", err),
 					`run "phonewave sync" manually`)
 			} else {
@@ -243,7 +249,14 @@ func checkSkillsRefToolchain(report *domain.DoctorReport, repair bool) {
 				fmt.Sprintf("uv tool install skills-ref failed: %v", err),
 				`try manually: "uv tool install skills-ref"`)
 		} else {
-			report.AddFixed("skills-ref", "installed skills-ref via uv tool install")
+			// Verify the binary is actually on PATH after install
+			if _, err := lookPathFn("skills-ref"); err != nil {
+				report.AddWarnWithHint("skills-ref",
+					"uv tool install skills-ref succeeded but skills-ref is not on PATH",
+					`add uv's tool bin directory to your PATH (e.g. ~/.local/bin)`)
+			} else {
+				report.AddFixed("skills-ref", "installed skills-ref via uv tool install")
+			}
 		}
 		return
 	}
@@ -267,23 +280,42 @@ func checkDaemonStatus(stateDir string) domain.DaemonHealthStatus {
 		return status
 	}
 
-	// Check if process is actually running
+	if IsProcessAlive(pid) {
+		status.Running = true
+		status.PID = pid
+	}
+
+	return status
+}
+
+// IsProcessAlive checks whether a process with the given PID is running.
+// On Unix, it sends signal 0 to verify liveness. On Windows, it uses
+// FindProcess which succeeds if the process exists.
+func IsProcessAlive(pid int) bool {
+	if runtime.GOOS == "windows" {
+		// On Windows, FindProcess succeeds only if the process exists.
+		p, err := os.FindProcess(pid)
+		if err != nil {
+			return false
+		}
+		// On Windows, FindProcess does not fail for non-existent PIDs in Go,
+		// but we can attempt to open the process handle via Signal to verify.
+		// However, Signal(0) is not supported on Windows, so we treat
+		// FindProcess success as "alive" (best-effort).
+		_ = p
+		return true
+	}
+
+	// Unix: FindProcess always succeeds; send signal 0 to check.
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		return status
+		return false
 	}
 
-	// On Unix, FindProcess always succeeds. Send signal 0 to check.
 	if err := process.Signal(syscall.Signal(0)); err != nil {
-		if errors.Is(err, syscall.EPERM) {
-			status.Running = true // Process exists, just can't signal it
-			status.PID = pid
-			return status
-		}
-		return status // Process not running (ESRCH)
+		// EPERM means process exists but we lack permission to signal it
+		return errors.Is(err, syscall.EPERM)
 	}
 
-	status.Running = true
-	status.PID = pid
-	return status
+	return true
 }

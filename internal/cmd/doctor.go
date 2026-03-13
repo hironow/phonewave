@@ -34,7 +34,7 @@ func newDoctorCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			report := session.Doctor(cfg, stateDir, repair)
+			report := session.Doctor(cfg, stateDir, repair, cfgPath)
 
 			if jsonOut {
 				data, err := session.FormatDoctorJSON(report)

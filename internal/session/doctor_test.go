@@ -16,6 +16,62 @@ import (
 	"github.com/hironow/phonewave/internal/session"
 )
 
+func TestDoctor_RepairPreservesConfigPath(t *testing.T) {
+	// given — custom config path (not the default stateDir + ConfigFile)
+	baseDir := t.TempDir()
+	customConfigDir := filepath.Join(baseDir, "custom")
+	if err := os.MkdirAll(customConfigDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	customConfigPath := filepath.Join(customConfigDir, "my-config.yaml")
+	if err := os.WriteFile(customConfigPath, []byte("repositories: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	stateDir := filepath.Join(baseDir, domain.StateDir)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Do NOT create .run/resolved.yaml so repair triggers
+
+	cfg := &domain.Config{}
+
+	// Track which configPath repairSyncFn receives
+	var receivedConfigPath string
+	cleanup := session.OverrideRepairSync(func(c *domain.Config, cfgPath string) error {
+		receivedConfigPath = cfgPath
+		// Create resolved.yaml to satisfy the check
+		runDir := filepath.Join(stateDir, ".run")
+		os.MkdirAll(runDir, 0755)
+		return os.WriteFile(
+			filepath.Join(runDir, domain.ResolvedStateFile),
+			[]byte("routes: []\n"), 0644)
+	})
+	defer cleanup()
+
+	// when — repair=true with custom config path
+	report := session.Doctor(cfg, stateDir, true, customConfigPath)
+
+	// then — repairSyncFn should receive the custom config path, not default
+	defaultPath := filepath.Join(stateDir, domain.ConfigFile)
+	if receivedConfigPath == defaultPath {
+		t.Errorf("repairSyncFn received default path %q instead of custom path", defaultPath)
+	}
+	if receivedConfigPath != customConfigPath {
+		t.Errorf("repairSyncFn received %q, want custom path %q", receivedConfigPath, customConfigPath)
+	}
+	// report should show fixed
+	hasFixed := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "fixed" && strings.Contains(issue.Message, "resolved") {
+			hasFixed = true
+		}
+	}
+	if !hasFixed {
+		t.Errorf("expected fixed issue for resolved.yaml, got: %v", report.Issues)
+	}
+}
+
 func TestDoctor_RepairStalePID(t *testing.T) {
 	// given — stale PID file with non-existent process
 	repoDir := t.TempDir()
@@ -28,7 +84,7 @@ func TestDoctor_RepairStalePID(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true)
+	report := session.Doctor(cfg, stateDir, true, "")
 
 	// then — stale PID file should be removed
 	if _, err := os.Stat(pidPath); !errors.Is(err, fs.ErrNotExist) {
@@ -42,6 +98,7 @@ func TestDoctor_RepairStalePID(t *testing.T) {
 
 func TestDoctor_RepairSkillsRef_UvAvailable_NoSubmodule(t *testing.T) {
 	// given — uv is on PATH but skills-ref is not, and no submodule
+	// After install, skills-ref becomes available on PATH
 	cfg := &domain.Config{}
 	stateDir := filepath.Join(t.TempDir(), domain.StateDir)
 	os.MkdirAll(stateDir, 0755)
@@ -53,9 +110,18 @@ func TestDoctor_RepairSkillsRef_UvAvailable_NoSubmodule(t *testing.T) {
 	})
 	defer cleanup()
 
+	// skills-ref is NOT found initially (first call), but IS found after install (second call)
+	skillsRefCallCount := 0
 	cleanup2 := session.OverrideLookPath(func(name string) (string, error) {
 		if name == "uv" {
 			return "/usr/bin/uv", nil
+		}
+		if name == "skills-ref" {
+			skillsRefCallCount++
+			if skillsRefCallCount > 1 {
+				// After install, skills-ref is on PATH
+				return "/usr/local/bin/skills-ref", nil
+			}
 		}
 		return "", exec.ErrNotFound
 	})
@@ -67,7 +133,7 @@ func TestDoctor_RepairSkillsRef_UvAvailable_NoSubmodule(t *testing.T) {
 	defer cleanup3()
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true)
+	report := session.Doctor(cfg, stateDir, true, "")
 
 	// then — install should have been called
 	if !installCalled {
@@ -111,7 +177,7 @@ func TestDoctor_RepairSkillsRef_SubmoduleAvailable_NoInstall(t *testing.T) {
 	defer cleanup3()
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true)
+	report := session.Doctor(cfg, stateDir, true, "")
 
 	// then — install should NOT have been called (submodule suffices)
 	if installCalled {
@@ -150,17 +216,20 @@ func TestDoctor_RepairResolvedState(t *testing.T) {
 
 	// Inject repair sync+write function
 	var repairCalled bool
-	cleanup := session.OverrideRepairSync(func(c *domain.Config, sd string) error {
+	cleanup := session.OverrideRepairSync(func(c *domain.Config, cfgPath string) error {
 		repairCalled = true
-		// Simulate: Sync updates cfg, then WriteConfig writes resolved.yaml
+		// cfgPath is now the config file path; derive stateDir from it
+		sd := filepath.Dir(cfgPath)
+		runDir2 := filepath.Join(sd, ".run")
+		os.MkdirAll(runDir2, 0755)
 		return os.WriteFile(
-			filepath.Join(sd, ".run", domain.ResolvedStateFile),
+			filepath.Join(runDir2, domain.ResolvedStateFile),
 			[]byte("routes: []\n"), 0644)
 	})
 	defer cleanup()
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true)
+	report := session.Doctor(cfg, stateDir, true, "")
 
 	// then
 	if !repairCalled {
@@ -224,7 +293,7 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
 	if !report.Healthy {
@@ -260,7 +329,7 @@ func TestDoctor_MissingDirs(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should have warnings about missing dirs but auto-create them
 	hasCreated := false
@@ -298,7 +367,7 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
 	if report.Healthy {
@@ -346,7 +415,7 @@ func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should have a warning about invalid kind
 	hasKindWarn := false
@@ -371,7 +440,7 @@ func TestDoctor_DaemonNotRunning(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
 	if !report.DaemonStatus.Checked {
@@ -419,7 +488,7 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should have a warning from skills-ref validation
 	hasSpecWarn := false
@@ -485,7 +554,7 @@ func TestDoctor_IncludesSuccessRate(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should include a success-rate issue with correct stats
 	var found bool
@@ -508,7 +577,7 @@ func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should still include success-rate with "no deliveries"
 	var found bool
@@ -542,7 +611,7 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — daemon should NOT be reported as running (stale PID)
 	if report.DaemonStatus.Running {
@@ -566,7 +635,7 @@ func TestDoctor_MissingRepoPath_HintReferencesConfigYAML(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — hint should reference config.yaml
 	for _, issue := range report.Issues {
@@ -603,7 +672,7 @@ func TestDoctor_WarnsWhenResolvedStateMissing(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should have a warning about missing resolved state
 	hasResolvedWarn := false
@@ -633,7 +702,7 @@ func TestDoctor_NoWarningWhenResolvedStateExists(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should NOT have a warning about missing resolved state
 	for _, issue := range report.Issues {
@@ -650,7 +719,7 @@ func TestDoctor_SkillsRefToolchainCheck(t *testing.T) {
 	os.MkdirAll(stateDir, 0755)
 
 	// when
-	report := session.Doctor(cfg, stateDir, false)
+	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should have a skills-ref related issue (ok or warn)
 	hasSkillsRef := false
@@ -662,6 +731,82 @@ func TestDoctor_SkillsRefToolchainCheck(t *testing.T) {
 	}
 	if !hasSkillsRef {
 		t.Error("expected a skills-ref toolchain issue in doctor report")
+	}
+}
+
+func TestDoctor_SkillsRefInstallSucceedsButNotOnPath(t *testing.T) {
+	// given — uv on PATH, skills-ref NOT on PATH, no submodule
+	// install succeeds but skills-ref is STILL not on PATH after install
+	cfg := &domain.Config{}
+	stateDir := filepath.Join(t.TempDir(), domain.StateDir)
+	os.MkdirAll(stateDir, 0755)
+
+	cleanup := session.OverrideRepairInstallSkillsRef(func() error {
+		return nil // install "succeeds"
+	})
+	defer cleanup()
+
+	cleanup2 := session.OverrideLookPath(func(name string) (string, error) {
+		if name == "uv" {
+			return "/usr/bin/uv", nil
+		}
+		// skills-ref is NEVER found, even after install
+		return "", exec.ErrNotFound
+	})
+	defer cleanup2()
+
+	cleanup3 := session.OverrideFindSkillsRefDir(func() string {
+		return "" // no submodule
+	})
+	defer cleanup3()
+
+	// when — repair=true
+	report := session.Doctor(cfg, stateDir, true, "")
+
+	// then — should be WARN (not FIXED) since skills-ref is still not on PATH
+	hasWarn := false
+	hasFixed := false
+	for _, issue := range report.Issues {
+		if issue.Endpoint == "skills-ref" {
+			if issue.Severity == "warn" {
+				hasWarn = true
+			}
+			if issue.Severity == "fixed" {
+				hasFixed = true
+			}
+		}
+	}
+	if hasFixed {
+		t.Error("should not report FIXED when skills-ref is still not on PATH after install")
+	}
+	if !hasWarn {
+		t.Errorf("expected WARN when skills-ref is not on PATH after install, got: %v", report.Issues)
+	}
+}
+
+func TestDoctor_IsProcessAlive_WindowsFallback(t *testing.T) {
+	// given — test that isProcessAlive is exported and works for current process
+	pid := os.Getpid()
+
+	// when
+	alive := session.IsProcessAlive(pid)
+
+	// then — current process should be alive
+	if !alive {
+		t.Error("expected current process to be alive")
+	}
+}
+
+func TestDoctor_IsProcessAlive_NonExistentPID(t *testing.T) {
+	// given — a PID that almost certainly doesn't exist
+	pid := 999999999
+
+	// when
+	alive := session.IsProcessAlive(pid)
+
+	// then — should not be alive
+	if alive {
+		t.Error("expected non-existent PID to not be alive")
 	}
 }
 
