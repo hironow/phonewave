@@ -123,6 +123,29 @@ func (l *Logger) Debug(format string, args ...any) {
 	}
 }
 
+// Colorize wraps text with the given ANSI color code if color output is enabled.
+// Returns plain text when color is disabled (NO_COLOR env or non-terminal output).
+func (l *Logger) Colorize(text, color string) string {
+	if l.noColor {
+		return text
+	}
+	return color + text + ansiReset
+}
+
+// SeverityColor returns the ANSI color code for a doctor issue severity string.
+func SeverityColor(severity string) string {
+	switch severity {
+	case "ok", "fixed":
+		return ansiBoldBlue
+	case "warn":
+		return ansiYellow
+	case "error":
+		return ansiBoldRed
+	default:
+		return ""
+	}
+}
+
 // Writer returns the underlying io.Writer.
 func (l *Logger) Writer() io.Writer { return l.out }
 
