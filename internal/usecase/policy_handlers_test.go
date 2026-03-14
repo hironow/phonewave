@@ -368,9 +368,9 @@ func TestPolicyHandler_DeliveryFailed_WritesInsight(t *testing.T) {
 
 func TestPolicyHandler_DeliveryFailed_InsightErrorCategorization(t *testing.T) {
 	tests := []struct {
-		name     string
-		errMsg   string
-		wantWhy  string
+		name    string
+		errMsg  string
+		wantWhy string
 	}{
 		{
 			name:    "permission denied",

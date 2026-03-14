@@ -131,8 +131,8 @@ var rootSpan trace.Span
 func startRootSpan(ctx context.Context, command string) context.Context {
 	ctx, rootSpan = platform.Tracer.Start(ctx, "phonewave."+command,
 		trace.WithAttributes(
-			attribute.String("phonewave.command", command),                                    // nosemgrep: otel-attribute-string-unsanitized — cobra command name, always valid ASCII [permanent]
-			attribute.String("otel.detail_level", string(platform.OTELDetailLevel)),            // nosemgrep: otel-attribute-string-unsanitized — Go const string, always valid UTF-8 [permanent]
+			attribute.String("phonewave.command", command),                          // nosemgrep: otel-attribute-string-unsanitized — cobra command name, always valid ASCII [permanent]
+			attribute.String("otel.detail_level", string(platform.OTELDetailLevel)), // nosemgrep: otel-attribute-string-unsanitized — Go const string, always valid UTF-8 [permanent]
 		),
 	)
 	return ctx
