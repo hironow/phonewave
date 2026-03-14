@@ -39,7 +39,10 @@ Pass --execute to actually remove the files.`,
   phonewave archive-prune -o json
 
   # Custom retention period
-  phonewave archive-prune --days 7 --execute`,
+  phonewave archive-prune --days 7 --execute
+
+  # Rebuild archive index from existing files
+  phonewave archive-prune --rebuild-index`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if execute && cmd.Flags().Changed("dry-run") {

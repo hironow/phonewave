@@ -31,6 +31,9 @@ phonewave archive-prune [path] [flags]
 
   # Custom retention period
   phonewave archive-prune --days 7 --execute
+
+  # Rebuild archive index from existing files
+  phonewave archive-prune --rebuild-index
 ```
 
 ### Options
@@ -55,5 +58,4 @@ phonewave archive-prune [path] [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)	 - D-Mail courier daemon
-
+* [phonewave](phonewave.md)  - D-Mail courier daemon

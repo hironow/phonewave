@@ -13,7 +13,14 @@ phonewave doctor [flags]
 ### Examples
 
 ```
+  # Run ecosystem health check
   phonewave doctor
+
+  # JSON output for scripting
+  phonewave doctor -o json
+
+  # Auto-fix repairable issues
+  phonewave doctor --repair
 ```
 
 ### Options
@@ -34,5 +41,4 @@ phonewave doctor [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)	 - D-Mail courier daemon
-
+* [phonewave](phonewave.md)  - D-Mail courier daemon

@@ -144,67 +144,32 @@ phonewave run -v
 
 ## Subcommands
 
-Running `phonewave` without a subcommand defaults to `run` (start the courier daemon). This is the primary operation — watching outboxes and routing D-Mails.
+Running `phonewave` without a subcommand defaults to `run` (start the courier daemon).
 
 | Command | Description |
 |---------|-------------|
-| `phonewave init <repo...>` | Scan repositories, discover endpoints, derive routes, generate `.phonewave/config.yaml` |
-| `phonewave add <repo>` | Add a new repository to the ecosystem |
-| `phonewave remove <repo>` | Remove a repository from the ecosystem |
-| `phonewave sync` | Re-scan all repositories, reconcile routing table |
-| `phonewave doctor` | Verify ecosystem health (paths, endpoints, SKILL.md spec compliance, PID conflicts, git-remote, resolved.yaml) |
-| `phonewave run` | Start the courier daemon (foreground) |
-| `phonewave status` | Show daemon state, uptime, and 24h delivery statistics |
-| `phonewave clean` | Remove runtime state from `.phonewave/` |
-| `phonewave archive-prune` | Prune old archived D-Mail files (`--rebuild-index` to rebuild JSONL index) |
-| `phonewave version` | Print build version information |
-| `phonewave update` | Update phonewave to the latest version |
+| `init <repo...>` | Scan repositories, generate routing table |
+| `add <repo>` | Add a new repository |
+| `remove <repo>` | Remove a repository |
+| `sync` | Re-scan and reconcile routing table |
+| `doctor` | Verify ecosystem health |
+| `run` | Start the courier daemon (foreground) |
+| `status` | Show daemon state and delivery stats |
+| `clean` | Remove runtime state |
+| `archive-prune` | Prune old archived D-Mail files |
+| `version` | Print version info |
+| `update` | Self-update to the latest release |
 
-## Usage
+Most commands accept an optional `[path]` (defaults to cwd). Commands that manage repositories (`init`, `add`, `remove`) require explicit `<repo>` paths. For flags, examples, and full reference per subcommand, see [docs/cli/](docs/cli/).
 
-Most commands accept an optional `[path]` argument and default to the current working directory. Commands that manage repositories (`init`, `add`, `remove`) require explicit paths.
+## Quick Start
 
 ```bash
-# Initialize with multiple repositories
-phonewave init ./sightjack-repo ./paintress-repo ./amadeus-repo
-
-# Check ecosystem health
-phonewave doctor
-
-# Start daemon (foreground, verbose)
-phonewave run -v
-
-# Dry run (detect events, don't deliver)
-phonewave run -n
-
-# With retry interval (check error queue every 120s)
-phonewave run -r 120s
-
-# With tracing enabled
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 phonewave run -v
-
-# Check daemon status
-phonewave status
-
-# Add a new repo after initial setup
-phonewave add ./new-repo
-
-# Re-scan after endpoint changes
-phonewave sync
+phonewave init ./repo-a ./repo-b ./repo-c   # set up routing
+phonewave doctor                             # verify health
+phonewave run                                # start daemon
+phonewave run -n                             # dry run
 ```
-
-## Options
-
-### Global flags
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--verbose` | `-v` | `false` | Log all delivery events to stderr |
-| `--config` | `-c` | `./.phonewave/config.yaml` | Path to phonewave manifest config file |
-| `--output` | `-o` | `text` | Output format: `text` or `json` |
-| `--no-color` | | `false` | Disable color output (also respects `NO_COLOR` env var) |
-
-For full flag reference per subcommand, see [docs/cli/](docs/cli/).
 
 ## Configuration
 

@@ -12,11 +12,18 @@ import (
 
 func newDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "doctor",
-		Short:   "Verify ecosystem health",
-		Long:    "Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, and daemon status.",
-		Args:    cobra.NoArgs,
-		Example: `  phonewave doctor`,
+		Use:   "doctor",
+		Short: "Verify ecosystem health",
+		Long:  "Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, and daemon status.",
+		Args:  cobra.NoArgs,
+		Example: `  # Run ecosystem health check
+  phonewave doctor
+
+  # JSON output for scripting
+  phonewave doctor -o json
+
+  # Auto-fix repairable issues
+  phonewave doctor --repair`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			outputFmt, _ := cmd.Flags().GetString("output")
 			jsonOut := outputFmt == "json"

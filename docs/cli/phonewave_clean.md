@@ -17,8 +17,13 @@ phonewave clean [path] [flags]
 ### Examples
 
 ```
+  # Clean current directory
   phonewave clean
+
+  # Clean a specific project
   phonewave clean /path/to/project
+
+  # Skip confirmation prompt
   phonewave clean --yes
 ```
 
@@ -40,5 +45,4 @@ phonewave clean [path] [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)	 - D-Mail courier daemon
-
+* [phonewave](phonewave.md)  - D-Mail courier daemon
