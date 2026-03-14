@@ -20,8 +20,13 @@ func newCleanCmd() *cobra.Command {
 Removes: delivery.log, .run/, watch.pid, watch.started, events/
 Also removes: skills-ref Python venv from temp directory (if present)
 Preserves: .phonewave/config.yaml and .phonewave/.gitignore`,
-		Example: `  phonewave clean
+		Example: `  # Clean current directory
+  phonewave clean
+
+  # Clean a specific project
   phonewave clean /path/to/project
+
+  # Skip confirmation prompt
   phonewave clean --yes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

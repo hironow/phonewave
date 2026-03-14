@@ -17,8 +17,13 @@ phonewave clean [path] [flags]
 ### Examples
 
 ```
+  # Clean current directory
   phonewave clean
+
+  # Clean a specific project
   phonewave clean /path/to/project
+
+  # Skip confirmation prompt
   phonewave clean --yes
 ```
 

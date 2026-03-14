@@ -13,7 +13,14 @@ phonewave doctor [flags]
 ### Examples
 
 ```
+  # Run ecosystem health check
   phonewave doctor
+
+  # JSON output for scripting
+  phonewave doctor -o json
+
+  # Auto-fix repairable issues
+  phonewave doctor --repair
 ```
 
 ### Options

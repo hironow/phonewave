@@ -126,7 +126,7 @@ type DaemonRunner interface {
 // NopDaemonRunner is a no-op DaemonRunner for tests.
 type NopDaemonRunner struct{}
 
-func (NopDaemonRunner) SetEmitter(DaemonEventEmitter)        {}
+func (NopDaemonRunner) SetEmitter(DaemonEventEmitter)         {}
 func (NopDaemonRunner) EventStore() EventStore                { return nil }
 func (NopDaemonRunner) BuildNotifier() Notifier               { return NopNotifier{} }
 func (NopDaemonRunner) BuildInsightAppender() InsightAppender { return NopInsightAppender{} }

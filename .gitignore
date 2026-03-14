@@ -4,13 +4,13 @@
 /dist/
 # test
 coverage.out
-# phonewave runtime state — ignore contents individually (insights/ is git-tracked per S0030)
+# phonewave runtime state — ignore contents individually
+# git-tracked: insights/, archive/, config.yaml (per S0030)
 .phonewave/.run/
 .phonewave/events/
 .phonewave/watch.pid
 .phonewave/watch.started
 .phonewave/delivery.log
-.phonewave/config.yaml
 .phonewave/.otel.env
 .phonewave/.gitignore
 # environment-specific local files (must not contain full paths)

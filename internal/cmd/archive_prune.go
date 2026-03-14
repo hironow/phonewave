@@ -39,7 +39,10 @@ Pass --execute to actually remove the files.`,
   phonewave archive-prune -o json
 
   # Custom retention period
-  phonewave archive-prune --days 7 --execute`,
+  phonewave archive-prune --days 7 --execute
+
+  # Rebuild archive index from existing files
+  phonewave archive-prune --rebuild-index`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if execute && cmd.Flags().Changed("dry-run") {
@@ -52,6 +55,21 @@ Pass --execute to actually remove the files.`,
 			stateDir := filepath.Join(base, domain.StateDir)
 			outputFmt, _ := cmd.Flags().GetString("output")
 			errW := cmd.ErrOrStderr()
+
+			rebuildIndex, _ := cmd.Flags().GetBool("rebuild-index")
+			if rebuildIndex {
+				if execute {
+					return fmt.Errorf("--rebuild-index cannot be combined with --execute")
+				}
+				indexPath := filepath.Join(stateDir, "archive", "index.jsonl")
+				iw := &session.IndexWriter{}
+				n, rbErr := iw.Rebuild(indexPath, stateDir, "phonewave")
+				if rbErr != nil {
+					return fmt.Errorf("rebuild index: %w", rbErr)
+				}
+				fmt.Fprintf(errW, "Rebuilt index: %d entries → %s\n", n, indexPath)
+				return nil
+			}
 
 			files, err := session.ListExpiredEventFiles(cmd.Context(), stateDir, days)
 			if err != nil {
@@ -130,6 +148,7 @@ Pass --execute to actually remove the files.`,
 	cmd.Flags().IntVarP(&days, "days", "d", 30, "Retention days")
 	cmd.Flags().BoolP("dry-run", "n", false, "Dry-run mode (default behavior, explicit for scripting)")
 	cmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
+	cmd.Flags().Bool("rebuild-index", false, "Rebuild archive index from state directory")
 
 	return cmd
 }
