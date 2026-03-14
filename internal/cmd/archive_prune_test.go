@@ -286,4 +286,9 @@ func TestArchivePruneCmd_DaysFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	// Verify the old file is reported as a candidate (stderr in text mode)
+	stderrOut := errBuf.String()
+	if !strings.Contains(stderrOut, "2025-01-01") && !strings.Contains(stderrOut, "candidate") && !strings.Contains(stderrOut, "event") {
+		t.Errorf("--days 5 should report 10-day-old file as candidate, stderr: %q", stderrOut)
+	}
 }
