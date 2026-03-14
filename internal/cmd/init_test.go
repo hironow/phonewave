@@ -65,6 +65,36 @@ func TestInitCmd_WithoutForce_FailsIfExists(t *testing.T) {
 	}
 }
 
+func TestInitCmd_OtelBackend_CreatesOtelEnv(t *testing.T) {
+	// given: a temp dir as repo path with config pointing inside it
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, domain.StateDir)
+	cfgPath := filepath.Join(stateDir, domain.ConfigFile)
+
+	rootCmd := NewRootCommand()
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetIn(strings.NewReader(""))
+	rootCmd.SetArgs([]string{"--config", cfgPath, "init", "--otel-backend", "jaeger", dir})
+
+	// when
+	err := rootCmd.Execute()
+
+	// then
+	if err != nil {
+		t.Fatalf("init --otel-backend jaeger failed: %v", err)
+	}
+	otelPath := filepath.Join(stateDir, ".otel.env")
+	data, readErr := os.ReadFile(otelPath)
+	if readErr != nil {
+		t.Fatalf(".otel.env not created: %v", readErr)
+	}
+	if !strings.Contains(string(data), "OTEL_EXPORTER_OTLP_ENDPOINT") {
+		t.Errorf("expected OTEL_EXPORTER_OTLP_ENDPOINT in .otel.env, got:\n%s", data)
+	}
+}
+
 func TestInitCmd_OtelFlags_Exist(t *testing.T) {
 	// given
 	rootCmd := NewRootCommand()
