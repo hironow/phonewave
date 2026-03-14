@@ -156,7 +156,7 @@ Running `phonewave` without a subcommand defaults to `run` (start the courier da
 | `phonewave run` | Start the courier daemon (foreground) |
 | `phonewave status` | Show daemon state, uptime, and 24h delivery statistics |
 | `phonewave clean` | Remove runtime state from `.phonewave/` |
-| `phonewave archive-prune` | Prune old archived D-Mail files |
+| `phonewave archive-prune` | Prune old archived D-Mail files (`--rebuild-index` to rebuild JSONL index) |
 | `phonewave version` | Print build version information |
 | `phonewave update` | Update phonewave to the latest version |
 

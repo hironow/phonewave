@@ -12,6 +12,8 @@ the working directory (where `phonewave init` is run) and each monitored reposit
     watch.pid                 # daemon PID (ephemeral)
     watch.started             # daemon start timestamp (ephemeral)
     delivery.log              # append-only delivery audit log
+    archive/                  # permanent D-Mail audit trail (git-tracked)
+      index.jsonl             # archive index (metadata of pruned/existing .md files)
     events/
       {YYYY-MM-DD}.jsonl      # event store (append-only, one file per day)
     insights/                 # insight ledger files (git-tracked, per ADR S0030)
@@ -27,6 +29,7 @@ the working directory (where `phonewave init` is run) and each monitored reposit
 | Path | Tracked | Reason |
 |------|---------|--------|
 | `.phonewave/config.yaml` | Yes | Declarative manifest, shared across clones |
+| `.phonewave/archive/` | Yes | Permanent D-Mail audit trail; `index.jsonl` records metadata of pruned files |
 | `.phonewave/delivery.log` | No | Runtime audit trail, ephemeral per daemon instance |
 | `.phonewave/insights/` | Yes | Semantic insight ledger (per ADR S0030) |
 | `.phonewave/events/` | No | Runtime event store, rebuild from source |

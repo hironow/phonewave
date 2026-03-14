@@ -31,16 +31,20 @@ phonewave archive-prune [path] [flags]
 
   # Custom retention period
   phonewave archive-prune --days 7 --execute
+
+  # Rebuild archive index from existing files
+  phonewave archive-prune --rebuild-index
 ```
 
 ### Options
 
 ```
-  -d, --days int   Retention days (default 30)
-  -n, --dry-run    Dry-run mode (default behavior, explicit for scripting)
-  -x, --execute    Execute pruning (default: dry-run)
-  -h, --help       help for archive-prune
-  -y, --yes        Skip confirmation prompt
+  -d, --days int       Retention days (default 30)
+  -n, --dry-run        Dry-run mode (default behavior, explicit for scripting)
+  -x, --execute        Execute pruning (default: dry-run)
+  -h, --help           help for archive-prune
+      --rebuild-index  Rebuild archive index from existing files without pruning
+  -y, --yes            Skip confirmation prompt
 ```
 
 ### Options inherited from parent commands
@@ -54,5 +58,4 @@ phonewave archive-prune [path] [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)	 - D-Mail courier daemon
-
+* [phonewave](phonewave.md)  - D-Mail courier daemon
