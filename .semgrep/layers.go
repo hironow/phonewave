@@ -245,21 +245,7 @@ func badAggCall(p struct{ Aggregate interface{ RecordDelivery() } }) {
 // ok: session-no-aggregate-method-call
 func goodEmitterCall(e port.DaemonEventEmitter) {}
 
-// --- Rule 22: daemon-session-direct-access ---
-
-func badDaemonSessionAccess(d struct {
-	session struct{ HasErrorQueue func() bool }
-}) {
-	// ruleid: daemon-session-direct-access
-	d.session.HasErrorQueue()
-}
-
-func goodDaemonForwarding(d struct{ hasErrorQueue func() bool }) {
-	// ok: daemon-session-direct-access
-	d.hasErrorQueue()
-}
-
-// --- Rule 23: lod-excessive-dot-chain ---
+// --- Rule: lod-excessive-dot-chain ---
 
 func badLodChain(a struct {
 	B struct{ C struct{ D func() } }

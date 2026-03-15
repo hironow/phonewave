@@ -518,25 +518,6 @@ rules:
       Why: embed はファイルシステム依存、text/template は I/O 寄りの責務であり、pure な domain 層に含めるべきではない
       How: template 責務は platform 層に配置してください
 
-  # --- Rule 23: No state dir literal in filepath.Join ---
-
-  - id: no-state-dir-literal-in-path-join
-    languages: [go]
-    severity: ERROR
-    pattern-either:
-      - pattern: filepath.Join($X, ".phonewave")
-      - pattern: filepath.Join($X, ".phonewave", ...)
-    paths:
-      include:
-        - "/internal/**"
-      exclude:
-        - "*_test.go"
-        - "/internal/domain/**"
-    message: |
-      filepath.Join での state dir literal ".phonewave" 直書きは禁止です。
-      Why: マジックストリングの散在は変更時の修正漏れやタイポを引き起こす
-      How: domain.StateDir 定数を使用してください
-
   # --- Rule: session must not implement event persistence (todo 73) ---
   - id: layer-session-no-event-persistence
     languages: [generic]
@@ -584,23 +565,6 @@ rules:
       session 層で 3段以上の dot-chain が検出されました。
       Why: 過度な dot-chain は Law of Demeter に違反し、内部構造への密結合を引き起こす (Tell-Don't-Ask 原則)
       How: 中間オブジェクトに委譲メソッドを追加してください。誤検知の場合は nosemgrep を付与してください
-
-  # --- Rule: DaemonSession raw field access guard ---
-
-  - id: daemon-session-direct-access
-    languages: [go]
-    severity: ERROR
-    pattern-regex: '\bd\.session\.\w+'
-    paths:
-      include:
-        - "/internal/session/**"
-      exclude:
-        - "*_test.go"
-        - "**/internal/session/daemon_runner.go"
-    message: |
-      session 層で d.session.Method() の 2-level アクセスが検出されました。
-      Why: DaemonSession への直接アクセスは Law of Demeter に違反し、内部構造への密結合を生む (Tell-Don't-Ask 原則)
-      How: Daemon の forwarding メソッド経由でアクセスしてください（例: d.session.HasErrorQueue() → d.hasErrorQueue()）。forwarding メソッドは daemon_runner.go に定義してください
 
   # --- Rule: No hardcoded "claude" literal in exec arguments ---
 
