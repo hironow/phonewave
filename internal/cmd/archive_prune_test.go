@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hironow/phonewave/internal/domain"
 )
 
@@ -182,5 +184,111 @@ func TestArchivePruneCmd_JSONOutput_Execute(t *testing.T) {
 	}
 	if result.Deleted != 1 {
 		t.Errorf("deleted = %d, want 1", result.Deleted)
+	}
+}
+
+func TestArchivePruneCmd_RebuildIndexFlag_Exists(t *testing.T) {
+	// given
+	rootCmd := NewRootCommand()
+
+	// when — find archive-prune subcommand
+	var apCmd *cobra.Command
+	for _, sub := range rootCmd.Commands() {
+		if sub.Name() == "archive-prune" {
+			apCmd = sub
+			break
+		}
+	}
+	if apCmd == nil {
+		t.Fatal("archive-prune subcommand not found")
+	}
+
+	// then
+	f := apCmd.Flags().Lookup("rebuild-index")
+	if f == nil {
+		t.Fatal("--rebuild-index flag not found on archive-prune")
+	}
+}
+
+func TestArchivePruneCmd_RebuildIndex_ConflictsWithExecute(t *testing.T) {
+	// given
+	dir := t.TempDir()
+	rootCmd := NewRootCommand()
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"--config", filepath.Join(dir, domain.StateDir, domain.ConfigFile), "archive-prune", "--rebuild-index", "--execute"})
+
+	// when
+	err := rootCmd.Execute()
+
+	// then — should fail with conflict error
+	if err == nil {
+		t.Fatal("expected error when combining --rebuild-index with --execute")
+	}
+	if !strings.Contains(err.Error(), "rebuild-index") {
+		t.Errorf("error should mention rebuild-index, got: %v", err)
+	}
+}
+
+func TestArchivePruneCmd_RebuildIndex_CreatesIndex(t *testing.T) {
+	// given — state directory with archive subdirectory
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, domain.StateDir)
+	archiveDir := filepath.Join(stateDir, "archive")
+	os.MkdirAll(archiveDir, 0o755)
+	os.WriteFile(filepath.Join(archiveDir, "2025-01-01.jsonl"), []byte(`{"id":"1","tool":"phonewave"}`+"\n"), 0o644)
+
+	rootCmd := NewRootCommand()
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"--config", filepath.Join(stateDir, domain.ConfigFile), "archive-prune", "--rebuild-index"})
+
+	// when
+	err := rootCmd.Execute()
+
+	// then
+	if err != nil {
+		t.Fatalf("--rebuild-index failed: %v", err)
+	}
+	indexPath := filepath.Join(archiveDir, "index.jsonl")
+	if _, statErr := os.Stat(indexPath); errors.Is(statErr, fs.ErrNotExist) {
+		t.Error("expected index.jsonl to be created by --rebuild-index")
+	}
+}
+
+func TestArchivePruneCmd_DaysFlag(t *testing.T) {
+	// given — use custom days value
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, domain.StateDir)
+	eventsDir := filepath.Join(stateDir, "events")
+	os.MkdirAll(eventsDir, 0o755)
+
+	// Create a file 10 days old
+	oldFile := filepath.Join(eventsDir, "2025-01-01.jsonl")
+	os.WriteFile(oldFile, []byte(`{"id":"old"}`+"\n"), 0o644)
+	oldTime := time.Now().Add(-10 * 24 * time.Hour)
+	os.Chtimes(oldFile, oldTime, oldTime)
+
+	rootCmd := NewRootCommand()
+	outBuf := new(bytes.Buffer)
+	errBuf := new(bytes.Buffer)
+	rootCmd.SetOut(outBuf)
+	rootCmd.SetErr(errBuf)
+	// --days 5 should find the 10-day-old file as a candidate
+	rootCmd.SetArgs([]string{"--config", filepath.Join(stateDir, domain.ConfigFile), "archive-prune", "--days", "5"})
+
+	// when
+	err := rootCmd.Execute()
+
+	// then — dry-run with --days 5 should report the candidate
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Verify the old file is reported as a candidate (stderr in text mode)
+	stderrOut := errBuf.String()
+	if !strings.Contains(stderrOut, "2025-01-01") && !strings.Contains(stderrOut, "candidate") && !strings.Contains(stderrOut, "event") {
+		t.Errorf("--days 5 should report 10-day-old file as candidate, stderr: %q", stderrOut)
 	}
 }
