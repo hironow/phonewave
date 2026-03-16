@@ -12,6 +12,7 @@ import (
 
 // compile-time interface check
 var _ domain.Logger = (*Logger)(nil)
+var _ domain.BannerLogger = (*Logger)(nil)
 
 // ANSI color codes — CVD (Color Vision Deficiency) friendly palette.
 //
@@ -28,6 +29,11 @@ const (
 	ansiYellow   = "\033[33m"   // WARN — yellow axis, safe for common CVD
 	ansiBoldRed  = "\033[1;31m" // ERR  — convention + bold brightness for CVD
 	ansiGray     = "\033[90m"   // DBUG — brightness-only, no hue dependency
+
+	ansiInvertGreen = "\033[7;32m" // SEND banner — CVD-safe green inversion
+	ansiInvertCyan  = "\033[7;36m" // RECV banner — CVD-safe cyan inversion
+	ansiInvertWhite = "\033[7;1m"  // Header — bold inverted (white on black)
+	ansiInvertBlue  = "\033[7;34m" // Section — blue axis inverted
 )
 
 // Logger provides structured, timestamped log output.
@@ -143,6 +149,77 @@ func SeverityColor(severity string) string {
 		return ansiBoldRed
 	default:
 		return ""
+	}
+}
+
+// Banner prints an inverted-color full-line banner for D-Mail intent logging.
+// SEND uses green inversion, RECV uses cyan inversion.
+// In no-color mode, uses >>> / <<< prefix as fallback.
+func (l *Logger) Banner(dir domain.BannerDirection, kind, name, description string) {
+	desc := description
+	if len(desc) > 50 {
+		desc = desc[:47] + "..."
+	}
+
+	var arrow, label, color, plainArrow string
+	switch dir {
+	case domain.BannerSend:
+		arrow = "▶"
+		label = "D-MAIL SEND"
+		color = ansiInvertGreen
+		plainArrow = ">>>"
+	default:
+		arrow = "◀"
+		label = "D-MAIL RECV"
+		color = ansiInvertCyan
+		plainArrow = "<<<"
+	}
+
+	ts := time.Now().Format("15:04:05")
+	content := fmt.Sprintf("%s %s %s (%s) %q", arrow, label, kind, name, desc)
+	plainContent := fmt.Sprintf("%s %s %s (%s) %q", plainArrow, label, kind, name, desc)
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.noColor {
+		fmt.Fprintf(l.out, "[%s] %s\n", ts, plainContent)
+	} else {
+		fmt.Fprintf(l.out, "%s[%s] %s%s\n", color, ts, content, ansiReset)
+	}
+	if l.extraWriter != nil {
+		fmt.Fprintf(l.extraWriter, "[%s] %s\n", ts, plainContent)
+	}
+}
+
+// Header prints a single-line startup header with tool name and version.
+// Uses bold inverted text for maximum visibility.
+func (l *Logger) Header(toolName, version string) {
+	content := fmt.Sprintf(" %s %s ", toolName, version)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.noColor {
+		fmt.Fprintf(l.out, "=== %s ===\n", content)
+	} else {
+		fmt.Fprintf(l.out, "%s%s%s\n", ansiInvertWhite, content, ansiReset)
+	}
+	if l.extraWriter != nil {
+		fmt.Fprintf(l.extraWriter, "=== %s ===\n", content)
+	}
+}
+
+// Section prints a single-line section separator for phase transitions.
+// Uses blue inverted text.
+func (l *Logger) Section(title string) {
+	content := fmt.Sprintf(" %s ", title)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.noColor {
+		fmt.Fprintf(l.out, "--- %s ---\n", content)
+	} else {
+		fmt.Fprintf(l.out, "%s%s%s\n", ansiInvertBlue, content, ansiReset)
+	}
+	if l.extraWriter != nil {
+		fmt.Fprintf(l.extraWriter, "--- %s ---\n", content)
 	}
 }
 
