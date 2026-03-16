@@ -17,5 +17,10 @@ func NewCmdNotifierForTest(cmdTemplate string, factory func(ctx context.Context,
 	return &CmdNotifier{cmdTemplate: cmdTemplate, cmdFactory: factory}
 }
 
+// NewCmdApproverForTest creates a CmdApprover with a test command factory.
+func NewCmdApproverForTest(cmdTemplate string, factory func(ctx context.Context, name string, args ...string) *exec.Cmd) *CmdApprover {
+	return &CmdApprover{cmdTemplate: cmdTemplate, cmdFactory: factory}
+}
+
 // ExportSkillsRefAvailable exposes skillsRefAvailable for external tests.
 var ExportSkillsRefAvailable = skillsRefAvailable

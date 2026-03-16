@@ -2,6 +2,8 @@ package session
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -18,6 +20,16 @@ import (
 func NewEventStore(stateDir string, logger domain.Logger) port.EventStore {
 	raw := eventsource.NewFileEventStore(filepath.Join(stateDir, "events"), logger)
 	return NewSpanEventStore(raw)
+}
+
+// EnsureRunDir creates the .run/ directory under stateDir if it does not exist.
+// Call once before opening stores that write to .run/ (idempotent).
+func EnsureRunDir(stateDir string) error {
+	runDir := filepath.Join(stateDir, ".run")
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		return fmt.Errorf("ensure run dir: %w", err)
+	}
+	return nil
 }
 
 // NewErrorQueueStore creates a SQLiteErrorQueueStore at {stateDir}/.run/error_queue.db.

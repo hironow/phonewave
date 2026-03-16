@@ -64,11 +64,8 @@ func (s *DaemonSession) HasErrorQueue() bool {
 	return s != nil && s.ErrorQueue != nil
 }
 
-// ErrorQueueStore returns the underlying ErrorQueueStore, or nil if unavailable.
+// ErrorQueueStore returns the underlying ErrorQueueStore.
 func (s *DaemonSession) ErrorQueueStore() port.ErrorQueueStore {
-	if s == nil {
-		return nil
-	}
 	return s.ErrorQueue
 }
 

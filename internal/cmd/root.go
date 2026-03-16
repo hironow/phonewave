@@ -3,12 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -46,7 +47,18 @@ func NewRootCommand() *cobra.Command {
 			if noColor {
 				os.Setenv("NO_COLOR", "1")
 			}
-			// Auto-migrate legacy phonewave.yaml → .phonewave/config.yaml
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			out := cmd.ErrOrStderr()
+			quiet, _ := cmd.Flags().GetBool("quiet")
+			if quiet {
+				out = io.Discard
+			}
+			logger := platform.NewLogger(out, verbose)
+			outputFmt, _ := cmd.Flags().GetString("output")
+			if outputFmt != "json" {
+				logger.Header("phonewave", Version)
+				logger.Section(cmd.Name())
+			}
 			if migErr := session.MigrateConfigIfNeeded(projectRoot(cmd)); migErr != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: config migration: %v\n", migErr)
 			}
@@ -66,24 +78,17 @@ func NewRootCommand() *cobra.Command {
 		cobra.OnFinalize(func() {
 			endRootSpan()
 			if shutdownMeterFn != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := shutdownMeterFn(ctx); err != nil {
-					fmt.Fprintf(os.Stderr, "meter shutdown: %v\n", err)
-				}
+				shutdownMeterFn(context.Background())
 			}
 			if shutdownTracerFn != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := shutdownTracerFn(ctx); err != nil {
-					fmt.Fprintf(os.Stderr, "tracer shutdown: %v\n", err)
-				}
+				shutdownTracerFn(context.Background())
 			}
 		})
 	})
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Log all delivery events to stderr")
 	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output (respects NO_COLOR env)")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress all stderr output")
 	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", domain.StateDir, domain.ConfigFile), "Path to phonewave config file")
 	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format: text, json")
 

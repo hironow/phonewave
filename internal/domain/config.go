@@ -24,6 +24,25 @@ type EndpointConfig struct {
 	Consumes []string `yaml:"consumes,flow"`
 }
 
+// ApproverConfig describes how approval behavior is configured.
+// Implemented by FlagApproverConfig. Used by session.BuildApprover.
+type ApproverConfig interface {
+	IsAutoApprove() bool
+	ApproveCmdString() string
+}
+
+// FlagApproverConfig adapts CLI flag values to the ApproverConfig interface.
+type FlagApproverConfig struct {
+	AutoApprove bool
+	ApproveCmd  string
+}
+
+// IsAutoApprove reports whether auto-approve is enabled.
+func (f FlagApproverConfig) IsAutoApprove() bool { return f.AutoApprove }
+
+// ApproveCmdString returns the approval command string.
+func (f FlagApproverConfig) ApproveCmdString() string { return f.ApproveCmd }
+
 // RouteConfig holds a derived routing rule.
 type RouteConfig struct {
 	Kind     string   `yaml:"kind"`
