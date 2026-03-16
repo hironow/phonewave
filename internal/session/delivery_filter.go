@@ -16,12 +16,8 @@ func SaveDeliveryFilter(stateDir string, bf *domain.BloomFilter) error {
 	if bf == nil {
 		return nil
 	}
-	runDir := filepath.Join(stateDir, ".run")
-	if err := os.MkdirAll(runDir, 0o755); err != nil {
-		return err
-	}
 	data := bf.MarshalBinary()
-	return os.WriteFile(filepath.Join(runDir, deliveryFilterFile), data, 0o600)
+	return os.WriteFile(filepath.Join(stateDir, ".run", deliveryFilterFile), data, 0o600)
 }
 
 // LoadDeliveryFilter loads a persisted Bloom filter from {stateDir}/.run/delivered.bloom.

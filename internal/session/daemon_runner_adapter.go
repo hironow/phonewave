@@ -54,6 +54,12 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		return nil, fmt.Errorf("daemon lock: %w", err)
 	}
 
+	// Ensure .run/ directory exists for stores (idempotent)
+	if err := EnsureRunDir(stateDir); err != nil {
+		unlock()
+		return nil, err
+	}
+
 	// Initialize session-layer stores via factory (ADR S0008: no direct eventsource import)
 	eventStore := NewEventStore(stateDir, logger)
 

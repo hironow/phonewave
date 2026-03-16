@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/hironow/phonewave/internal/domain"
@@ -25,12 +24,7 @@ var _ port.ErrorQueueStore = (*SQLiteErrorQueueStore)(nil)
 // NewSQLiteErrorQueueStore opens (or creates) a SQLite error queue store
 // at {stateDir}/error_queue.db and initialises the schema.
 func NewSQLiteErrorQueueStore(stateDir string) (*SQLiteErrorQueueStore, error) {
-	runDir := filepath.Join(stateDir, ".run")
-	if err := os.MkdirAll(runDir, 0o755); err != nil {
-		return nil, fmt.Errorf("error queue store: create dir: %w", err)
-	}
-
-	dbPath := filepath.Join(runDir, "error_queue.db")
+	dbPath := filepath.Join(stateDir, ".run", "error_queue.db")
 	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close() [permanent]
 	if err != nil {
 		return nil, fmt.Errorf("error queue store: open db: %w", err)
