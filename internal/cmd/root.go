@@ -46,9 +46,10 @@ func NewRootCommand() *cobra.Command {
 			if noColor {
 				os.Setenv("NO_COLOR", "1")
 			}
-			headerLogger := platform.NewLogger(cmd.ErrOrStderr(), false)
-			headerLogger.Header("phonewave", Version)
-			headerLogger.Section(cmd.Name())
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
+			logger.Header("phonewave", Version)
+			logger.Section(cmd.Name())
 			// Auto-migrate legacy phonewave.yaml → .phonewave/config.yaml
 			if migErr := session.MigrateConfigIfNeeded(projectRoot(cmd)); migErr != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: config migration: %v\n", migErr)
