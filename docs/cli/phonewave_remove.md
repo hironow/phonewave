@@ -29,6 +29,7 @@ phonewave remove <repo-path> [flags]
   -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
       --no-color        Disable colored output (respects NO_COLOR env)
   -o, --output string   Output format: text, json (default "text")
+  -q, --quiet           Suppress all stderr output
   -v, --verbose         Log all delivery events to stderr
 ```
 
