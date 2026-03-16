@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -45,6 +46,9 @@ func NewRootCommand() *cobra.Command {
 			if noColor {
 				os.Setenv("NO_COLOR", "1")
 			}
+			headerLogger := platform.NewLogger(cmd.ErrOrStderr(), false)
+			headerLogger.Header("phonewave", Version)
+			headerLogger.Section(cmd.Name())
 			// Auto-migrate legacy phonewave.yaml → .phonewave/config.yaml
 			if migErr := session.MigrateConfigIfNeeded(projectRoot(cmd)); migErr != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: config migration: %v\n", migErr)
