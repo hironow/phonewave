@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
@@ -66,18 +65,10 @@ func NewRootCommand() *cobra.Command {
 		cobra.OnFinalize(func() {
 			endRootSpan()
 			if shutdownMeterFn != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := shutdownMeterFn(ctx); err != nil {
-					fmt.Fprintf(os.Stderr, "meter shutdown: %v\n", err)
-				}
+				shutdownMeterFn(context.Background())
 			}
 			if shutdownTracerFn != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				if err := shutdownTracerFn(ctx); err != nil {
-					fmt.Fprintf(os.Stderr, "tracer shutdown: %v\n", err)
-				}
+				shutdownTracerFn(context.Background())
 			}
 		})
 	})
