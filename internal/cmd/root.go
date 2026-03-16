@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -47,7 +48,12 @@ func NewRootCommand() *cobra.Command {
 				os.Setenv("NO_COLOR", "1")
 			}
 			verbose, _ := cmd.Flags().GetBool("verbose")
-			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
+			out := cmd.ErrOrStderr()
+			quiet, _ := cmd.Flags().GetBool("quiet")
+			if quiet {
+				out = io.Discard
+			}
+			logger := platform.NewLogger(out, verbose)
 			logger.Header("phonewave", Version)
 			logger.Section(cmd.Name())
 			// Auto-migrate legacy phonewave.yaml → .phonewave/config.yaml
@@ -80,6 +86,7 @@ func NewRootCommand() *cobra.Command {
 
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Log all delivery events to stderr")
 	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output (respects NO_COLOR env)")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress all stderr output")
 	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", domain.StateDir, domain.ConfigFile), "Path to phonewave config file")
 	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format: text, json")
 
