@@ -26,7 +26,11 @@ type SQLiteDeliveryStore struct {
 // NewSQLiteDeliveryStore opens (or creates) a SQLite delivery store
 // at {stateDir}/.run/delivery.db and initialises the schema.
 func NewSQLiteDeliveryStore(stateDir string) (*SQLiteDeliveryStore, error) {
-	dbPath := filepath.Join(stateDir, ".run", "delivery.db")
+	runDir := filepath.Join(stateDir, ".run")
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		return nil, fmt.Errorf("delivery store: create dir: %w", err)
+	}
+	dbPath := filepath.Join(runDir, "delivery.db")
 	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close() [permanent]
 	if err != nil {
 		return nil, fmt.Errorf("delivery store: open db: %w", err)
