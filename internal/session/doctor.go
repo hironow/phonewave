@@ -213,11 +213,25 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool, _ string) domain.D
 	return report
 }
 
+// skillsRefBinNames lists possible binary names for the skills-ref package.
+// "uv tool install skills-ref" installs as "agentskills", not "skills-ref".
+var skillsRefBinNames = []string{"skills-ref", "agentskills"}
+
+// findSkillsRefBin checks PATH for any known skills-ref binary name.
+func findSkillsRefBin() (string, error) {
+	for _, name := range skillsRefBinNames {
+		if path, err := lookPathFn(name); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("none of %v found on PATH", skillsRefBinNames)
+}
+
 // checkSkillsRefToolchain reports skills-ref and uv availability and venv state.
 func checkSkillsRefToolchain(report *domain.DoctorReport, repair bool) {
 	// Check skills-ref on PATH (global install)
-	if _, err := lookPathFn("skills-ref"); err == nil {
-		report.AddOK("skills-ref", "skills-ref found on PATH")
+	if path, err := findSkillsRefBin(); err == nil {
+		report.AddOK("skills-ref", fmt.Sprintf("skills-ref found on PATH (%s)", filepath.Base(path)))
 		return
 	}
 
@@ -250,7 +264,7 @@ func checkSkillsRefToolchain(report *domain.DoctorReport, repair bool) {
 				`try manually: "uv tool install skills-ref"`)
 		} else {
 			// Verify the binary is actually on PATH after install
-			if _, err := lookPathFn("skills-ref"); err != nil {
+			if _, err := findSkillsRefBin(); err != nil {
 				report.AddWarnWithHint("skills-ref",
 					"uv tool install skills-ref succeeded but skills-ref is not on PATH",
 					`add uv's tool bin directory to your PATH (e.g. ~/.local/bin)`)
