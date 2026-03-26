@@ -109,4 +109,3 @@ func TestVersionCmd_RejectsArgs(t *testing.T) {
 		t.Fatal("expected error for extra args on version")
 	}
 }
-
