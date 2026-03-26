@@ -29,7 +29,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, logger 
 	registerDaemonPolicies(engine, logger, notifier, metrics, insights, reader)
 
 	// Aggregate lives in usecase — never exposed to session layer.
-	agg := domain.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate("")
 	emitter := NewDeliveryEventEmitter(agg, runner.EventStore(), engine, logger)
 	runner.SetEmitter(emitter)
 

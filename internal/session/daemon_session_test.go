@@ -69,7 +69,7 @@ func newTestDaemonSession(t *testing.T) (*session.DaemonSession, port.EventStore
 	routes := []domain.ResolvedRoute{
 		{Kind: "specification", FromOutbox: "/tmp/outbox", ToInboxes: []string{"/tmp/inbox"}},
 	}
-	agg := domain.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate("")
 	emitter := &testDaemonEventEmitter{agg: agg, store: eventStore}
 	ds := session.NewDaemonSession(errorQueue, dlog, routes, dir, logger)
 	ds.Emitter = emitter
