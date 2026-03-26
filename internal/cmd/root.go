@@ -91,6 +91,7 @@ func NewRootCommand() *cobra.Command {
 	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress all stderr output")
 	rootCmd.PersistentFlags().StringP("config", "c", filepath.Join(".", domain.StateDir, domain.ConfigFile), "Path to phonewave config file")
 	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format: text, json")
+	rootCmd.PersistentFlags().Bool("linear", false, "Use Linear MCP for issue tracking (default: wave-centric mode)")
 
 	rootCmd.AddCommand(
 		newInitCmd(),
