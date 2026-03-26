@@ -9,7 +9,7 @@ import (
 
 func TestDeliveryAggregate_RecordDelivery(t *testing.T) {
 	// given
-	agg := domain.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate("")
 
 	// when
 	ev, err := agg.RecordDelivery("/outbox/test.md", "specification", time.Now().UTC())
@@ -25,7 +25,7 @@ func TestDeliveryAggregate_RecordDelivery(t *testing.T) {
 
 func TestDeliveryAggregate_RecordFailure(t *testing.T) {
 	// given
-	agg := domain.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate("")
 
 	// when
 	ev, err := agg.RecordFailure("/outbox/test.md", "specification", "parse error", time.Now().UTC())
@@ -41,7 +41,7 @@ func TestDeliveryAggregate_RecordFailure(t *testing.T) {
 
 func TestDeliveryAggregate_RecordRetry(t *testing.T) {
 	// given
-	agg := domain.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate("")
 
 	// when
 	ev, err := agg.RecordRetry("retry-spec.md", "specification", time.Now().UTC())
@@ -57,7 +57,7 @@ func TestDeliveryAggregate_RecordRetry(t *testing.T) {
 
 func TestDeliveryAggregate_RecordScan(t *testing.T) {
 	// given
-	agg := domain.NewDeliveryAggregate()
+	agg := domain.NewDeliveryAggregate("")
 
 	// when
 	ev, err := agg.RecordScan("/outbox", 5, 2, time.Now().UTC())
