@@ -3,10 +3,12 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/eventsource"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -43,9 +45,14 @@ or rendering with terminal tools (sampler, wtf).`,
 			}
 
 			stateDir := configBase(cmd)
+			quiet, _ := cmd.Flags().GetBool("quiet")
+			var logOut io.Writer = cmd.ErrOrStderr()
+			if quiet {
+				logOut = io.Discard
+			}
 			store := eventsource.NewFileEventStore(
 				eventsource.EventsDir(stateDir),
-				nil,
+				platform.NewLogger(logOut, false),
 			)
 
 			now := time.Now().UTC()
