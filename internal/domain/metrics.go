@@ -8,9 +8,9 @@ import (
 
 // DeliveryMetrics holds delivery counts for success rate calculation.
 type DeliveryMetrics struct {
-	Delivered int
-	Failed    int
-	Retried   int
+	Delivered int `json:"delivered"`
+	Failed    int `json:"failed"`
+	Retried   int `json:"retried"`
 }
 
 // SuccessRate calculates the delivery success rate.
