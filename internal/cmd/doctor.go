@@ -185,15 +185,37 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 		Name: "daemon", Status: "OK", Message: daemonMsg,
 	})
 
-	// Run other 3 tool doctors in parallel via subprocess
+	// Resolve repo paths per tool from phonewave config (multi-repo support).
+	// Maps endpoint state dir to tool name for lookup.
+	toolForDir := map[string]string{
+		".siren": "sightjack", ".expedition": "paintress", ".gate": "amadeus",
+	}
+	toolPaths := make(map[string]string) // tool -> repo path
+	if cfg != nil {
+		for _, repo := range cfg.Repositories {
+			for _, ep := range repo.Endpoints {
+				if tool, ok := toolForDir[ep.Dir]; ok {
+					toolPaths[tool] = repo.Path
+				}
+			}
+		}
+	}
+	// Fallback: if config doesn't have a path for a tool, use repoPath
 	otherTools := []string{"sightjack", "paintress", "amadeus"}
+	for _, tool := range otherTools {
+		if _, ok := toolPaths[tool]; !ok {
+			toolPaths[tool] = repoPath
+		}
+	}
+
+	// Run other 3 tool doctors in parallel via subprocess
 	otherSections := make([]domain.ToolSection, len(otherTools))
 	var wg sync.WaitGroup
 	for i, tool := range otherTools {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			otherSections[i] = session.RunToolDoctor(ctx, tool, repoPath, repair)
+			otherSections[i] = session.RunToolDoctor(ctx, tool, toolPaths[tool], repair)
 		}()
 	}
 	wg.Wait()
