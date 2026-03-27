@@ -29,6 +29,7 @@ phonewave [flags]
 * [phonewave clean](phonewave_clean.md)	 - Remove runtime state from .phonewave/
 * [phonewave doctor](phonewave_doctor.md)	 - Verify ecosystem health
 * [phonewave init](phonewave_init.md)	 - Scan repositories, discover tools, generate routing table
+* [phonewave metrics](phonewave_metrics.md)	 - Output delivery health time-series as JSON
 * [phonewave remove](phonewave_remove.md)	 - Remove a repository from the ecosystem
 * [phonewave run](phonewave_run.md)	 - Start the courier daemon
 * [phonewave status](phonewave_status.md)	 - Show daemon and delivery status

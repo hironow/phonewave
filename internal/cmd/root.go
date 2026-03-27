@@ -101,6 +101,7 @@ func NewRootCommand() *cobra.Command {
 		newDoctorCmd(),
 		newRunCmd(),
 		newStatusCmd(),
+		newMetricsCmd(),
 		newCleanCmd(),
 		newArchivePruneCmd(),
 		newVersionCmd(),
