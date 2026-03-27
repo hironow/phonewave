@@ -15,22 +15,34 @@ const toolDoctorTimeout = 30 * time.Second
 
 // runStaticToolDoctor runs a specific tool's doctor command with static binary name.
 // This avoids dynamic exec.Command which semgrep flags as code injection risk.
-func runStaticToolDoctor(ctx context.Context, tool string, repoPath string) ([]byte, error) {
+func runStaticToolDoctor(ctx context.Context, tool string, repoPath string, repair bool) ([]byte, error) {
 	cmdCtx, cancel := context.WithTimeout(ctx, toolDoctorTimeout)
 	defer cancel()
 
 	switch tool {
-	case "phonewave":
-		cmd := exec.CommandContext(cmdCtx, "phonewave", "doctor", "-o", "json")
-		return cmd.Output()
 	case "sightjack":
-		cmd := exec.CommandContext(cmdCtx, "sightjack", "doctor", "-j", repoPath)
+		args := []string{"doctor", "-j"}
+		if repair {
+			args = append(args, "--repair")
+		}
+		args = append(args, repoPath)
+		cmd := exec.CommandContext(cmdCtx, "sightjack", args...)
 		return cmd.Output()
 	case "paintress":
-		cmd := exec.CommandContext(cmdCtx, "paintress", "doctor", "-o", "json", repoPath)
+		args := []string{"doctor", "-o", "json"}
+		if repair {
+			args = append(args, "--repair")
+		}
+		args = append(args, repoPath)
+		cmd := exec.CommandContext(cmdCtx, "paintress", args...)
 		return cmd.Output()
 	case "amadeus":
-		cmd := exec.CommandContext(cmdCtx, "amadeus", "doctor", "-j", repoPath)
+		args := []string{"doctor", "-j"}
+		if repair {
+			args = append(args, "--repair")
+		}
+		args = append(args, repoPath)
+		cmd := exec.CommandContext(cmdCtx, "amadeus", args...)
 		return cmd.Output()
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", tool)
@@ -44,10 +56,10 @@ func runStaticToolDoctor(ctx context.Context, tool string, repoPath string) ([]b
 //
 // Tools exit non-zero when checks fail but still produce valid JSON.
 // Only treat as error when no JSON output is available.
-func RunToolDoctor(ctx context.Context, tool string, repoPath string) domain.ToolSection {
+func RunToolDoctor(ctx context.Context, tool string, repoPath string, repair bool) domain.ToolSection {
 	section := domain.ToolSection{Tool: tool, Path: repoPath}
 
-	out, err := runStaticToolDoctor(ctx, tool, repoPath)
+	out, err := runStaticToolDoctor(ctx, tool, repoPath, repair)
 
 	// Tools exit non-zero on FAIL checks but still produce JSON.
 	// Only error when no output at all.

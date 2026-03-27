@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -143,26 +142,30 @@ the specified repo path and presents a unified report with cross-tool checks.`,
 func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 	ctx := cmd.Context()
 
-	// Load config from the target repo path (not cwd) for cross-tool checks.
-	// Falls back to cwd config if repoPath has no phonewave config.
-	cfgPath := configPath(cmd)
+	// Load config strictly from the target repo path (not cwd fallback).
+	// If repoPath has no phonewave config, report WARN — don't mix repos.
+	repair, _ := cmd.Flags().GetBool("repair")
+	var cfg *domain.Config
+	var cfgPath string
+	var stateDir string
 	if repoPath != "" {
-		candidate := filepath.Join(repoPath, ".phonewave", "config.yaml")
-		if _, statErr := os.Stat(candidate); statErr == nil {
-			cfgPath = candidate
-		}
+		cfgPath = filepath.Join(repoPath, ".phonewave", "config.yaml")
+	} else {
+		cfgPath = configPath(cmd)
 	}
-	cfg, cfgErr := session.LoadConfig(cfgPath) // best-effort: crosscheck needs config
-	stateDir := filepath.Dir(cfgPath)
+	stateDir = filepath.Dir(cfgPath)
+	loadedCfg, cfgErr := session.LoadConfig(cfgPath)
+	if cfgErr == nil {
+		cfg = loadedCfg
+	}
 
 	// Run phonewave doctor locally (not via subprocess) to use the correct config.
 	// If config is missing, report as a WARN check instead of crashing.
 	var pwReport domain.DoctorReport
-	if cfgErr != nil || cfg == nil {
+	if cfg == nil {
 		pwReport = domain.DoctorReport{Healthy: true}
 		pwReport.AddWarn("config", fmt.Sprintf("phonewave not initialized (%s)", cfgPath))
 	} else {
-		repair := false
 		pwReport = session.Doctor(cfg, stateDir, repair, cfgPath)
 	}
 	pwSection := domain.ToolSection{Tool: "phonewave"}
@@ -190,7 +193,7 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			otherSections[i] = session.RunToolDoctor(ctx, tool, repoPath)
+			otherSections[i] = session.RunToolDoctor(ctx, tool, repoPath, repair)
 		}()
 	}
 	wg.Wait()
