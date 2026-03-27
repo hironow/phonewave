@@ -1,5 +1,7 @@
 package domain
 
+// white-box-reason: tests AggregateHealthTimeSeries which accesses unexported accumulator type and bucket indexing logic
+
 import (
 	"encoding/json"
 	"testing"
