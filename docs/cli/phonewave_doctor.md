@@ -6,15 +6,21 @@ Verify ecosystem health
 
 Check ecosystem health: verify paths, endpoints, SKILL.md spec compliance, PID conflicts, and daemon status.
 
+With --all, runs all 4 tool doctors (sightjack, paintress, amadeus) against
+the specified repo path and presents a unified report with cross-tool checks.
+
 ```
-phonewave doctor [flags]
+phonewave doctor [repo-path] [flags]
 ```
 
 ### Examples
 
 ```
-  # Run ecosystem health check
+  # Run phonewave-only health check
   phonewave doctor
+
+  # Run unified health check across all 4 tools
+  phonewave doctor --all /path/to/repo
 
   # JSON output for scripting
   phonewave doctor -o json
@@ -26,6 +32,7 @@ phonewave doctor [flags]
 ### Options
 
 ```
+      --all      Run unified doctor across all 4 TAP tools
   -h, --help     help for doctor
       --repair   Auto-fix repairable issues
 ```
