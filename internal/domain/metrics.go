@@ -74,7 +74,7 @@ func AggregateHealthTimeSeries(events []Event, windowStart time.Time, bucketSize
 
 	var totals DeliveryMetrics
 	for _, ev := range events {
-		if ev.Timestamp.Before(windowStart) {
+		if ev.Timestamp.Before(windowStart) || ev.Timestamp.After(now) {
 			continue
 		}
 		idx := int(ev.Timestamp.Sub(windowStart) / bucketSize)
