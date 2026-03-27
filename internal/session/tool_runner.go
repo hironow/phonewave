@@ -56,14 +56,23 @@ func RunToolDoctor(ctx context.Context, tool string, repoPath string) domain.Too
 		return section
 	}
 
-	// Try format 1: array of checks (sightjack/paintress/amadeus)
+	// Try format 1: wrapped {"checks":[...]} (sightjack/paintress/amadeus)
+	var wrapped struct {
+		Checks []domain.UnifiedCheck `json:"checks"`
+	}
+	if jsonErr := json.Unmarshal(out, &wrapped); jsonErr == nil && len(wrapped.Checks) > 0 {
+		section.Checks = wrapped.Checks
+		return section
+	}
+
+	// Try format 2: raw array of checks (fallback)
 	var checks []domain.UnifiedCheck
 	if jsonErr := json.Unmarshal(out, &checks); jsonErr == nil && len(checks) > 0 {
 		section.Checks = checks
 		return section
 	}
 
-	// Try format 2: phonewave DoctorReport
+	// Try format 3: phonewave DoctorReport
 	var pwReport struct {
 		Healthy bool `json:"healthy"`
 		Issues  []struct {

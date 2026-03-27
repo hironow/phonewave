@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -135,23 +137,55 @@ the specified repo path and presents a unified report with cross-tool checks.`,
 // runUnifiedDoctor orchestrates all 4 tool doctors and presents a unified report.
 func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 	ctx := cmd.Context()
-	cfgPath := configPath(cmd)
-	cfg, _ := session.LoadConfig(cfgPath) // best-effort: crosscheck needs config
 
-	// Run tool doctors in parallel
-	tools := []string{"phonewave", "sightjack", "paintress", "amadeus"}
-	sections := make([]domain.ToolSection, len(tools))
+	// Load config from the target repo path (not cwd) for cross-tool checks.
+	// Falls back to cwd config if repoPath has no phonewave config.
+	cfgPath := configPath(cmd)
+	if repoPath != "" {
+		candidate := filepath.Join(repoPath, ".phonewave", "config.yaml")
+		if _, statErr := os.Stat(candidate); statErr == nil {
+			cfgPath = candidate
+		}
+	}
+	cfg, _ := session.LoadConfig(cfgPath) // best-effort: crosscheck needs config
+	stateDir := filepath.Dir(cfgPath)
+
+	// Run phonewave doctor locally (not via subprocess) to use the correct config.
+	repair := false
+	pwReport := session.Doctor(cfg, stateDir, repair, cfgPath)
+	pwSection := domain.ToolSection{Tool: "phonewave"}
+	for _, issue := range pwReport.Issues {
+		pwSection.Checks = append(pwSection.Checks, domain.UnifiedCheck{
+			Name:    issue.Endpoint,
+			Status:  severityToStatus(issue.Severity),
+			Message: issue.Message,
+			Hint:    issue.Hint,
+		})
+	}
+	daemonMsg := "not running"
+	if pwReport.DaemonStatus.Running {
+		daemonMsg = fmt.Sprintf("running (PID %d)", pwReport.DaemonStatus.PID)
+	}
+	pwSection.Checks = append(pwSection.Checks, domain.UnifiedCheck{
+		Name: "daemon", Status: "OK", Message: daemonMsg,
+	})
+
+	// Run other 3 tool doctors in parallel via subprocess
+	otherTools := []string{"sightjack", "paintress", "amadeus"}
+	otherSections := make([]domain.ToolSection, len(otherTools))
 	var wg sync.WaitGroup
-	for i, tool := range tools {
+	for i, tool := range otherTools {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sections[i] = session.RunToolDoctor(ctx, tool, repoPath)
+			otherSections[i] = session.RunToolDoctor(ctx, tool, repoPath)
 		}()
 	}
 	wg.Wait()
 
-	// Cross-tool checks
+	sections := append([]domain.ToolSection{pwSection}, otherSections...)
+
+	// Cross-tool checks (uses config loaded from target repo)
 	crossChecks := session.CheckRoutingConsistency(cfg)
 
 	report := domain.UnifiedDoctorReport{
