@@ -60,14 +60,14 @@ func RunToolDoctor(ctx context.Context, tool string, repoPath string) domain.Too
 	var wrapped struct {
 		Checks []domain.UnifiedCheck `json:"checks"`
 	}
-	if jsonErr := json.Unmarshal(out, &wrapped); jsonErr == nil && len(wrapped.Checks) > 0 {
-		section.Checks = wrapped.Checks
+	if jsonErr := json.Unmarshal(out, &wrapped); jsonErr == nil && wrapped.Checks != nil {
+		section.Checks = wrapped.Checks // may be empty (clean tool = no checks)
 		return section
 	}
 
 	// Try format 2: raw array of checks (fallback)
 	var checks []domain.UnifiedCheck
-	if jsonErr := json.Unmarshal(out, &checks); jsonErr == nil && len(checks) > 0 {
+	if jsonErr := json.Unmarshal(out, &checks); jsonErr == nil && checks != nil {
 		section.Checks = checks
 		return section
 	}

@@ -47,6 +47,11 @@ the specified repo path and presents a unified report with cross-tool checks.`,
 				return runUnifiedDoctor(cmd, repoPath, jsonOut)
 			}
 
+			// Reject positional repo-path without --all to avoid silent misreport
+			if len(args) > 0 {
+				return fmt.Errorf("repo-path argument requires --all flag")
+			}
+
 			repair, _ := cmd.Flags().GetBool("repair")
 
 			cfgPath := configPath(cmd)
@@ -147,12 +152,19 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 			cfgPath = candidate
 		}
 	}
-	cfg, _ := session.LoadConfig(cfgPath) // best-effort: crosscheck needs config
+	cfg, cfgErr := session.LoadConfig(cfgPath) // best-effort: crosscheck needs config
 	stateDir := filepath.Dir(cfgPath)
 
 	// Run phonewave doctor locally (not via subprocess) to use the correct config.
-	repair := false
-	pwReport := session.Doctor(cfg, stateDir, repair, cfgPath)
+	// If config is missing, report as a WARN check instead of crashing.
+	var pwReport domain.DoctorReport
+	if cfgErr != nil || cfg == nil {
+		pwReport = domain.DoctorReport{Healthy: true}
+		pwReport.AddWarn("config", fmt.Sprintf("phonewave not initialized (%s)", cfgPath))
+	} else {
+		repair := false
+		pwReport = session.Doctor(cfg, stateDir, repair, cfgPath)
+	}
 	pwSection := domain.ToolSection{Tool: "phonewave"}
 	for _, issue := range pwReport.Issues {
 		pwSection.Checks = append(pwSection.Checks, domain.UnifiedCheck{
