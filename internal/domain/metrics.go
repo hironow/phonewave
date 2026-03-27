@@ -55,7 +55,10 @@ type HealthTimeSeries struct {
 // AggregateHealthTimeSeries projects delivery events into a bucketed time series.
 // Pure function: no I/O, deterministic, testable in isolation.
 func AggregateHealthTimeSeries(events []Event, windowStart time.Time, bucketSize time.Duration, now time.Time) HealthTimeSeries {
-	numBuckets := int(now.Sub(windowStart)/bucketSize) + 1
+	numBuckets := int(now.Sub(windowStart) / bucketSize)
+	if now.Sub(windowStart)%bucketSize > 0 {
+		numBuckets++ // partial last bucket
+	}
 	if numBuckets <= 0 {
 		numBuckets = 1
 	}
