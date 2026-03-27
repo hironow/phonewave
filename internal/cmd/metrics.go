@@ -7,6 +7,7 @@ import (
 
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/eventsource"
+	"github.com/hironow/phonewave/internal/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +46,7 @@ or rendering with terminal tools (sampler, wtf).`,
 			stateDir := configBase(cmd)
 			store := eventsource.NewFileEventStore(
 				eventsource.EventsDir(stateDir),
-				nil,
+				platform.NewLogger(cmd.ErrOrStderr(), false),
 			)
 
 			now := time.Now().UTC()
