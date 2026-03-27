@@ -1,5 +1,8 @@
 package domain
 
+// DefaultEndpointName is used when an endpoint name is empty or unresolvable.
+const DefaultEndpointName = "-"
+
 // DoctorIssue represents a single health check finding.
 type DoctorIssue struct {
 	Endpoint string `json:"endpoint"`

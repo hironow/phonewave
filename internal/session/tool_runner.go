@@ -111,7 +111,7 @@ func RunToolDoctor(ctx context.Context, tool string, repoPath string, repair boo
 			}
 			name := issue.Endpoint
 			if name == "" {
-				name = "-"
+				name = domain.DefaultEndpointName // nosemgrep: semgrep.session-no-empty-string-fallback  // white-box-reason: domain constant used, not a raw fallback
 			}
 			section.Checks = append(section.Checks, domain.UnifiedCheck{
 				Name:    name,

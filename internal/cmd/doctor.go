@@ -149,7 +149,7 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 	var cfgPath string
 	var stateDir string
 	if repoPath != "" {
-		cfgPath = filepath.Join(repoPath, ".phonewave", "config.yaml")
+		cfgPath = filepath.Join(repoPath, domain.StateDir, "config.yaml")
 	} else {
 		cfgPath = configPath(cmd)
 	}
