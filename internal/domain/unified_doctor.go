@@ -4,7 +4,7 @@ package domain
 // Each tool's doctor output is converted to this shape for aggregation.
 type UnifiedCheck struct {
 	Name    string `json:"name"`
-	Status  string `json:"status"`          // "OK", "FAIL", "WARN", "SKIP", "FIX"
+	Status  string `json:"status"` // "OK", "FAIL", "WARN", "SKIP", "FIX"
 	Message string `json:"message"`
 	Hint    string `json:"hint,omitempty"`
 }
