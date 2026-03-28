@@ -111,7 +111,7 @@ func RunToolDoctor(ctx context.Context, tool string, repoPath string, repair boo
 			}
 			name := issue.Endpoint
 			if name == "" {
-				name = "-"
+				name = domain.DefaultEndpointName
 			}
 			section.Checks = append(section.Checks, domain.UnifiedCheck{
 				Name:    name,

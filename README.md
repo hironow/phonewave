@@ -144,7 +144,7 @@ phonewave run -v
 
 ## Subcommands
 
-Running `phonewave` without a subcommand defaults to `run` (start the courier daemon).
+Running `phonewave` requires an explicit subcommand. Use `phonewave run` to start the courier daemon.
 
 | Command | Description |
 |---------|-------------|
