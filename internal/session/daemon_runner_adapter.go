@@ -77,6 +77,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		DryRun:        cmd.DryRun(),
 		RetryInterval: cmd.RetryDuration(),
 		MaxRetries:    cmd.MaxRetriesInt(),
+		IdleTimeout:   cmd.IdleTimeout(),
 	}, logger)
 	if err != nil {
 		errorQueue.Close()

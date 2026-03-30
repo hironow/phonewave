@@ -33,6 +33,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().BoolP("dry-run", "n", false, "Detect events without delivering")
 	cmd.Flags().DurationP("retry-interval", "r", 60*time.Second, "Error queue retry interval (0 to disable)")
 	cmd.Flags().IntP("max-retries", "m", 10, "Maximum retry attempts per failed D-Mail")
+	cmd.Flags().Duration("idle-timeout", domain.DefaultIdleTimeout, "idle timeout — exit after no activity (0 = 24h safety cap, negative = disable)")
 
 	return cmd
 }
@@ -42,6 +43,7 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	retryInterval, _ := cmd.Flags().GetDuration("retry-interval")
 	maxRetries, _ := cmd.Flags().GetInt("max-retries")
+	idleTimeout, _ := cmd.Flags().GetDuration("idle-timeout")
 	logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 	// Parse raw inputs into domain primitives
@@ -54,7 +56,7 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	daemonCmd := domain.NewRunDaemonCommand(verbose, dryRun, ri, mr)
+	daemonCmd := domain.NewRunDaemonCommand(verbose, dryRun, ri, mr, idleTimeout)
 
 	runner, err := session.NewDaemonRunner(daemonCmd, configPath(cmd), configBase(cmd), logger)
 	if err != nil {

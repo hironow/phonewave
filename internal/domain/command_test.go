@@ -26,7 +26,7 @@ func TestNewRunDaemonCommand(t *testing.T) {
 	ri, _ := domain.NewRetryInterval(60 * time.Second)
 	mr, _ := domain.NewMaxRetries(10)
 
-	cmd := domain.NewRunDaemonCommand(true, false, ri, mr)
+	cmd := domain.NewRunDaemonCommand(true, false, ri, mr, domain.DefaultIdleTimeout)
 
 	if !cmd.Verbose() {
 		t.Error("expected Verbose to be true")
