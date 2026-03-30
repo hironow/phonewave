@@ -157,6 +157,27 @@ func (d *Daemon) Run(ctx context.Context) error {
 		defer retryTimer.Stop()
 	}
 
+	// Optional idle timer (nil channel disables the case).
+	// Exits the daemon cleanly when no activity occurs for the configured duration.
+	var idleCh <-chan time.Time
+	var idleTimer *time.Timer
+	effectiveIdle := domain.EffectiveIdleTimeout(d.opts.IdleTimeout)
+	if effectiveIdle > 0 {
+		idleTimer = time.NewTimer(effectiveIdle)
+		idleCh = idleTimer.C
+		defer idleTimer.Stop()
+		if d.opts.Verbose {
+			d.logger.Info("Idle timeout: %s", effectiveIdle)
+		}
+	}
+
+	// resetIdle resets the idle timer on any activity.
+	resetIdle := func() {
+		if idleTimer != nil {
+			idleTimer.Reset(effectiveIdle)
+		}
+	}
+
 	// Event loop: receives fsnotify events and enqueues them for the worker.
 	for {
 		select {
@@ -174,6 +195,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 				<-workerDone
 				return nil
 			}
+			resetIdle()
 			d.eventCh <- event
 
 		case err, ok := <-d.watcher.Errors:
@@ -185,6 +207,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 			d.logger.Warn("Watcher error: %v", err)
 
 		case <-retryCh:
+			resetIdle()
 			successes := d.retryPending()
 			if successes > 0 {
 				backoff.RecordSuccess()
@@ -192,6 +215,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 				backoff.RecordFailure()
 			}
 			retryTimer.Reset(backoff.Next())
+
+		case <-idleCh:
+			d.logger.Info("No activity for %s. Exiting.", effectiveIdle)
+			close(d.eventCh)
+			<-workerDone
+			return nil
 		}
 	}
 }

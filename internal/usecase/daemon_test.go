@@ -21,7 +21,7 @@ func TestSetupAndRunDaemon_EmptyOutbox(t *testing.T) {
 	// given: valid command but no outbox directories
 	ri, _ := domain.NewRetryInterval(60 * time.Second)
 	mr, _ := domain.NewMaxRetries(10)
-	cmd := domain.NewRunDaemonCommand(false, false, ri, mr)
+	cmd := domain.NewRunDaemonCommand(false, false, ri, mr, domain.DefaultIdleTimeout)
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when: NopDaemonRunner has 0 outbox count
@@ -37,7 +37,7 @@ func TestSetupAndRunDaemon_MissingConfig(t *testing.T) {
 	// given: valid command but nonexistent config
 	ri, _ := domain.NewRetryInterval(60 * time.Second)
 	mr, _ := domain.NewMaxRetries(10)
-	cmd := domain.NewRunDaemonCommand(false, false, ri, mr)
+	cmd := domain.NewRunDaemonCommand(false, false, ri, mr, domain.DefaultIdleTimeout)
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when: factory should fail with missing config
@@ -99,7 +99,7 @@ func TestSetupAndRunDaemon_RejectsConcurrentStart(t *testing.T) {
 
 	ri, _ := domain.NewRetryInterval(60 * time.Second)
 	mr, _ := domain.NewMaxRetries(10)
-	daemonCmd := domain.NewRunDaemonCommand(false, false, ri, mr)
+	daemonCmd := domain.NewRunDaemonCommand(false, false, ri, mr, domain.DefaultIdleTimeout)
 	logger := platform.NewLogger(io.Discard, false)
 
 	// when: factory should fail with lock already held
