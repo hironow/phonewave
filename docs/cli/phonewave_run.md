@@ -31,6 +31,7 @@ phonewave run [flags]
 ```
   -n, --dry-run                   Detect events without delivering
   -h, --help                      help for run
+      --idle-timeout duration     idle timeout — exit after no activity (0 = 24h safety cap, negative = disable) (default 30m0s)
   -m, --max-retries int           Maximum retry attempts per failed D-Mail (default 10)
   -r, --retry-interval duration   Error queue retry interval (0 to disable) (default 1m0s)
 ```
