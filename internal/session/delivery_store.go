@@ -80,7 +80,8 @@ func createDeliverySchema(db *sql.DB) error {
 }
 
 // StageDelivery records delivery intents for all targets in a single transaction.
-// Idempotent: re-staging the same (dmailPath, target) pair is silently ignored.
+// Idempotent: re-staging the same (dmailPath, target) pair updates the data and
+// resets flushed/retry state, enabling re-delivery of recurring D-Mails.
 func (s *SQLiteDeliveryStore) StageDelivery(ctx context.Context, dmailPath string, data []byte, targets []string) (stageErr error) {
 	ctx, span := platform.Tracer.Start(ctx, "outbox.stage.delivery") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
 	defer func() {
