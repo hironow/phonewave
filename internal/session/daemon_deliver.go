@@ -39,13 +39,11 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	// Bloom filter dedup: skip files that were already delivered.
-	if d.bloomFilter != nil && d.bloomFilter.MayContain(event.Name) {
-		if d.opts.Verbose {
-			d.logger.Info("Bloom filter skip: %s (already delivered)", event.Name)
-		}
-		return
-	}
+	// No Bloom filter check here: fsnotify events represent new file
+	// arrivals (atomic rename from outbox Flush). If a file exists, the
+	// producer intends it to be delivered — even if the same path was
+	// delivered before. Bloom filter dedup is applied only during
+	// startup scan (ScanAndDeliver) for stale leftover files.
 
 	// Read file content upfront (needed for error queue on failure).
 	// Silently ignore ErrNotExist: Rename events fire for both the
