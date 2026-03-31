@@ -114,7 +114,8 @@ func (s *SQLiteDeliveryStore) StageDelivery(ctx context.Context, dmailPath strin
 
 	for _, target := range targets {
 		_, err := conn.ExecContext(ctx,
-			`INSERT OR IGNORE INTO staged_delivery (dmail_path, target, data) VALUES (?, ?, ?)`,
+			`INSERT INTO staged_delivery (dmail_path, target, data) VALUES (?, ?, ?)
+			ON CONFLICT(dmail_path, target) DO UPDATE SET data = excluded.data, flushed = 0, retry_count = 0`,
 			dmailPath, target, data,
 		)
 		if err != nil {

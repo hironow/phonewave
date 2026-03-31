@@ -89,32 +89,68 @@ func TestSQLiteDeliveryStore_StageMultipleTargets(t *testing.T) {
 	}
 }
 
-func TestSQLiteDeliveryStore_StageIdempotent(t *testing.T) {
-	// given — stage the same (dmailPath, target) twice
+func TestSQLiteDeliveryStore_StageUpsert_LatestDataWins(t *testing.T) {
+	// given — stage the same (dmailPath, target) twice with different data
 	ds := newTestDeliveryStore(t)
 	targetDir := t.TempDir()
 	target := filepath.Join(targetDir, "spec-001.md")
-	data := []byte("original")
 
-	// when — stage twice with different data
-	if err := ds.StageDelivery(context.Background(), "/outbox/spec-001.md", data, []string{target}); err != nil {
+	if err := ds.StageDelivery(context.Background(), "/outbox/spec-001.md", []byte("original"), []string{target}); err != nil {
 		t.Fatalf("StageDelivery 1: %v", err)
 	}
 	if err := ds.StageDelivery(context.Background(), "/outbox/spec-001.md", []byte("modified"), []string{target}); err != nil {
 		t.Fatalf("StageDelivery 2: %v", err)
 	}
 
-	// then — flush should produce 1 item with original data (INSERT OR IGNORE)
+	// when
 	flushed, err := ds.FlushDeliveries(context.Background())
 	if err != nil {
 		t.Fatalf("FlushDeliveries: %v", err)
 	}
+
+	// then — latest data wins (upsert semantics)
 	if len(flushed) != 1 {
-		t.Fatalf("expected 1 flushed (idempotent), got %d", len(flushed))
+		t.Fatalf("expected 1 flushed, got %d", len(flushed))
 	}
 	got, _ := os.ReadFile(target)
-	if string(got) != "original" {
-		t.Errorf("expected original data, got %q", got)
+	if string(got) != "modified" {
+		t.Errorf("expected modified data, got %q", got)
+	}
+}
+
+func TestSQLiteDeliveryStore_RestageAfterFlush_EnablesRedelivery(t *testing.T) {
+	// given — a delivery that has been staged and flushed
+	ds := newTestDeliveryStore(t)
+	targetDir := t.TempDir()
+	target := filepath.Join(targetDir, "conflict.md")
+
+	if err := ds.StageDelivery(context.Background(), "/outbox/conflict.md", []byte("first"), []string{target}); err != nil {
+		t.Fatalf("StageDelivery 1: %v", err)
+	}
+	flushed, err := ds.FlushDeliveries(context.Background())
+	if err != nil {
+		t.Fatalf("FlushDeliveries 1: %v", err)
+	}
+	if len(flushed) != 1 {
+		t.Fatalf("first flush: expected 1, got %d", len(flushed))
+	}
+
+	// when — re-stage with updated data (e.g. conflict D-Mail re-sent)
+	if err := ds.StageDelivery(context.Background(), "/outbox/conflict.md", []byte("second"), []string{target}); err != nil {
+		t.Fatalf("StageDelivery 2: %v", err)
+	}
+
+	// then — second flush should deliver the updated data
+	flushed, err = ds.FlushDeliveries(context.Background())
+	if err != nil {
+		t.Fatalf("FlushDeliveries 2: %v", err)
+	}
+	if len(flushed) != 1 {
+		t.Fatalf("second flush: expected 1 (re-delivery), got %d", len(flushed))
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "second" {
+		t.Errorf("expected second data, got %q", got)
 	}
 }
 
