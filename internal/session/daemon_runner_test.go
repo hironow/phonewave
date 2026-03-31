@@ -1000,6 +1000,73 @@ description: "Rename event test"
 	}
 }
 
+func TestDaemon_HandleEvent_DeliversEvenWhenBloomFilterContainsPath(t *testing.T) {
+	// given: a D-Mail file in outbox, AND Bloom filter already contains this path
+	// This scenario occurs when amadeus re-stages a conflict D-Mail with the same
+	// deterministic name after a previous delivery cycle.
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".gate", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	for _, dir := range []string{outbox, inbox, stateDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+dmail-schema-version: "1"
+name: am-conflict-30-abc123
+kind: implementation-feedback
+description: "PR #30 has merge conflicts — rebase needed"
+---
+
+PR #30 has merge conflicts.
+`
+	dmailPath := filepath.Join(outbox, "am-conflict-30-abc123.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "implementation-feedback", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+
+	d, err := NewDaemon(domain.DaemonOptions{
+		Routes:     routes,
+		OutboxDirs: []string{outbox},
+		StateDir:   stateDir,
+	}, platform.NewLogger(io.Discard, false))
+	if err != nil {
+		t.Fatalf("NewDaemon: %v", err)
+	}
+
+	dlog, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.dlog = dlog
+	defer dlog.Close()
+	d.deliveryStore = newTestDeliveryStore(t)
+
+	// Set up Bloom filter with the D-Mail path already registered (simulating previous delivery)
+	bf := domain.NewBloomFilter(1000, 0.01)
+	bf.Add(dmailPath)
+	d.bloomFilter = bf
+
+	// when: fsnotify fires a Create event for the re-staged D-Mail
+	d.handleEvent(fsnotify.Event{
+		Name: dmailPath,
+		Op:   fsnotify.Create,
+	})
+
+	// then: D-Mail should be delivered despite Bloom filter containing the path
+	inboxPath := filepath.Join(inbox, "am-conflict-30-abc123.md")
+	if _, err := os.Stat(inboxPath); errors.Is(err, fs.ErrNotExist) {
+		t.Error("D-Mail NOT delivered to inbox — Bloom filter incorrectly blocked re-delivery")
+	}
+}
+
 func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
