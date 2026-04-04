@@ -122,21 +122,6 @@ func (c *Config) RemoveRepository(path string) bool {
 	return false
 }
 
-// AllEndpoints returns all endpoints across all repositories as Endpoint values.
-func (c *Config) AllEndpoints() []Endpoint {
-	var all []Endpoint
-	for _, repo := range c.Repositories {
-		for _, ep := range repo.Endpoints {
-			all = append(all, Endpoint{
-				Dir:      ep.Dir,
-				Produces: ep.Produces,
-				Consumes: ep.Consumes,
-			})
-		}
-	}
-	return all
-}
-
 // UpdateRoutes re-derives routes from all endpoints and updates the config.
 func (c *Config) UpdateRoutes() {
 	// Derive routes per repository
