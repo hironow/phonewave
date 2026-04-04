@@ -85,12 +85,15 @@ Pass --execute to actually remove the files.`,
 					Candidates: len(files),
 					Files:      files,
 				}
-				if execute && len(files) > 0 {
-					deleted, delErr := session.PruneEventFiles(cmd.Context(), stateDir, files)
-					if delErr != nil {
-						return fmt.Errorf("event prune failed: %w", delErr)
+				if execute {
+					if len(files) > 0 {
+						deleted, delErr := session.PruneEventFiles(cmd.Context(), stateDir, files)
+						if delErr != nil {
+							return fmt.Errorf("event prune failed: %w", delErr)
+						}
+						out.Deleted = len(deleted)
 					}
-					out.Deleted = len(deleted)
+
 				}
 				data, jsonErr := json.Marshal(out)
 				if jsonErr != nil {
@@ -140,6 +143,7 @@ Pass --execute to actually remove the files.`,
 				return fmt.Errorf("event prune failed: %w", delErr)
 			}
 			fmt.Fprintf(errW, "Pruned %d event file(s).\n", len(deleted))
+
 			return nil
 		},
 	}
