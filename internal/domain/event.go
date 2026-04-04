@@ -18,6 +18,7 @@ const (
 	EventDeliveryFailed    EventType = "delivery.failed"
 	EventErrorRetried      EventType = "error.retried"
 	EventScanCompleted     EventType = "scan.completed"
+	EventSystemCutover     EventType = "system.cutover"
 )
 
 // CurrentEventSchemaVersion is the schema version stamped on all new events.

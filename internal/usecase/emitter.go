@@ -13,6 +13,7 @@ import (
 type deliveryEventEmitter struct {
 	agg        *domain.DeliveryAggregate
 	store      port.EventStore
+	seqAlloc   port.SeqAllocator // nil = no SeqNr assignment
 	dispatcher port.EventDispatcher
 	logger     domain.Logger
 }
@@ -29,8 +30,20 @@ func NewDeliveryEventEmitter(
 	return &deliveryEventEmitter{agg: agg, store: store, dispatcher: dispatcher, logger: logger}
 }
 
+// SetSeqAllocator attaches a SeqAllocator for global SeqNr assignment.
+func (e *deliveryEventEmitter) SetSeqAllocator(alloc port.SeqAllocator) {
+	e.seqAlloc = alloc
+}
+
 // emit persists the event and dispatches it (best-effort).
 func (e *deliveryEventEmitter) emit(ev domain.Event) error {
+	if e.seqAlloc != nil {
+		seq, err := e.seqAlloc.AllocSeqNr(context.Background())
+		if err != nil {
+			return err
+		}
+		ev.SeqNr = seq
+	}
 	if e.store != nil {
 		if _, err := e.store.Append(ev); err != nil {
 			return err

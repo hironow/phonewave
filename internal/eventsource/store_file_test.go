@@ -138,3 +138,129 @@ func TestFileEventStore_ImplementsInterface(t *testing.T) {
 		t.Fatal("expected non-nil store")
 	}
 }
+
+func TestFileEventStore_LoadAfterSeqNr_FiltersAndSorts(t *testing.T) {
+	// given
+	dir := t.TempDir()
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
+	now := time.Now()
+	ev1, _ := domain.NewEvent(domain.EventDeliveryCompleted, nil, now)
+	ev1.SeqNr = 1
+	ev2, _ := domain.NewEvent(domain.EventScanCompleted, nil, now.Add(time.Second))
+	ev2.SeqNr = 2
+	ev3, _ := domain.NewEvent(domain.EventDeliveryCompleted, nil, now.Add(2*time.Second))
+	ev3.SeqNr = 3
+	if _, err := store.Append(ev1, ev2, ev3); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+
+	// when — load events after SeqNr 1
+	events, _, err := store.LoadAfterSeqNr(1)
+	if err != nil {
+		t.Fatalf("load after seq nr: %v", err)
+	}
+
+	// then — should return ev2 and ev3, sorted by SeqNr ascending
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(events))
+	}
+	if events[0].SeqNr != 2 {
+		t.Errorf("expected SeqNr 2, got %d", events[0].SeqNr)
+	}
+	if events[1].SeqNr != 3 {
+		t.Errorf("expected SeqNr 3, got %d", events[1].SeqNr)
+	}
+}
+
+func TestFileEventStore_LoadAfterSeqNr_ReturnsEmptyForHighSeqNr(t *testing.T) {
+	// given
+	dir := t.TempDir()
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
+	ev, _ := domain.NewEvent(domain.EventDeliveryCompleted, nil, time.Now())
+	ev.SeqNr = 5
+	if _, err := store.Append(ev); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+
+	// when
+	events, _, err := store.LoadAfterSeqNr(100)
+	if err != nil {
+		t.Fatalf("load after seq nr: %v", err)
+	}
+
+	// then
+	if len(events) != 0 {
+		t.Errorf("expected 0 events, got %d", len(events))
+	}
+}
+
+func TestFileEventStore_LoadAfterSeqNr_SkipsZeroSeqNr(t *testing.T) {
+	// given — pre-cutover events have SeqNr=0
+	dir := t.TempDir()
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
+	legacy, _ := domain.NewEvent(domain.EventDeliveryCompleted, nil, time.Now())
+	// SeqNr defaults to 0 (pre-cutover)
+	postCutover, _ := domain.NewEvent(domain.EventScanCompleted, nil, time.Now().Add(time.Second))
+	postCutover.SeqNr = 1
+	if _, err := store.Append(legacy, postCutover); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+
+	// when — LoadAfterSeqNr(0) returns all post-cutover events
+	events, _, err := store.LoadAfterSeqNr(0)
+	if err != nil {
+		t.Fatalf("load after seq nr: %v", err)
+	}
+
+	// then — only the post-cutover event (SeqNr > 0)
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].SeqNr != 1 {
+		t.Errorf("expected SeqNr 1, got %d", events[0].SeqNr)
+	}
+}
+
+func TestFileEventStore_LatestSeqNr(t *testing.T) {
+	// given
+	dir := t.TempDir()
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
+	now := time.Now()
+	ev1, _ := domain.NewEvent(domain.EventDeliveryCompleted, nil, now)
+	ev1.SeqNr = 3
+	ev2, _ := domain.NewEvent(domain.EventScanCompleted, nil, now.Add(time.Second))
+	ev2.SeqNr = 7
+	ev3, _ := domain.NewEvent(domain.EventDeliveryCompleted, nil, now.Add(2*time.Second))
+	ev3.SeqNr = 5
+	if _, err := store.Append(ev1, ev2, ev3); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+
+	// when
+	seqNr, err := store.LatestSeqNr()
+	if err != nil {
+		t.Fatalf("latest seq nr: %v", err)
+	}
+
+	// then
+	if seqNr != 7 {
+		t.Errorf("expected latest SeqNr 7, got %d", seqNr)
+	}
+}
+
+func TestFileEventStore_LatestSeqNr_EmptyStore(t *testing.T) {
+	// given
+	dir := t.TempDir()
+	store := eventsource.NewFileEventStore(dir, &domain.NopLogger{})
+
+	// when
+	seqNr, err := store.LatestSeqNr()
+	if err != nil {
+		t.Fatalf("latest seq nr: %v", err)
+	}
+
+	// then
+	if seqNr != 0 {
+		t.Errorf("expected SeqNr 0 for empty store, got %d", seqNr)
+	}
+}
