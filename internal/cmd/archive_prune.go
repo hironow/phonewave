@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/hironow/phonewave/internal/domain"
-	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -95,9 +94,6 @@ Pass --execute to actually remove the files.`,
 						out.Deleted = len(deleted)
 					}
 
-					// Truncate oversized event files
-					logger := platform.NewLogger(cmd.ErrOrStderr(), false)
-					session.TruncateOversizedEventFiles(stateDir, logger)
 				}
 				data, jsonErr := json.Marshal(out)
 				if jsonErr != nil {
@@ -147,10 +143,6 @@ Pass --execute to actually remove the files.`,
 				return fmt.Errorf("event prune failed: %w", delErr)
 			}
 			fmt.Fprintf(errW, "Pruned %d event file(s).\n", len(deleted))
-
-			// Truncate oversized event files
-			logger := platform.NewLogger(errW, false)
-			session.TruncateOversizedEventFiles(stateDir, logger)
 
 			return nil
 		},
