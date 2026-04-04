@@ -116,11 +116,11 @@ func TestRunCutover_EmptyStore(t *testing.T) {
 		t.Fatalf("cutover: %v", err)
 	}
 
-	// then
-	if result.EventCount != 0 {
-		t.Errorf("expected 0 events, got %d", result.EventCount)
+	// then — fresh install: no migration needed
+	if !result.AlreadyDone {
+		t.Error("expected AlreadyDone=true for empty store (fresh install)")
 	}
-	if result.CutoverSeqNr != 1 {
-		t.Errorf("expected CutoverSeqNr=1, got %d", result.CutoverSeqNr)
+	if result.CutoverSeqNr != 0 {
+		t.Errorf("expected CutoverSeqNr=0, got %d", result.CutoverSeqNr)
 	}
 }

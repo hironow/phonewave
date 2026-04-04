@@ -51,7 +51,9 @@ func EnsureCutover(ctx context.Context, stateDir, aggregateType string, logger d
 	if err := EnsureRunDir(stateDir); err != nil {
 		return nil, nil, err
 	}
-	seqCounter, err := eventsource.NewSeqCounter(filepath.Join(stateDir, ".run", "seq.db"))
+	// seq.db lives at stateDir root (NOT .run/) — .run/ is ephemeral and may
+	// be deleted by rebuild or doctor --repair. seq.db must survive those operations.
+	seqCounter, err := eventsource.NewSeqCounter(filepath.Join(stateDir, "seq.db"))
 	if err != nil {
 		return nil, nil, fmt.Errorf("ensure cutover: seq counter: %w", err)
 	}

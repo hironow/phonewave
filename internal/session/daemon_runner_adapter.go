@@ -74,6 +74,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 
 	errorQueue, err := NewErrorQueueStore(stateDir)
 	if err != nil {
+		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("create error queue store: %w", err)
 	}
@@ -90,6 +91,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 	}, logger)
 	if err != nil {
 		errorQueue.Close()
+		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("create daemon: %w", err)
 	}
@@ -97,6 +99,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 	dlog, err := NewDeliveryLog(stateDir)
 	if err != nil {
 		errorQueue.Close()
+		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("open delivery log: %w", err)
 	}
