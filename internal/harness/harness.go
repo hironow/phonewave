@@ -1,18 +1,13 @@
 // Package harness mediates between the task environment and decision logic.
 // It is the single import surface for all decision and validation logic.
-// Internal sub-packages (policy, verifier) represent the LLM-dependence
-// spectrum but are not imported directly by callers.
 //
-// phonewave has no filter/ sub-package because it does not call LLMs.
+// phonewave has no active harness code because routing and validation
+// logic is tightly coupled to domain aggregate types in internal/domain/.
+// Sub-packages (policy, verifier, filter) will be created when decision
+// logic is extracted from domain.
 //
-// See: AutoHarness (arxiv 2603.03329v1) — "Harness as Policy" spectrum.
+// Semgrep rules (.semgrep/layers-harness.yaml) enforce the import
+// boundaries for this layer across all 4 tools.
+//
+// See: AutoHarness (arxiv 2603.03329v1) -- "Harness as Policy" spectrum.
 package harness
-
-// --- policy layer (deterministic decisions, no LLM) ---
-// Currently empty: routing and orphan detection are tightly coupled to
-// domain aggregate types and remain in internal/domain/router.go.
-
-// --- verifier layer (validation rules, no LLM) ---
-// Currently empty: D-Mail validation (ExtractDMailKind, ValidateKind)
-// is called internally within domain/ and must stay there.
-// IsDMailFile is a thin filter also kept in domain/ for now.
