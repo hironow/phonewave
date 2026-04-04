@@ -34,26 +34,3 @@ type BannerLogger interface {
 	Section(title string)
 }
 
-// LogBanner calls Banner if the logger supports it (type assertion).
-// Safe to call with any Logger including NopLogger.
-func LogBanner(logger Logger, dir BannerDirection, kind, name, description string) {
-	if bl, ok := logger.(BannerLogger); ok {
-		bl.Banner(dir, kind, name, description)
-	}
-}
-
-// LogHeader calls Header if the logger supports it (type assertion).
-// Prints a single-line startup header with tool name and version.
-func LogHeader(logger Logger, toolName, version string) {
-	if bl, ok := logger.(BannerLogger); ok {
-		bl.Header(toolName, version)
-	}
-}
-
-// LogSection calls Section if the logger supports it (type assertion).
-// Prints a single-line section separator for phase transitions.
-func LogSection(logger Logger, title string) {
-	if bl, ok := logger.(BannerLogger); ok {
-		bl.Section(title)
-	}
-}

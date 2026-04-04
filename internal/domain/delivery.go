@@ -76,11 +76,6 @@ type DeliveryResult struct {
 // validDMailKinds lists the allowed D-Mail kind values per schema v1.
 var validDMailKinds = []string{"specification", "report", "design-feedback", "implementation-feedback", "convergence", "ci-result"}
 
-// ValidKinds returns a copy of the allowed D-Mail kind values.
-func ValidKinds() []string {
-	return append([]string(nil), validDMailKinds...)
-}
-
 // ValidateKind checks that kind is one of the allowed D-Mail kinds.
 func ValidateKind(kind string) error {
 	if !slices.Contains(validDMailKinds, kind) {

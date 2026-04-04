@@ -8,10 +8,3 @@ type Policy struct {
 	Action  string    // description of the resulting command
 }
 
-// Policies registers all known implicit policies in phonewave.
-var Policies = []Policy{
-	{Name: "DeliveryCompletedLogMetrics", Trigger: EventDeliveryCompleted, Action: "LogDeliveryMetrics"},
-	{Name: "DeliveryFailedRecordError", Trigger: EventDeliveryFailed, Action: "RecordDeliveryError"},
-	{Name: "ErrorRetriedLogMetrics", Trigger: EventErrorRetried, Action: "LogRetryMetrics"},
-	{Name: "ScanCompletedLogMetrics", Trigger: EventScanCompleted, Action: "LogScanMetrics"},
-}
