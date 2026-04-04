@@ -7,7 +7,6 @@ Errors are logged but never propagated — `Dispatch()` always returns nil.
 
 - Engine: `internal/usecase/policy.go`
 - Handlers: `internal/usecase/policy_handlers.go`
-- Policy definitions: `internal/domain/policy.go`
 - Registration: `internal/usecase/daemon.go` → `registerDaemonPolicies()`
 
 ## Event → Handler Mapping
