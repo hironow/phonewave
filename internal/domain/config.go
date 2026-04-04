@@ -4,6 +4,13 @@ import (
 	"time"
 )
 
+// Endpoint represents a discovered tool endpoint within a repository.
+type Endpoint struct {
+	Dir      string   // dot-directory name, e.g. ".siren"
+	Produces []string // list of kind values this endpoint produces
+	Consumes []string // list of kind values this endpoint consumes
+}
+
 // Config is the top-level phonewave config.yaml structure.
 type Config struct {
 	LastSynced   time.Time     `yaml:"last_synced"`
@@ -42,6 +49,45 @@ func (f FlagApproverConfig) IsAutoApprove() bool { return f.AutoApprove }
 
 // ApproveCmdString returns the approval command string.
 func (f FlagApproverConfig) ApproveCmdString() string { return f.ApproveCmd }
+
+// AddResult holds the result of an add operation.
+type AddResult struct {
+	Orphans    OrphanReport
+	Warnings   []string
+	RouteCount int
+}
+
+// InitResult holds the result of an init operation.
+type InitResult struct {
+	Config    *Config
+	Orphans   OrphanReport
+	RepoCount int
+	Warnings  []string
+}
+
+// EndpointDiff describes a change to an endpoint during sync.
+type EndpointDiff struct {
+	Repo   string
+	Dir    string
+	Change string // "added", "removed", "changed"
+}
+
+// RouteDiff describes a change to a route during sync.
+type RouteDiff struct {
+	Kind   string
+	From   string
+	Change string // "added", "removed"
+}
+
+// SyncReport holds the result of a sync operation including change diffs.
+type SyncReport struct {
+	Orphans         OrphanReport
+	EndpointChanges []EndpointDiff
+	RouteChanges    []RouteDiff
+	RepoCount       int
+	TotalRoutes     int
+	Warnings        []string
+}
 
 // RouteConfig holds a derived routing rule.
 type RouteConfig struct {

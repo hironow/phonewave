@@ -4,9 +4,31 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+// IndexEntry represents one line in the archive index JSONL file.
+type IndexEntry struct {
+	Timestamp string `json:"ts"`
+	Operation string `json:"op"`
+	Issue     string `json:"issue"`
+	Status    string `json:"status"`
+	Tool      string `json:"tool"`
+	Path      string `json:"path"`
+	Summary   string `json:"summary"`
+}
+
+// ErrorMetadata holds metadata for a failed D-Mail stored as a .err sidecar.
+type ErrorMetadata struct {
+	SourceOutbox string    `yaml:"source_outbox"`
+	Kind         string    `yaml:"kind"`
+	OriginalName string    `yaml:"original_name"`
+	Attempts     int       `yaml:"attempts"`
+	Error        string    `yaml:"error"`
+	Timestamp    time.Time `yaml:"timestamp"`
+}
 
 // SupportedDMailSchemaVersion is the only accepted dmail-schema-version value.
 const SupportedDMailSchemaVersion = "1"
