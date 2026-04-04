@@ -16,6 +16,8 @@ type daemonRunnerAdapter struct {
 	errorQueue  port.ErrorQueueStore
 	dlog        *DeliveryLog
 	eventStore  port.EventStore
+	seqAlloc    port.SeqAllocator
+	closeSeq    func()
 	unlock      func()
 	notifier    port.Notifier
 	insights    port.InsightAppender
@@ -63,8 +65,16 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 	// Initialize session-layer stores via factory (ADR S0008: no direct eventsource import)
 	eventStore := NewEventStore(stateDir, logger)
 
+	// One-time cutover: migrate to global SeqNr (ADR S0040, idempotent)
+	seqAlloc, closeSeq, cutoverErr := EnsureCutover(context.Background(), stateDir, "phonewave.state", logger)
+	if cutoverErr != nil {
+		unlock()
+		return nil, fmt.Errorf("cutover: %w", cutoverErr)
+	}
+
 	errorQueue, err := NewErrorQueueStore(stateDir)
 	if err != nil {
+		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("create error queue store: %w", err)
 	}
@@ -81,6 +91,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 	}, logger)
 	if err != nil {
 		errorQueue.Close()
+		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("create daemon: %w", err)
 	}
@@ -88,6 +99,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 	dlog, err := NewDeliveryLog(stateDir)
 	if err != nil {
 		errorQueue.Close()
+		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("open delivery log: %w", err)
 	}
@@ -106,6 +118,8 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		errorQueue:  errorQueue,
 		dlog:        dlog,
 		eventStore:  eventStore,
+		seqAlloc:    seqAlloc,
+		closeSeq:    closeSeq,
 		unlock:      unlock,
 		notifier:    notifier,
 		insights:    insightWriter,
@@ -115,6 +129,11 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 }
 
 func (a *daemonRunnerAdapter) SetEmitter(e port.DaemonEventEmitter) {
+	// Wire global SeqNr allocator into emitter (ADR S0040)
+	type seqSetter interface{ SetSeqAllocator(port.SeqAllocator) }
+	if setter, ok := e.(seqSetter); ok && a.seqAlloc != nil {
+		setter.SetSeqAllocator(a.seqAlloc)
+	}
 	a.session.Emitter = e
 }
 
@@ -151,6 +170,9 @@ func (a *daemonRunnerAdapter) Run(ctx context.Context) error {
 }
 
 func (a *daemonRunnerAdapter) Close() error {
+	if a.closeSeq != nil {
+		a.closeSeq()
+	}
 	if a.dlog != nil {
 		a.dlog.Close()
 	}

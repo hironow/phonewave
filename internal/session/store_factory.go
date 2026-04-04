@@ -44,6 +44,34 @@ func NewDeliveryStore(stateDir string) (*SQLiteDeliveryStore, error) {
 	return NewSQLiteDeliveryStore(stateDir)
 }
 
+// EnsureCutover performs the one-time event store cutover (ADR S0040) and
+// returns a SeqAllocator for global SeqNr assignment. The caller must call
+// the returned close function when done. Idempotent — no-op if already done.
+func EnsureCutover(ctx context.Context, stateDir, aggregateType string, logger domain.Logger) (port.SeqAllocator, func(), error) {
+	if err := EnsureRunDir(stateDir); err != nil {
+		return nil, nil, err
+	}
+	// seq.db lives at stateDir root (NOT .run/) — .run/ is ephemeral and may
+	// be deleted by rebuild or doctor --repair. seq.db must survive those operations.
+	seqCounter, err := eventsource.NewSeqCounter(filepath.Join(stateDir, "seq.db"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("ensure cutover: seq counter: %w", err)
+	}
+	snapshotStore := eventsource.NewFileSnapshotStore(filepath.Join(stateDir, "snapshots"))
+	rawStore := eventsource.NewFileEventStore(filepath.Join(stateDir, "events"), logger)
+
+	result, err := eventsource.RunCutover(ctx, rawStore, snapshotStore, seqCounter, aggregateType, logger)
+	if err != nil {
+		seqCounter.Close()
+		return nil, nil, fmt.Errorf("ensure cutover: %w", err)
+	}
+	if !result.AlreadyDone {
+		logger.Info("event store cutover complete: %d pre-cutover events, SeqNr=%d", result.EventCount, result.CutoverSeqNr)
+	}
+	closer := func() { seqCounter.Close() }
+	return seqCounter, closer, nil
+}
+
 // ListExpiredEventFiles returns .jsonl files older than the given days.
 // cmd layer should use this instead of importing eventsource directly (ADR S0008).
 func ListExpiredEventFiles(ctx context.Context, stateDir string, days int) ([]string, error) {
