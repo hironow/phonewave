@@ -46,8 +46,8 @@ func (b *RetryBackoff) Snapshot() ProviderStateSnapshot {
 	}
 	return ProviderStateSnapshot{
 		State:           ProviderStateWaiting,
-		Reason:          "delivery_retry_backoff",
+		Reason:          ProviderReasonDeliveryRetryBackoff,
 		RetryBudget:     1,
-		ResumeCondition: "backoff-elapses",
+		ResumeCondition: ResumeConditionBackoffElapses,
 	}
 }

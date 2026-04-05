@@ -125,9 +125,9 @@ func Status(cfg *domain.Config, stateDir string) domain.StatusReport {
 		if report.PendingErrors > 0 {
 			snapshot = domain.ProviderStateSnapshot{
 				State:           domain.ProviderStateWaiting,
-				Reason:          "delivery_retry_backoff",
+				Reason:          domain.ProviderReasonDeliveryRetryBackoff,
 				RetryBudget:     1,
-				ResumeCondition: "backoff-elapses",
+				ResumeCondition: domain.ResumeConditionBackoffElapses,
 			}
 		} else {
 			snapshot = domain.ActiveProviderState()
