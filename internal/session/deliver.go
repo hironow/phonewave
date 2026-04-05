@@ -29,10 +29,24 @@ func Deliver(ctx context.Context, dmailPath string, routes []domain.ResolvedRout
 // Returns error only for parse/route/stage failures (error queue eligible).
 // Flush partial failures are handled internally by DeliveryStore retry_count.
 func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []domain.ResolvedRoute, ds port.DeliveryStore) (*domain.DeliveryResult, error) {
-	kind, err := domain.ExtractDMailKind(data)
+	fm, err := domain.ParseDMailFrontmatter(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
 	}
+	kind := fm.Kind
+	if fm.SchemaVersion == "" {
+		return nil, fmt.Errorf("parse D-Mail %s: D-Mail missing required 'dmail-schema-version' field", dmailPath)
+	}
+	if fm.SchemaVersion != domain.SupportedDMailSchemaVersion {
+		return nil, fmt.Errorf("parse D-Mail %s: unsupported dmail-schema-version %q: only %q is supported", dmailPath, fm.SchemaVersion, domain.SupportedDMailSchemaVersion)
+	}
+	if kind == "" {
+		return nil, fmt.Errorf("parse D-Mail %s: D-Mail missing required 'kind' field", dmailPath)
+	}
+	if err := domain.ValidateKind(kind); err != nil {
+		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
+	}
+	metadata := domain.CorrectionMetadataFromMap(fm.Metadata)
 
 	ctx, span := platform.Tracer.Start(ctx, "delivery.deliver",
 		trace.WithAttributes(
@@ -65,8 +79,12 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	}
 
 	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)
-	targetPaths := make([]string, len(matchedRoute.ToInboxes))
-	for i, inbox := range matchedRoute.ToInboxes {
+	targetInboxes := matchedRoute.ToInboxes
+	if filtered := domain.FilterInboxesByTargetAgent(matchedRoute.ToInboxes, metadata.TargetAgent); len(filtered) > 0 {
+		targetInboxes = filtered
+	}
+	targetPaths := make([]string, len(targetInboxes))
+	for i, inbox := range targetInboxes {
 		targetPaths[i] = filepath.Join(inbox, fileName)
 	}
 	if err := ds.StageDelivery(ctx, dmailPath, data, targetPaths); err != nil {
@@ -103,7 +121,11 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	// Partial: source stays in outbox, no error returned.
 	// DeliveryStore retry_count handles re-flush on next delivery or startup scan.
 
-	span.SetAttributes(attribute.Int("inbox.count", len(result.DeliveredTo)))
+	span.SetAttributes(
+		attribute.Int("inbox.count", len(result.DeliveredTo)),
+		attribute.String("dmail.failure_type", platform.SanitizeUTF8(string(metadata.FailureType))),
+		attribute.String("dmail.target_agent", platform.SanitizeUTF8(metadata.TargetAgent)),
+	)
 	return result, nil
 }
 
