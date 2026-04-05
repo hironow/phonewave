@@ -234,7 +234,7 @@ metadata:
 	}
 }
 
-func TestDeliver_ImprovementFallbackNarrowsDesignFeedbackToSightjack(t *testing.T) {
+func TestDeliver_EscalatedImprovementDoesNotSynthesizePreferredTarget(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, "amadeus", ".gate", "outbox")
 	inbox1 := filepath.Join(repoDir, "sightjack", ".siren", "inbox")
@@ -273,15 +273,67 @@ metadata:
 	if err != nil {
 		t.Fatalf("Deliver: %v", err)
 	}
+	if len(result.DeliveredTo) != 2 {
+		t.Fatalf("delivered to %d targets, want 2", len(result.DeliveredTo))
+	}
+	for _, inbox := range []string{inbox1, inbox2} {
+		if _, err := os.Stat(filepath.Join(inbox, "feedback-045.md")); err != nil {
+			t.Fatalf("expected delivery in %s: %v", inbox, err)
+		}
+	}
+}
+
+func TestDeliver_TargetsTakePrecedenceOverImprovementTargetAgent(t *testing.T) {
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, "amadeus", ".gate", "outbox")
+	inbox1 := filepath.Join(repoDir, "sightjack", ".siren", "inbox")
+	inbox2 := filepath.Join(repoDir, "paintress", ".expedition", "inbox")
+	for _, d := range []string{outbox, inbox1, inbox2} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+dmail-schema-version: "1"
+name: feedback-046
+kind: design-feedback
+description: "Targets win over improvement target"
+targets:
+  - paintress
+metadata:
+  improvement_schema_version: "1"
+  target_agent: sightjack
+  routing_mode: reroute
+  failure_type: execution_failure
+  outcome: pending
+---
+
+# Feedback
+`
+	dmailPath := filepath.Join(outbox, "feedback-046.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "design-feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
+	}
+	ds := newTestDeliveryStore(t)
+
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
+	if err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
 	if len(result.DeliveredTo) != 1 {
 		t.Fatalf("delivered to %d targets, want 1", len(result.DeliveredTo))
 	}
-	targetPath := filepath.Join(inbox1, "feedback-045.md")
+	targetPath := filepath.Join(inbox2, "feedback-046.md")
 	if result.DeliveredTo[0] != targetPath {
 		t.Fatalf("delivered to %q, want %q", result.DeliveredTo[0], targetPath)
 	}
-	if _, err := os.Stat(filepath.Join(inbox2, "feedback-045.md")); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatal("unexpected delivery to non-preferred inbox")
+	if _, err := os.Stat(filepath.Join(inbox1, "feedback-046.md")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal("unexpected delivery to improvement target agent")
 	}
 }
 
