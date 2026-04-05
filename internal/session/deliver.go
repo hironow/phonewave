@@ -133,7 +133,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 		attribute.String("dmail.improvement_schema_version", platform.SanitizeUTF8(metadata.SchemaVersion)),
 	}
 	if metadata.RetryAllowed != nil {
-		attrs = append(attrs, attribute.String("dmail.retry_allowed", strconv.FormatBool(*metadata.RetryAllowed)))
+		attrs = append(attrs, attribute.String("dmail.retry_allowed", platform.SanitizeUTF8(strconv.FormatBool(*metadata.RetryAllowed))))
 	}
 	if metadata.EscalationReason != "" {
 		attrs = append(attrs, attribute.String("dmail.escalation_reason", platform.SanitizeUTF8(metadata.EscalationReason)))
