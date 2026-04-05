@@ -283,6 +283,63 @@ metadata:
 	}
 }
 
+func TestDeliver_EscalatedImprovementNarrowsToExplicitHandoffOwner(t *testing.T) {
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, "amadeus", ".gate", "outbox")
+	inbox1 := filepath.Join(repoDir, "sightjack", ".siren", "inbox")
+	inbox2 := filepath.Join(repoDir, "paintress", ".expedition", "inbox")
+	for _, d := range []string{outbox, inbox1, inbox2} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+dmail-schema-version: "1"
+name: feedback-045b
+kind: implementation-feedback
+description: "Escalated corrective feedback"
+metadata:
+  improvement_schema_version: "1"
+  failure_type: execution_failure
+  outcome: escalated
+  retry_allowed: "false"
+  routing_mode: escalate
+  target_agent: paintress
+  severity: high
+---
+
+# Feedback
+`
+	dmailPath := filepath.Join(outbox, "feedback-045b.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "implementation-feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
+	}
+	ds := newTestDeliveryStore(t)
+
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
+	if err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	if len(result.DeliveredTo) != 1 {
+		t.Fatalf("delivered to %d targets, want 1", len(result.DeliveredTo))
+	}
+	targetPath := filepath.Join(inbox2, "feedback-045b.md")
+	if result.DeliveredTo[0] != targetPath {
+		t.Fatalf("delivered to %q, want %q", result.DeliveredTo[0], targetPath)
+	}
+	if _, err := os.Stat(filepath.Join(inbox1, "feedback-045b.md")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal("unexpected delivery to non-target inbox")
+	}
+	if _, err := os.Stat(targetPath); err != nil {
+		t.Fatalf("target inbox missing delivery: %v", err)
+	}
+}
+
 func TestDeliver_TargetsTakePrecedenceOverImprovementTargetAgent(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, "amadeus", ".gate", "outbox")
