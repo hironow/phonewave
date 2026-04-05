@@ -26,7 +26,7 @@ func TestEnsureStateDir_CreatesGitignore(t *testing.T) {
 		t.Fatalf("read .gitignore: %v", err)
 	}
 	content := string(data)
-	for _, entry := range []string{"watch.pid", "watch.started", "delivery.log", "events/", ".run/", ".otel.env", "!config.yaml"} {
+	for _, entry := range []string{"watch.pid", "watch.started", "provider-state.json", "delivery.log", "events/", ".run/", ".otel.env", "!config.yaml"} {
 		if !strings.Contains(content, entry) {
 			t.Errorf(".gitignore should contain %q, got: %q", entry, content)
 		}

@@ -16,14 +16,23 @@ Referenced from [README.md](../README.md) and [docs/README.md](README.md).
 ## Layer Architecture
 
 ```
-cmd              --> usecase, session, usecase/port, platform, domain  (composition root)
-usecase          --> usecase/port, domain                              (output port only)
-usecase/port     --> domain (+ stdlib)                                 (interface contracts)
-session          --> eventsource, usecase/port, platform, domain       (adapter impl)
-eventsource      --> domain                                            (event persistence adapter)
-platform         --> domain (+ stdlib)                                 (cross-cutting infra)
-domain           --> (nothing internal, stdlib only)                   (pure types/logic)
+cmd              --> usecase, session, harness, usecase/port, platform, domain  (composition root)
+usecase          --> usecase/port, harness, domain                              (output port only)
+usecase/port     --> domain (+ stdlib)                                          (interface contracts)
+session          --> eventsource, usecase/port, harness, platform, domain       (adapter impl)
+harness          --> domain                                                     (policy-first seam / thin facade)
+eventsource      --> domain                                                     (event persistence adapter)
+platform         --> domain (+ stdlib)                                          (cross-cutting infra)
+domain           --> (nothing internal, stdlib only)                            (pure types/logic)
 ```
+
+### Harness Layer
+
+`phonewave` is the **policy-first / harness-thin** exception in the shared harness contract.
+
+- `internal/harness` is the stable facade seam for future extractions.
+- The current deterministic routing and retry decisions still live primarily in `internal/usecase/policy.go`, `internal/domain/*`, and selected `internal/session/*` adapters.
+- New extraction work must still converge on the same dependency rules as the other 3 tools: external callers should import the facade, and policy logic should remain more independent than verifier/filter-like code.
 
 `eventsource` is the event persistence adapter based on the [AWS Event Sourcing pattern](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/event-sourcing.html).
 Its responsibility is limited to append, load, and replay of domain events.
@@ -35,8 +44,11 @@ Key constraints enforced by semgrep (ERROR severity):
 - `usecase --> session` PROHIBITED (must use output port interfaces)
 - `cmd --> eventsource` PROHIBITED (ADR S0008)
 - `domain` has no I/O, no `context.Context`
+- `domain --> harness` PROHIBITED
+- `eventsource --> harness` PROHIBITED
+- external callers must use the `harness` facade instead of reaching into sub-packages when phonewave grows beyond the current thin seam
 
-Ref: `.semgrep/layers.yaml`, ADR S0007
+Ref: `.semgrep/layers.yaml`, `.semgrep/layers-harness.yaml`, `refs/opsx/semgrep-layer-contract.md`, ADR S0007
 
 ## Domain Primitives & Parse-Don't-Validate
 

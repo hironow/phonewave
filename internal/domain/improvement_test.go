@@ -9,18 +9,25 @@ import (
 
 func TestCorrectionMetadataApplyRoundTrip(t *testing.T) {
 	meta := domain.CorrectionMetadata{
-		FailureType:      domain.FailureTypeRoutingFailure,
-		Severity:         domain.SeverityMedium,
-		SecondaryType:    "delivery",
-		TargetAgent:      "paintress",
-		RoutingMode:      domain.RoutingModeRetry,
-		RecurrenceCount:  2,
-		CorrectiveAction: "retry",
-		RetryAllowed:     domain.BoolPtr(true),
-		EscalationReason: "recurrence-threshold",
-		CorrelationID:    "corr-1",
-		TraceID:          "trace-1",
-		Outcome:          domain.ImprovementOutcomePending,
+		FailureType:         domain.FailureTypeRoutingFailure,
+		Severity:            domain.SeverityMedium,
+		SecondaryType:       "delivery",
+		TargetAgent:         "paintress",
+		RoutingMode:         domain.RoutingModeRetry,
+		RoutingHistory:      []string{"retry", "reroute"},
+		OwnerHistory:        []string{"paintress", "sightjack"},
+		RecurrenceCount:     2,
+		CorrectiveAction:    "retry",
+		RetryAllowed:        domain.BoolPtr(true),
+		EscalationReason:    "recurrence-threshold",
+		CorrelationID:       "corr-1",
+		TraceID:             "trace-1",
+		ProviderState:       domain.ProviderStateWaiting,
+		ProviderReason:      domain.ProviderReasonRateLimit,
+		ProviderRetryBudget: 0,
+		ProviderResumeAt:    "2026-04-05T00:00:00Z",
+		ProviderResumeWhen:  domain.ResumeConditionProbeSucceeds,
+		Outcome:             domain.ImprovementOutcomePending,
 	}
 
 	applied := meta.Apply(map[string]string{"existing": "ok"})
@@ -38,6 +45,12 @@ func TestCorrectionMetadataApplyRoundTrip(t *testing.T) {
 	if got.RoutingMode != domain.RoutingModeRetry {
 		t.Fatalf("RoutingMode = %q, want %q", got.RoutingMode, domain.RoutingModeRetry)
 	}
+	if gotRouting := domain.FormatImprovementHistory(got.RoutingHistory); gotRouting != "retry>reroute" {
+		t.Fatalf("RoutingHistory = %q, want retry>reroute", gotRouting)
+	}
+	if gotOwners := domain.FormatImprovementHistory(got.OwnerHistory); gotOwners != "paintress>sightjack" {
+		t.Fatalf("OwnerHistory = %q, want paintress>sightjack", gotOwners)
+	}
 	if got.RecurrenceCount != 2 {
 		t.Fatalf("RecurrenceCount = %d, want 2", got.RecurrenceCount)
 	}
@@ -47,11 +60,29 @@ func TestCorrectionMetadataApplyRoundTrip(t *testing.T) {
 	if got.EscalationReason != "recurrence-threshold" {
 		t.Fatalf("EscalationReason = %q, want recurrence-threshold", got.EscalationReason)
 	}
+	if got.ProviderState != domain.ProviderStateWaiting {
+		t.Fatalf("ProviderState = %q, want %q", got.ProviderState, domain.ProviderStateWaiting)
+	}
+	if got.ProviderReason != domain.ProviderReasonRateLimit {
+		t.Fatalf("ProviderReason = %q, want %q", got.ProviderReason, domain.ProviderReasonRateLimit)
+	}
+	if got.ProviderRetryBudget != 0 {
+		t.Fatalf("ProviderRetryBudget = %d, want 0", got.ProviderRetryBudget)
+	}
+	if got.ProviderResumeAt != "2026-04-05T00:00:00Z" {
+		t.Fatalf("ProviderResumeAt = %q, want 2026-04-05T00:00:00Z", got.ProviderResumeAt)
+	}
+	if got.ProviderResumeWhen != domain.ResumeConditionProbeSucceeds {
+		t.Fatalf("ProviderResumeWhen = %q, want %q", got.ProviderResumeWhen, domain.ResumeConditionProbeSucceeds)
+	}
 	if applied[domain.MetadataImprovementSchemaVersion] != domain.ImprovementSchemaVersion {
 		t.Fatalf("schema version = %q, want %q", applied[domain.MetadataImprovementSchemaVersion], domain.ImprovementSchemaVersion)
 	}
 	if applied[domain.MetadataSeverity] != string(domain.SeverityMedium) {
 		t.Fatalf("severity = %q, want %q", applied[domain.MetadataSeverity], domain.SeverityMedium)
+	}
+	if applied[domain.MetadataProviderRetryBudget] != "0" {
+		t.Fatalf("provider_retry_budget = %q, want 0", applied[domain.MetadataProviderRetryBudget])
 	}
 }
 
@@ -76,6 +107,12 @@ func TestCorrectionMetadataForwardForRecheck(t *testing.T) {
 	}
 	if got.SchemaVersion != domain.ImprovementSchemaVersion {
 		t.Fatalf("SchemaVersion = %q, want %q", got.SchemaVersion, domain.ImprovementSchemaVersion)
+	}
+	if gotRouting := domain.FormatImprovementHistory(got.RoutingHistory); gotRouting != "" {
+		t.Fatalf("RoutingHistory = %q, want empty", gotRouting)
+	}
+	if gotOwners := domain.FormatImprovementHistory(got.OwnerHistory); gotOwners != "" {
+		t.Fatalf("OwnerHistory = %q, want empty", gotOwners)
 	}
 	if got.RetryAllowed != nil {
 		t.Fatalf("RetryAllowed = %v, want nil", *got.RetryAllowed)

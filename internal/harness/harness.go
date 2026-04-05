@@ -1,13 +1,17 @@
-// Package harness mediates between the task environment and decision logic.
-// It is the single import surface for all decision and validation logic.
+// Package harness mediates between the task environment and deterministic
+// decision logic. It is the single import surface for extracted policy helpers.
 //
-// phonewave has no active harness code because routing and validation
-// logic is tightly coupled to domain aggregate types in internal/domain/.
-// Sub-packages (policy, verifier, filter) will be created when decision
-// logic is extracted from domain.
+// phonewave remains policy-first / harness-thin: most routing/runtime logic
+// still lives in internal/domain, internal/session, and internal/usecase.
+// This package exposes extracted helpers as those seams become stable.
 //
 // Semgrep rules (.semgrep/layers-harness.yaml) enforce the import
 // boundaries for this layer across all 4 tools.
 //
 // See: AutoHarness (arxiv 2603.03329v1) -- "Harness as Policy" spectrum.
 package harness
+
+import "github.com/hironow/phonewave/internal/harness/policy"
+
+// SelectDeliveryInboxes applies delivery precedence without side effects.
+var SelectDeliveryInboxes = policy.SelectDeliveryInboxes

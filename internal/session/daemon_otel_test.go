@@ -67,6 +67,15 @@ func spanAttributeValue(span *tracetest.SpanStub, key attribute.Key) string {
 	return ""
 }
 
+func spanAttributeIntValue(span *tracetest.SpanStub, key attribute.Key) int64 {
+	for _, attr := range span.Attributes {
+		if attr.Key == key {
+			return attr.Value.AsInt64()
+		}
+	}
+	return 0
+}
+
 func TestDaemon_Run_CreatesStartupScanSpan(t *testing.T) {
 	exp := setupTestTracer(t)
 
@@ -340,5 +349,37 @@ func TestDeliverData_RecordsErrorSpan(t *testing.T) {
 	}
 	if s.Status.Code != codes.Error {
 		t.Errorf("span status = %v, want Error", s.Status.Code)
+	}
+}
+
+func TestRecordRetryCycleTelemetry_RecordsProviderStateAttrs(t *testing.T) {
+	exp := setupTestTracer(t)
+
+	recordRetryCycleTelemetry(context.Background(), 0, domain.ProviderStateSnapshot{
+		State:           domain.ProviderStateWaiting,
+		Reason:          "delivery_retry_backoff",
+		RetryBudget:     1,
+		ResumeCondition: "backoff-elapses",
+	})
+
+	spans := exp.GetSpans()
+	s := findSpanByName(spans, "daemon.retry_cycle")
+	if s == nil {
+		t.Fatalf("missing daemon.retry_cycle span; got spans: %v", spanNames(spans))
+	}
+	if got := spanAttributeValue(s, domain.MetadataProviderState); got != string(domain.ProviderStateWaiting) {
+		t.Fatalf("provider_state = %q, want %q", got, domain.ProviderStateWaiting)
+	}
+	if got := spanAttributeValue(s, domain.MetadataProviderReason); got != "delivery_retry_backoff" {
+		t.Fatalf("provider_reason = %q, want delivery_retry_backoff", got)
+	}
+	if got := spanAttributeValue(s, domain.MetadataProviderResumeWhen); got != "backoff-elapses" {
+		t.Fatalf("provider_resume_when = %q, want backoff-elapses", got)
+	}
+	if got := spanAttributeIntValue(s, domain.MetadataProviderRetryBudget); got != 1 {
+		t.Fatalf("provider_retry_budget = %d, want 1", got)
+	}
+	if got := spanAttributeIntValue(s, "retry.success.count"); got != 0 {
+		t.Fatalf("retry.success.count = %d, want 0", got)
 	}
 }

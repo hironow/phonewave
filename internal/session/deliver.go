@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hironow/phonewave/internal/domain"
+	"github.com/hironow/phonewave/internal/harness"
 	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/usecase/port"
 )
@@ -80,13 +81,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	}
 
 	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)
-	targetInboxes := matchedRoute.ToInboxes
-	if filtered := domain.FilterInboxesByTargets(targetInboxes, fm.Targets); len(filtered) > 0 {
-		targetInboxes = filtered
-	}
-	if filtered := domain.FilterInboxesByTargetAgent(targetInboxes, domain.PreferredImprovementTargetAgent(kind, metadata)); len(filtered) > 0 {
-		targetInboxes = filtered
-	}
+	targetInboxes := harness.SelectDeliveryInboxes(kind, matchedRoute.ToInboxes, fm.Targets, metadata)
 	targetPaths := make([]string, len(targetInboxes))
 	for i, inbox := range targetInboxes {
 		targetPaths[i] = filepath.Join(inbox, fileName)
@@ -131,6 +126,8 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 		attribute.String("dmail.severity", platform.SanitizeUTF8(string(domain.NormalizeSeverity(metadata.Severity)))),
 		attribute.String("dmail.target_agent", platform.SanitizeUTF8(metadata.TargetAgent)),
 		attribute.String("dmail.routing_mode", platform.SanitizeUTF8(string(domain.NormalizeRoutingMode(metadata.RoutingMode)))),
+		attribute.String("dmail.routing_history", platform.SanitizeUTF8(domain.FormatImprovementHistory(metadata.RoutingHistory))),
+		attribute.String("dmail.owner_history", platform.SanitizeUTF8(domain.FormatImprovementHistory(metadata.OwnerHistory))),
 		attribute.String("dmail.correlation_id", platform.SanitizeUTF8(metadata.CorrelationID)),
 		attribute.String("dmail.trace_id", platform.SanitizeUTF8(metadata.TraceID)),
 		attribute.String("dmail.outcome", platform.SanitizeUTF8(string(metadata.Outcome))),

@@ -12,6 +12,7 @@ import (
 var phonewaveGitignoreEntries = []string{
 	"watch.pid",
 	"watch.started",
+	"provider-state.json",
 	"delivery.log",
 	"events/",
 	".run/",

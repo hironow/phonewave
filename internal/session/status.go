@@ -120,6 +120,27 @@ func Status(cfg *domain.Config, stateDir string) domain.StatusReport {
 		}
 	}
 
+	snapshot, ok := loadProviderStateSnapshot(stateDir)
+	if !ok {
+		if report.PendingErrors > 0 {
+			snapshot = domain.ProviderStateSnapshot{
+				State:           domain.ProviderStateWaiting,
+				Reason:          domain.ProviderReasonDeliveryRetryBackoff,
+				RetryBudget:     1,
+				ResumeCondition: domain.ResumeConditionBackoffElapses,
+			}
+		} else {
+			snapshot = domain.ActiveProviderState()
+		}
+	}
+	report.ProviderState = string(snapshot.State)
+	report.ProviderReason = snapshot.Reason
+	report.ProviderRetryBudget = snapshot.RetryBudget
+	if !snapshot.ResumeAt.IsZero() {
+		report.ProviderResumeAt = snapshot.ResumeAt
+	}
+	report.ProviderResumeWhen = snapshot.ResumeCondition
+
 	// Skills-ref toolchain status (aligned with doctor's checkSkillsRefToolchain)
 	venvDir := filepath.Join(os.TempDir(), domain.SkillsRefVenvName)
 	report.SkillsRefVenv = venvDir
