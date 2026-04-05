@@ -11,6 +11,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -55,6 +56,15 @@ func spanNames(spans tracetest.SpanStubs) []string {
 		names[i] = s.Name
 	}
 	return names
+}
+
+func spanAttributeValue(span *tracetest.SpanStub, key attribute.Key) string {
+	for _, attr := range span.Attributes {
+		if attr.Key == key {
+			return attr.Value.AsString()
+		}
+	}
+	return ""
 }
 
 func TestDaemon_Run_CreatesStartupScanSpan(t *testing.T) {
@@ -241,6 +251,49 @@ func TestDeliverData_CreatesSpan(t *testing.T) {
 	spans := exp.GetSpans()
 	if s := findSpanByName(spans, "delivery.deliver"); s == nil {
 		t.Errorf("missing delivery.deliver span; got spans: %v", spanNames(spans))
+	}
+}
+
+func TestDeliverData_RecordsImprovementAttributes(t *testing.T) {
+	exp := setupTestTracer(t)
+
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	for _, d := range []string{outbox, inbox} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := "---\ndmail-schema-version: \"1\"\nname: span-meta\nkind: implementation-feedback\ndescription: \"Span metadata\"\nmetadata:\n  improvement_schema_version: \"1\"\n  failure_type: execution_failure\n  target_agent: paintress\n  correlation_id: corr-1\n  trace_id: trace-1\n  outcome: failed_again\n  recurrence_count: \"2\"\n---\n"
+	dmailPath := filepath.Join(outbox, "span-meta.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "implementation-feedback", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+
+	ds := newTestDeliveryStore(t)
+	if _, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds); err != nil {
+		t.Fatalf("DeliverData: %v", err)
+	}
+
+	spans := exp.GetSpans()
+	s := findSpanByName(spans, "delivery.deliver")
+	if s == nil {
+		t.Fatalf("missing delivery.deliver span; got spans: %v", spanNames(spans))
+	}
+	if got := spanAttributeValue(s, "dmail.correlation_id"); got != "corr-1" {
+		t.Fatalf("dmail.correlation_id = %q, want corr-1", got)
+	}
+	if got := spanAttributeValue(s, "dmail.outcome"); got != "failed_again" {
+		t.Fatalf("dmail.outcome = %q, want failed_again", got)
+	}
+	if got := spanAttributeValue(s, "dmail.improvement_schema_version"); got != "1" {
+		t.Fatalf("dmail.improvement_schema_version = %q, want 1", got)
 	}
 }
 

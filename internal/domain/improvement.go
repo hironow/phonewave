@@ -139,6 +139,18 @@ func (m CorrectionMetadata) ImprovementEvent() ImprovementEvent {
 	}
 }
 
+func (m CorrectionMetadata) ForwardForRecheck() CorrectionMetadata {
+	forwarded := m
+	if forwarded.SchemaVersion == "" {
+		forwarded.SchemaVersion = ImprovementSchemaVersion
+	}
+	forwarded.TargetAgent = ""
+	if forwarded.Outcome == "" {
+		forwarded.Outcome = ImprovementOutcomePending
+	}
+	return forwarded
+}
+
 func FilterInboxesByTargetAgent(inboxes []string, targetAgent string) []string {
 	if targetAgent == "" {
 		return nil
