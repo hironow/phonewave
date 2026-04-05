@@ -156,6 +156,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		retryCh = retryTimer.C
 		defer retryTimer.Stop()
 	}
+	if writeErr := writeProviderStateSnapshot(d.opts.StateDir, domain.ActiveProviderState()); writeErr != nil {
+		d.logger.Warn("Write provider state: %v", writeErr)
+	}
 
 	// Optional idle timer (nil channel disables the case).
 	// Exits the daemon cleanly when no activity occurs for the configured duration.
@@ -213,6 +216,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 				backoff.RecordSuccess()
 			} else {
 				backoff.RecordFailure()
+			}
+			snapshot := backoff.Snapshot()
+			recordRetryCycleTelemetry(ctx, successes, snapshot)
+			if writeErr := writeProviderStateSnapshot(d.opts.StateDir, snapshot); writeErr != nil {
+				d.logger.Warn("Write provider state: %v", writeErr)
 			}
 			retryTimer.Reset(backoff.Next())
 

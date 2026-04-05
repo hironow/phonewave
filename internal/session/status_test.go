@@ -1,6 +1,7 @@
 package session_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -85,6 +86,15 @@ func TestStatus_PendingErrors(t *testing.T) {
 	// then
 	if status.PendingErrors != 2 {
 		t.Errorf("pending errors = %d, want 2", status.PendingErrors)
+	}
+	if status.ProviderState != string(domain.ProviderStateWaiting) {
+		t.Errorf("provider_state = %q, want %q", status.ProviderState, domain.ProviderStateWaiting)
+	}
+	if status.ProviderReason != "delivery_retry_backoff" {
+		t.Errorf("provider_reason = %q, want delivery_retry_backoff", status.ProviderReason)
+	}
+	if status.ProviderResumeWhen != "backoff-elapses" {
+		t.Errorf("provider_resume_when = %q, want backoff-elapses", status.ProviderResumeWhen)
 	}
 }
 
@@ -232,5 +242,47 @@ func TestStatus_SuccessRate_NoDeliveries(t *testing.T) {
 	// then — 0 deliveries → 0.0 success rate
 	if status.SuccessRate24h != 0.0 {
 		t.Errorf("success rate 24h = %f, want 0.0 (no deliveries)", status.SuccessRate24h)
+	}
+}
+
+func TestStatus_ProviderStateFromSnapshotFile(t *testing.T) {
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, domain.StateDir)
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	resumeAt := time.Now().UTC().Add(5 * time.Minute).Truncate(time.Second)
+	snapshot := domain.ProviderStateSnapshot{
+		State:           domain.ProviderStateDegraded,
+		Reason:          "provider_rate_limited",
+		RetryBudget:     0,
+		ResumeAt:        resumeAt,
+		ResumeCondition: "probe-succeeds",
+	}
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stateDir, "provider-state.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	status := session.Status(&domain.Config{}, stateDir)
+
+	if status.ProviderState != string(domain.ProviderStateDegraded) {
+		t.Fatalf("provider_state = %q, want %q", status.ProviderState, domain.ProviderStateDegraded)
+	}
+	if status.ProviderReason != "provider_rate_limited" {
+		t.Fatalf("provider_reason = %q, want provider_rate_limited", status.ProviderReason)
+	}
+	if status.ProviderRetryBudget != 0 {
+		t.Fatalf("provider_retry_budget = %d, want 0", status.ProviderRetryBudget)
+	}
+	if !status.ProviderResumeAt.Equal(resumeAt) {
+		t.Fatalf("provider_resume_at = %v, want %v", status.ProviderResumeAt, resumeAt)
+	}
+	if status.ProviderResumeWhen != "probe-succeeds" {
+		t.Fatalf("provider_resume_when = %q, want probe-succeeds", status.ProviderResumeWhen)
 	}
 }
