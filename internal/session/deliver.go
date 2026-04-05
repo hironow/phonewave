@@ -130,6 +130,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 		attribute.String("dmail.failure_type", platform.SanitizeUTF8(string(metadata.FailureType))),
 		attribute.String("dmail.severity", platform.SanitizeUTF8(string(domain.NormalizeSeverity(metadata.Severity)))),
 		attribute.String("dmail.target_agent", platform.SanitizeUTF8(metadata.TargetAgent)),
+		attribute.String("dmail.routing_mode", platform.SanitizeUTF8(string(domain.NormalizeRoutingMode(metadata.RoutingMode)))),
 		attribute.String("dmail.correlation_id", platform.SanitizeUTF8(metadata.CorrelationID)),
 		attribute.String("dmail.trace_id", platform.SanitizeUTF8(metadata.TraceID)),
 		attribute.String("dmail.outcome", platform.SanitizeUTF8(string(metadata.Outcome))),
