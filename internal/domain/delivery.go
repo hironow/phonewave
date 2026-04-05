@@ -51,12 +51,13 @@ type StagedDelivery struct {
 
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
 type DMailFrontmatter struct {
-	SchemaVersion string `yaml:"dmail-schema-version"`
-	Name          string `yaml:"name"`
-	Kind          string `yaml:"kind"`
-	Description   string `yaml:"description"`
-	Action        string `yaml:"action,omitempty"`
-	Priority      int    `yaml:"priority,omitempty"`
+	SchemaVersion string            `yaml:"dmail-schema-version"`
+	Name          string            `yaml:"name"`
+	Kind          string            `yaml:"kind"`
+	Description   string            `yaml:"description"`
+	Action        string            `yaml:"action,omitempty"`
+	Priority      int               `yaml:"priority,omitempty"`
+	Metadata      map[string]string `yaml:"metadata,omitempty"`
 }
 
 // ResolvedRoute is a concrete route with absolute paths for delivery.
@@ -86,7 +87,7 @@ func ValidateKind(kind string) error {
 
 // ExtractDMailKind reads a D-Mail file's YAML frontmatter and returns the kind.
 func ExtractDMailKind(data []byte) (string, error) {
-	fm, err := parseDMailFrontmatter(data)
+	fm, err := ParseDMailFrontmatter(data)
 	if err != nil {
 		return "", err
 	}
@@ -109,7 +110,7 @@ func ExtractDMailKind(data []byte) (string, error) {
 // This is intentionally separate from ParseSkillFrontmatter because D-Mail
 // and SKILL.md have different metadata structures (D-Mail metadata is
 // map[string]string, while SKILL metadata has typed produces/consumes).
-func parseDMailFrontmatter(data []byte) (*DMailFrontmatter, error) {
+func ParseDMailFrontmatter(data []byte) (*DMailFrontmatter, error) {
 	content := string(data)
 	idx := findFrontmatterEnd(content)
 	if idx < 0 {
