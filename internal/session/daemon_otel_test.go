@@ -266,7 +266,7 @@ func TestDeliverData_RecordsImprovementAttributes(t *testing.T) {
 		}
 	}
 
-	dmailContent := "---\ndmail-schema-version: \"1\"\nname: span-meta\nkind: implementation-feedback\ndescription: \"Span metadata\"\nmetadata:\n  improvement_schema_version: \"1\"\n  failure_type: execution_failure\n  target_agent: paintress\n  correlation_id: corr-1\n  trace_id: trace-1\n  outcome: failed_again\n  recurrence_count: \"2\"\n  retry_allowed: \"false\"\n  escalation_reason: recurrence-threshold\n---\n"
+	dmailContent := "---\ndmail-schema-version: \"1\"\nname: span-meta\nkind: implementation-feedback\ndescription: \"Span metadata\"\nmetadata:\n  improvement_schema_version: \"1\"\n  failure_type: execution_failure\n  severity: high\n  target_agent: paintress\n  correlation_id: corr-1\n  trace_id: trace-1\n  outcome: failed_again\n  recurrence_count: \"2\"\n  retry_allowed: \"false\"\n  escalation_reason: recurrence-threshold\n---\n"
 	dmailPath := filepath.Join(outbox, "span-meta.md")
 	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
 		t.Fatal(err)
@@ -291,6 +291,9 @@ func TestDeliverData_RecordsImprovementAttributes(t *testing.T) {
 	}
 	if got := spanAttributeValue(s, "dmail.outcome"); got != "failed_again" {
 		t.Fatalf("dmail.outcome = %q, want failed_again", got)
+	}
+	if got := spanAttributeValue(s, "dmail.severity"); got != "high" {
+		t.Fatalf("dmail.severity = %q, want high", got)
 	}
 	if got := spanAttributeValue(s, "dmail.improvement_schema_version"); got != "1" {
 		t.Fatalf("dmail.improvement_schema_version = %q, want 1", got)

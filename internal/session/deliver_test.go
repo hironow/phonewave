@@ -180,6 +180,111 @@ metadata:
 	}
 }
 
+func TestDeliver_TargetsFrontmatterNarrowsTargets(t *testing.T) {
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, "amadeus", ".gate", "outbox")
+	inbox1 := filepath.Join(repoDir, "sightjack", ".siren", "inbox")
+	inbox2 := filepath.Join(repoDir, "paintress", ".expedition", "inbox")
+	for _, d := range []string{outbox, inbox1, inbox2} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+dmail-schema-version: "1"
+name: feedback-044
+kind: design-feedback
+description: "Corrective feedback"
+targets:
+  - auth/session.go
+  - paintress
+metadata:
+  failure_type: execution_failure
+---
+
+# Feedback
+`
+	dmailPath := filepath.Join(outbox, "feedback-044.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "design-feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
+	}
+	ds := newTestDeliveryStore(t)
+
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
+	if err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	if len(result.DeliveredTo) != 1 {
+		t.Fatalf("delivered to %d targets, want 1", len(result.DeliveredTo))
+	}
+	targetPath := filepath.Join(inbox2, "feedback-044.md")
+	if result.DeliveredTo[0] != targetPath {
+		t.Fatalf("delivered to %q, want %q", result.DeliveredTo[0], targetPath)
+	}
+	if _, err := os.Stat(filepath.Join(inbox1, "feedback-044.md")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal("unexpected delivery to non-target inbox")
+	}
+	if _, err := os.Stat(filepath.Join(inbox2, "feedback-044.md")); err != nil {
+		t.Fatalf("target inbox missing delivery: %v", err)
+	}
+}
+
+func TestDeliver_ImprovementFallbackNarrowsDesignFeedbackToSightjack(t *testing.T) {
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, "amadeus", ".gate", "outbox")
+	inbox1 := filepath.Join(repoDir, "sightjack", ".siren", "inbox")
+	inbox2 := filepath.Join(repoDir, "paintress", ".expedition", "inbox")
+	for _, d := range []string{outbox, inbox1, inbox2} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+dmail-schema-version: "1"
+name: feedback-045
+kind: design-feedback
+description: "Escalated corrective feedback"
+metadata:
+  improvement_schema_version: "1"
+  failure_type: scope_violation
+  outcome: escalated
+  retry_allowed: "false"
+---
+
+# Feedback
+`
+	dmailPath := filepath.Join(outbox, "feedback-045.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "design-feedback", FromOutbox: outbox, ToInboxes: []string{inbox1, inbox2}},
+	}
+	ds := newTestDeliveryStore(t)
+
+	result, err := session.Deliver(context.Background(), dmailPath, routes, ds)
+	if err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	if len(result.DeliveredTo) != 1 {
+		t.Fatalf("delivered to %d targets, want 1", len(result.DeliveredTo))
+	}
+	targetPath := filepath.Join(inbox1, "feedback-045.md")
+	if result.DeliveredTo[0] != targetPath {
+		t.Fatalf("delivered to %q, want %q", result.DeliveredTo[0], targetPath)
+	}
+	if _, err := os.Stat(filepath.Join(inbox2, "feedback-045.md")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal("unexpected delivery to non-preferred inbox")
+	}
+}
+
 func TestDeliver_UnknownKind(t *testing.T) {
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
