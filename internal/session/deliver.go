@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -121,11 +122,23 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	// Partial: source stays in outbox, no error returned.
 	// DeliveryStore retry_count handles re-flush on next delivery or startup scan.
 
-	span.SetAttributes(
+	attrs := []attribute.KeyValue{
 		attribute.Int("inbox.count", len(result.DeliveredTo)),
 		attribute.String("dmail.failure_type", platform.SanitizeUTF8(string(metadata.FailureType))),
 		attribute.String("dmail.target_agent", platform.SanitizeUTF8(metadata.TargetAgent)),
-	)
+		attribute.String("dmail.correlation_id", platform.SanitizeUTF8(metadata.CorrelationID)),
+		attribute.String("dmail.trace_id", platform.SanitizeUTF8(metadata.TraceID)),
+		attribute.String("dmail.outcome", platform.SanitizeUTF8(string(metadata.Outcome))),
+		attribute.Int("dmail.recurrence_count", metadata.RecurrenceCount),
+		attribute.String("dmail.improvement_schema_version", platform.SanitizeUTF8(metadata.SchemaVersion)),
+	}
+	if metadata.RetryAllowed != nil {
+		attrs = append(attrs, attribute.String("dmail.retry_allowed", platform.SanitizeUTF8(strconv.FormatBool(*metadata.RetryAllowed))))
+	}
+	if metadata.EscalationReason != "" {
+		attrs = append(attrs, attribute.String("dmail.escalation_reason", platform.SanitizeUTF8(metadata.EscalationReason)))
+	}
+	span.SetAttributes(attrs...)
 	return result, nil
 }
 

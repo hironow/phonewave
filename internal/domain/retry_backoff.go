@@ -39,3 +39,15 @@ func (b *RetryBackoff) RecordFailure() {
 		b.current = b.max
 	}
 }
+
+func (b *RetryBackoff) Snapshot() ProviderStateSnapshot {
+	if b.current <= b.base {
+		return ActiveProviderState()
+	}
+	return ProviderStateSnapshot{
+		State:           ProviderStateWaiting,
+		Reason:          "delivery_retry_backoff",
+		RetryBudget:     1,
+		ResumeCondition: "backoff-elapses",
+	}
+}

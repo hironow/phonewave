@@ -37,6 +37,27 @@ func waitForFile(t *testing.T, path string, timeout time.Duration) {
 	}
 }
 
+// waitForCondition polls until fn reports success, or fails after timeout.
+func waitForCondition(t *testing.T, timeout time.Duration, description string, fn func() (bool, error)) {
+	t.Helper()
+	deadline := time.After(timeout)
+	for {
+		select {
+		case <-deadline:
+			t.Fatalf("timeout waiting for condition: %s", description)
+		default:
+			ok, err := fn()
+			if err != nil {
+				t.Fatalf("%s: %v", description, err)
+			}
+			if ok {
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+}
+
 func TestDaemon_StartupScan(t *testing.T) {
 	// given — a repo with a pre-existing file in outbox
 	repoDir := t.TempDir()
@@ -1167,19 +1188,21 @@ func TestDaemon_RetrySucceeds(t *testing.T) {
 		t.Error("D-Mail not found in inbox after retry")
 	}
 
-	// Verify entry marked as resolved in SQLite
-	pendingCount, countErr := errorQueue.PendingCount(10)
-	if countErr != nil {
-		t.Fatalf("PendingCount: %v", countErr)
-	}
-	if pendingCount != 0 {
-		t.Errorf("SQLite error queue pending count = %d, want 0", pendingCount)
-	}
+	waitForCondition(t, 3*time.Second, "error queue to resolve retried delivery", func() (bool, error) {
+		pendingCount, err := errorQueue.PendingCount(10)
+		if err != nil {
+			return false, err
+		}
+		return pendingCount == 0, nil
+	})
 
-	logData, _ := os.ReadFile(filepath.Join(stateDir, "delivery.log"))
-	if !strings.Contains(string(logData), "RETRIED") {
-		t.Error("delivery log should contain RETRIED entry")
-	}
+	waitForCondition(t, 3*time.Second, "delivery log to record RETRIED entry", func() (bool, error) {
+		logData, err := os.ReadFile(filepath.Join(stateDir, "delivery.log"))
+		if err != nil {
+			return false, err
+		}
+		return strings.Contains(string(logData), "RETRIED"), nil
+	})
 
 	cancel()
 	<-errCh

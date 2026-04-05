@@ -4,6 +4,7 @@
 
 - [conformance.md](conformance.md) — What/Why/How conformance table (single source)
 - [phonewave-directory.md](phonewave-directory.md) — `.phonewave/` directory structure specification
+- [self-improvement-loop.md](self-improvement-loop.md) — How phonewave participates in the observable self-improvement loop
 - [policies.md](policies.md) — Event → Policy mapping (WHEN event THEN command)
 - [otel-backends.md](otel-backends.md) — OpenTelemetry backend configuration (Jaeger, Weave)
 - [dmail-protocol-conventions.md](dmail-protocol-conventions.md) — D-Mail filename uniqueness and archive retention conventions
