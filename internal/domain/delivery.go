@@ -57,6 +57,7 @@ type DMailFrontmatter struct {
 	Description   string            `yaml:"description"`
 	Action        string            `yaml:"action,omitempty"`
 	Priority      int               `yaml:"priority,omitempty"`
+	Targets       []string          `yaml:"targets,omitempty"`
 	Metadata      map[string]string `yaml:"metadata,omitempty"`
 }
 

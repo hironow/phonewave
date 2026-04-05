@@ -10,6 +10,7 @@ import (
 func TestCorrectionMetadataApplyRoundTrip(t *testing.T) {
 	meta := domain.CorrectionMetadata{
 		FailureType:      domain.FailureTypeRoutingFailure,
+		Severity:         domain.SeverityMedium,
 		SecondaryType:    "delivery",
 		TargetAgent:      "paintress",
 		RecurrenceCount:  2,
@@ -27,6 +28,9 @@ func TestCorrectionMetadataApplyRoundTrip(t *testing.T) {
 	if got.FailureType != meta.FailureType {
 		t.Fatalf("FailureType = %q, want %q", got.FailureType, meta.FailureType)
 	}
+	if got.Severity != meta.Severity {
+		t.Fatalf("Severity = %q, want %q", got.Severity, meta.Severity)
+	}
 	if got.TargetAgent != "paintress" {
 		t.Fatalf("TargetAgent = %q, want paintress", got.TargetAgent)
 	}
@@ -41,6 +45,9 @@ func TestCorrectionMetadataApplyRoundTrip(t *testing.T) {
 	}
 	if applied[domain.MetadataImprovementSchemaVersion] != domain.ImprovementSchemaVersion {
 		t.Fatalf("schema version = %q, want %q", applied[domain.MetadataImprovementSchemaVersion], domain.ImprovementSchemaVersion)
+	}
+	if applied[domain.MetadataSeverity] != string(domain.SeverityMedium) {
+		t.Fatalf("severity = %q, want %q", applied[domain.MetadataSeverity], domain.SeverityMedium)
 	}
 }
 
@@ -68,12 +75,108 @@ func TestCorrectionMetadataForwardForRecheck(t *testing.T) {
 	}
 }
 
+func TestCorrectionMetadataFromMap_LegacyV1WithoutSchemaVersion(t *testing.T) {
+	got := domain.CorrectionMetadataFromMap(map[string]string{
+		domain.MetadataFailureType: "routing_failure",
+		domain.MetadataSeverity:    "HIGH",
+		domain.MetadataOutcome:     "FAILED_AGAIN",
+	})
+
+	if !got.IsImprovement() {
+		t.Fatal("IsImprovement = false, want true")
+	}
+	if got.ConsumerSchemaVersion() != domain.ImprovementSchemaVersion {
+		t.Fatalf("ConsumerSchemaVersion = %q, want %q", got.ConsumerSchemaVersion(), domain.ImprovementSchemaVersion)
+	}
+	if got.Severity != domain.SeverityHigh {
+		t.Fatalf("Severity = %q, want %q", got.Severity, domain.SeverityHigh)
+	}
+	if got.Outcome != domain.ImprovementOutcomeFailedAgain {
+		t.Fatalf("Outcome = %q, want %q", got.Outcome, domain.ImprovementOutcomeFailedAgain)
+	}
+	if !got.HasSupportedVocabulary() {
+		t.Fatal("HasSupportedVocabulary = false, want true")
+	}
+}
+
+func TestCorrectionMetadataHasSupportedVocabulary_RejectsUnknownOutcome(t *testing.T) {
+	meta := domain.CorrectionMetadata{
+		FailureType: domain.FailureTypeRoutingFailure,
+		Severity:    domain.SeverityMedium,
+		Outcome:     domain.ImprovementOutcome("not-real"),
+	}
+
+	if meta.HasSupportedVocabulary() {
+		t.Fatal("HasSupportedVocabulary = true, want false")
+	}
+}
+
 func TestFilterInboxesByTargetAgent(t *testing.T) {
 	inboxes := []string{
 		"/tmp/run/sightjack/.siren/inbox",
 		"/tmp/run/paintress/.expedition/inbox",
 	}
 	got := domain.FilterInboxesByTargetAgent(inboxes, "paintress")
+	if !slices.Equal(got, []string{"/tmp/run/paintress/.expedition/inbox"}) {
+		t.Fatalf("filtered inboxes = %v", got)
+	}
+}
+
+func TestPreferredImprovementTargetAgent(t *testing.T) {
+	tests := []struct {
+		name string
+		kind string
+		meta domain.CorrectionMetadata
+		want string
+	}{
+		{
+			name: "explicit target agent wins",
+			kind: "design-feedback",
+			meta: domain.CorrectionMetadata{
+				TargetAgent: "paintress",
+			},
+			want: "paintress",
+		},
+		{
+			name: "design feedback improvement falls back to sightjack",
+			kind: "design-feedback",
+			meta: domain.CorrectionMetadata{
+				Outcome: domain.ImprovementOutcomeEscalated,
+			},
+			want: "sightjack",
+		},
+		{
+			name: "implementation feedback improvement falls back to paintress",
+			kind: "implementation-feedback",
+			meta: domain.CorrectionMetadata{
+				RetryAllowed: domain.BoolPtr(false),
+			},
+			want: "paintress",
+		},
+		{
+			name: "non improvement leaves routing broad",
+			kind: "design-feedback",
+			meta: domain.CorrectionMetadata{},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := domain.PreferredImprovementTargetAgent(tt.kind, tt.meta)
+			if got != tt.want {
+				t.Fatalf("PreferredImprovementTargetAgent(%q) = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterInboxesByTargets(t *testing.T) {
+	inboxes := []string{
+		"/tmp/run/sightjack/.siren/inbox",
+		"/tmp/run/paintress/.expedition/inbox",
+	}
+	got := domain.FilterInboxesByTargets(inboxes, []string{"auth/session.go", "paintress"})
 	if !slices.Equal(got, []string{"/tmp/run/paintress/.expedition/inbox"}) {
 		t.Fatalf("filtered inboxes = %v", got)
 	}

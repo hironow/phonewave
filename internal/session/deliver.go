@@ -81,7 +81,10 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 
 	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)
 	targetInboxes := matchedRoute.ToInboxes
-	if filtered := domain.FilterInboxesByTargetAgent(matchedRoute.ToInboxes, metadata.TargetAgent); len(filtered) > 0 {
+	if filtered := domain.FilterInboxesByTargets(targetInboxes, fm.Targets); len(filtered) > 0 {
+		targetInboxes = filtered
+	}
+	if filtered := domain.FilterInboxesByTargetAgent(targetInboxes, domain.PreferredImprovementTargetAgent(kind, metadata)); len(filtered) > 0 {
 		targetInboxes = filtered
 	}
 	targetPaths := make([]string, len(targetInboxes))
@@ -125,6 +128,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	attrs := []attribute.KeyValue{
 		attribute.Int("inbox.count", len(result.DeliveredTo)),
 		attribute.String("dmail.failure_type", platform.SanitizeUTF8(string(metadata.FailureType))),
+		attribute.String("dmail.severity", platform.SanitizeUTF8(string(domain.NormalizeSeverity(metadata.Severity)))),
 		attribute.String("dmail.target_agent", platform.SanitizeUTF8(metadata.TargetAgent)),
 		attribute.String("dmail.correlation_id", platform.SanitizeUTF8(metadata.CorrelationID)),
 		attribute.String("dmail.trace_id", platform.SanitizeUTF8(metadata.TraceID)),
