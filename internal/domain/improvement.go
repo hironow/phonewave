@@ -36,6 +36,8 @@ const (
 	MetadataTargetAgent              = "target_agent"
 	MetadataRecurrenceCount          = "recurrence_count"
 	MetadataCorrectiveAction         = "corrective_action"
+	MetadataRetryAllowed             = "retry_allowed"
+	MetadataEscalationReason         = "escalation_reason"
 	MetadataCorrelationID            = "correlation_id"
 	MetadataTraceID                  = "trace_id"
 	MetadataOutcome                  = "outcome"
@@ -49,6 +51,8 @@ type CorrectionMetadata struct {
 	TargetAgent      string
 	RecurrenceCount  int
 	CorrectiveAction string
+	RetryAllowed     *bool
+	EscalationReason string
 	CorrelationID    string
 	TraceID          string
 	Outcome          ImprovementOutcome
@@ -61,6 +65,8 @@ type ImprovementEvent struct {
 	TargetAgent      string             `json:"target_agent,omitempty" yaml:"target_agent,omitempty"`
 	RecurrenceCount  int                `json:"recurrence_count,omitempty" yaml:"recurrence_count,omitempty"`
 	CorrectiveAction string             `json:"corrective_action,omitempty" yaml:"corrective_action,omitempty"`
+	RetryAllowed     *bool              `json:"retry_allowed,omitempty" yaml:"retry_allowed,omitempty"`
+	EscalationReason string             `json:"escalation_reason,omitempty" yaml:"escalation_reason,omitempty"`
 	CorrelationID    string             `json:"correlation_id,omitempty" yaml:"correlation_id,omitempty"`
 	TraceID          string             `json:"trace_id,omitempty" yaml:"trace_id,omitempty"`
 	Outcome          ImprovementOutcome `json:"outcome,omitempty" yaml:"outcome,omitempty"`
@@ -71,6 +77,13 @@ func CorrectionMetadataFromMap(meta map[string]string) CorrectionMetadata {
 		return CorrectionMetadata{}
 	}
 	recurrence, _ := strconv.Atoi(meta[MetadataRecurrenceCount])
+	var retryAllowed *bool
+	if raw, ok := meta[MetadataRetryAllowed]; ok && raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err == nil {
+			retryAllowed = BoolPtr(parsed)
+		}
+	}
 	return CorrectionMetadata{
 		SchemaVersion:    meta[MetadataImprovementSchemaVersion],
 		FailureType:      FailureType(meta[MetadataFailureType]),
@@ -78,6 +91,8 @@ func CorrectionMetadataFromMap(meta map[string]string) CorrectionMetadata {
 		TargetAgent:      meta[MetadataTargetAgent],
 		RecurrenceCount:  recurrence,
 		CorrectiveAction: meta[MetadataCorrectiveAction],
+		RetryAllowed:     retryAllowed,
+		EscalationReason: meta[MetadataEscalationReason],
 		CorrelationID:    meta[MetadataCorrelationID],
 		TraceID:          meta[MetadataTraceID],
 		Outcome:          ImprovementOutcome(meta[MetadataOutcome]),
@@ -109,6 +124,12 @@ func (m CorrectionMetadata) Apply(meta map[string]string) map[string]string {
 	if m.CorrectiveAction != "" {
 		cp[MetadataCorrectiveAction] = m.CorrectiveAction
 	}
+	if m.RetryAllowed != nil {
+		cp[MetadataRetryAllowed] = strconv.FormatBool(*m.RetryAllowed)
+	}
+	if m.EscalationReason != "" {
+		cp[MetadataEscalationReason] = m.EscalationReason
+	}
 	if m.CorrelationID != "" {
 		cp[MetadataCorrelationID] = m.CorrelationID
 	}
@@ -133,6 +154,8 @@ func (m CorrectionMetadata) ImprovementEvent() ImprovementEvent {
 		TargetAgent:      m.TargetAgent,
 		RecurrenceCount:  m.RecurrenceCount,
 		CorrectiveAction: m.CorrectiveAction,
+		RetryAllowed:     m.RetryAllowed,
+		EscalationReason: m.EscalationReason,
 		CorrelationID:    m.CorrelationID,
 		TraceID:          m.TraceID,
 		Outcome:          m.Outcome,
@@ -149,6 +172,10 @@ func (m CorrectionMetadata) ForwardForRecheck() CorrectionMetadata {
 		forwarded.Outcome = ImprovementOutcomePending
 	}
 	return forwarded
+}
+
+func BoolPtr(v bool) *bool {
+	return &v
 }
 
 func FilterInboxesByTargetAgent(inboxes []string, targetAgent string) []string {

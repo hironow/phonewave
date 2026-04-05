@@ -14,6 +14,8 @@ func TestCorrectionMetadataApplyRoundTrip(t *testing.T) {
 		TargetAgent:      "paintress",
 		RecurrenceCount:  2,
 		CorrectiveAction: "retry",
+		RetryAllowed:     domain.BoolPtr(true),
+		EscalationReason: "recurrence-threshold",
 		CorrelationID:    "corr-1",
 		TraceID:          "trace-1",
 		Outcome:          domain.ImprovementOutcomePending,
@@ -30,6 +32,12 @@ func TestCorrectionMetadataApplyRoundTrip(t *testing.T) {
 	}
 	if got.RecurrenceCount != 2 {
 		t.Fatalf("RecurrenceCount = %d, want 2", got.RecurrenceCount)
+	}
+	if got.RetryAllowed == nil || !*got.RetryAllowed {
+		t.Fatal("RetryAllowed = nil/false, want true")
+	}
+	if got.EscalationReason != "recurrence-threshold" {
+		t.Fatalf("EscalationReason = %q, want recurrence-threshold", got.EscalationReason)
 	}
 	if applied[domain.MetadataImprovementSchemaVersion] != domain.ImprovementSchemaVersion {
 		t.Fatalf("schema version = %q, want %q", applied[domain.MetadataImprovementSchemaVersion], domain.ImprovementSchemaVersion)
@@ -54,6 +62,9 @@ func TestCorrectionMetadataForwardForRecheck(t *testing.T) {
 	}
 	if got.SchemaVersion != domain.ImprovementSchemaVersion {
 		t.Fatalf("SchemaVersion = %q, want %q", got.SchemaVersion, domain.ImprovementSchemaVersion)
+	}
+	if got.RetryAllowed != nil {
+		t.Fatalf("RetryAllowed = %v, want nil", *got.RetryAllowed)
 	}
 }
 

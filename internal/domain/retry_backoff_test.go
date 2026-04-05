@@ -88,3 +88,35 @@ func TestRetryBackoff_ConsecutiveFailures(t *testing.T) {
 		t.Errorf("second failure interval %v should be > first %v", d2, d1)
 	}
 }
+
+func TestRetryBackoff_SnapshotActiveAfterSuccess(t *testing.T) {
+	b := domain.NewRetryBackoff(1*time.Second, 10*time.Second)
+	b.RecordFailure()
+	b.RecordSuccess()
+
+	got := b.Snapshot()
+
+	if got.State != domain.ProviderStateActive {
+		t.Fatalf("State = %q, want %q", got.State, domain.ProviderStateActive)
+	}
+	if got.RetryBudget != 1 {
+		t.Fatalf("RetryBudget = %d, want 1", got.RetryBudget)
+	}
+}
+
+func TestRetryBackoff_SnapshotWaitingDuringBackoff(t *testing.T) {
+	b := domain.NewRetryBackoff(1*time.Second, 10*time.Second)
+	b.RecordFailure()
+
+	got := b.Snapshot()
+
+	if got.State != domain.ProviderStateWaiting {
+		t.Fatalf("State = %q, want %q", got.State, domain.ProviderStateWaiting)
+	}
+	if got.Reason != "delivery_retry_backoff" {
+		t.Fatalf("Reason = %q, want delivery_retry_backoff", got.Reason)
+	}
+	if got.ResumeCondition != "backoff-elapses" {
+		t.Fatalf("ResumeCondition = %q, want backoff-elapses", got.ResumeCondition)
+	}
+}
