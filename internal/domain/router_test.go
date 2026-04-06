@@ -258,3 +258,32 @@ func TestDeriveRoutes_SameKindMultipleProducers(t *testing.T) {
 		}
 	}
 }
+
+func TestDeriveRoutes_StallEscalation(t *testing.T) {
+	// given — sightjack produces stall-escalation, amadeus consumes it
+	endpoints := []domain.Endpoint{
+		{Dir: ".siren", Produces: []string{"specification", "report", "stall-escalation"}, Consumes: []string{"design-feedback"}},
+		{Dir: ".expedition", Produces: []string{"report"}, Consumes: []string{"specification"}},
+		{Dir: ".gate", Produces: []string{"design-feedback"}, Consumes: []string{"report", "stall-escalation"}},
+	}
+
+	// when
+	routes := domain.DeriveRoutes(endpoints)
+
+	// then — stall-escalation route: .siren/outbox → [.gate/inbox]
+	routeMap := make(map[string]domain.Route)
+	for _, r := range routes {
+		routeMap[r.Kind] = r
+	}
+
+	stall, ok := routeMap["stall-escalation"]
+	if !ok {
+		t.Fatal("missing route for kind=stall-escalation — routing declaration mismatch")
+	}
+	if stall.From != ".siren/outbox" {
+		t.Errorf("stall-escalation.from = %q, want %q", stall.From, ".siren/outbox")
+	}
+	if len(stall.To) != 1 || stall.To[0] != ".gate/inbox" {
+		t.Errorf("stall-escalation.to = %v, want [.gate/inbox]", stall.To)
+	}
+}
