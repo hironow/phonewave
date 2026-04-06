@@ -73,8 +73,18 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		}
 		d.recordFailureEvent(event.Name, kind, err)
 
+		// Feed delivery error to circuit breaker
+		if d.cb != nil {
+			d.cb.RecordDeliveryError(ClassifyDeliveryError(err))
+		}
+
 		d.enqueueDeliveryFailure(event.Name, data, kind, err)
 		return
+	}
+
+	// Feed success to circuit breaker
+	if d.cb != nil {
+		d.cb.RecordSuccess()
 	}
 
 	if d.dlog != nil {
