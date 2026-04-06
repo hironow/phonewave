@@ -65,3 +65,19 @@ Ref: `.semgrep/layers.yaml`, ADR S0029
 ## Cross-Tool Conformance
 
 All 4 tools (phonewave, sightjack, paintress, amadeus) maintain a What/Why/How conformance table in `docs/conformance.md` with the same structure. This prevents expression drift across README files.
+
+## Harness Inventory (Track A)
+
+phonewave follows the **policy-first / harness-thin** pattern (see `refs/opsx/semgrep-layer-contract.md`):
+
+| Sub-package | Key functions | Role |
+|-------------|---------------|------|
+| `harness/policy` | `SelectDeliveryInboxes` | Delivery precedence (targets > target_agent > fallback) |
+
+No `harness/verifier` or `harness/filter` — phonewave does not call LLM APIs.
+
+Ref: ADR S0038, semgrep-layer-contract phonewave exception
+
+## Improvement Controller (Track D3/F)
+
+The improvement controller resides in amadeus (ADR S0041). phonewave transports corrective D-Mails but does not host improvement signal storage.
