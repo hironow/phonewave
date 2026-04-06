@@ -179,7 +179,7 @@ Examples:
 3. Skipping `.git`, `.github`, `.phonewave`
 4. Checking for `skills/dmail-sendable/SKILL.md` (produces) and `skills/dmail-readable/SKILL.md` (consumes)
 5. Parsing YAML frontmatter to extract `kind` declarations
-6. Validating all declared kinds against the allowed enum: `specification`, `report`, `design-feedback`, `implementation-feedback`, `convergence`, `ci-result`
+6. Validating all declared kinds against the allowed enum: `specification`, `report`, `design-feedback`, `implementation-feedback`, `convergence`, `ci-result`, `stall-escalation`
 
 Only endpoints with at least one SKILL.md file are registered. Endpoints with `produces:` generate outbox watches; endpoints with only `consumes:` are delivery targets only.
 
