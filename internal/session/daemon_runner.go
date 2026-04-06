@@ -30,7 +30,8 @@ type Daemon struct {
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
 	session       *DaemonSession
-	bloomFilter   *domain.BloomFilter // advisory dedup filter (nil = disabled)
+	bloomFilter   *domain.BloomFilter    // advisory dedup filter (nil = disabled)
+	cb            *platform.CircuitBreaker // delivery circuit breaker (nil = disabled)
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -155,6 +156,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		retryTimer = time.NewTimer(backoff.Next())
 		retryCh = retryTimer.C
 		defer retryTimer.Stop()
+
+		// Initialize delivery circuit breaker alongside retry
+		d.cb = platform.NewCircuitBreaker(d.logger)
 	}
 	if writeErr := writeProviderStateSnapshot(d.opts.StateDir, domain.ActiveProviderState()); writeErr != nil {
 		d.logger.Warn("Write provider state: %v", writeErr)
@@ -211,13 +215,36 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 		case <-retryCh:
 			resetIdle()
+			// Gate retry cycle on circuit breaker: skip if open
+			if d.cb != nil {
+				if cbErr := d.cb.Allow(ctx); cbErr != nil {
+					retryTimer.Reset(backoff.Next())
+					continue
+				}
+			}
 			successes := d.retryPending()
 			if successes > 0 {
 				backoff.RecordSuccess()
+				if d.cb != nil {
+					d.cb.RecordSuccess()
+				}
 			} else {
 				backoff.RecordFailure()
+				if d.cb != nil && d.hasErrorQueue() {
+					// Zero successes with pending entries → target degradation
+					pending, _ := d.errorQueueStore().PendingCount(d.opts.MaxRetries)
+					if pending > 0 {
+						d.cb.RecordDeliveryError(domain.DeliveryErrorInfo{Kind: domain.DeliveryErrorTransient})
+					}
+				}
 			}
-			snapshot := backoff.Snapshot()
+			// Prefer CB snapshot when available, fall back to backoff snapshot
+			var snapshot domain.ProviderStateSnapshot
+			if d.cb != nil {
+				snapshot = d.cb.Snapshot()
+			} else {
+				snapshot = backoff.Snapshot()
+			}
 			recordRetryCycleTelemetry(ctx, successes, snapshot)
 			if writeErr := writeProviderStateSnapshot(d.opts.StateDir, snapshot); writeErr != nil {
 				d.logger.Warn("Write provider state: %v", writeErr)

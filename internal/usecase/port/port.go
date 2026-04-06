@@ -166,3 +166,12 @@ func (NopDaemonRunner) RouteCount() int                       { return 0 }
 func (NopDaemonRunner) OutboxCount() int                      { return 0 }
 func (NopDaemonRunner) Run(context.Context) error             { return nil }
 func (NopDaemonRunner) Close() error                          { return nil }
+
+// DeliveryDedupStore provides exact dedup for D-Mail delivery.
+// Prevents the same D-Mail content from being delivered twice using
+// content-based idempotency keys backed by persistent storage.
+type DeliveryDedupStore interface {
+	HasDelivered(ctx context.Context, idempotencyKey string) (bool, error)
+	RecordDelivery(ctx context.Context, idempotencyKey string, target string) error
+	Close() error
+}
