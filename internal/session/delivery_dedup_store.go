@@ -29,7 +29,7 @@ func NewSQLiteDeliveryDedupStore(dbPath string) (*SQLiteDeliveryDedupStore, erro
 		return nil, fmt.Errorf("delivery dedup store: create dir: %w", err)
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", dbPath) // nosemgrep: d4-sql-open-without-defer-close -- stored in struct, closed via Close() [permanent]
 	if err != nil {
 		return nil, fmt.Errorf("delivery dedup store: open db: %w", err)
 	}
