@@ -86,17 +86,19 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	targetInboxes := harness.SelectDeliveryInboxes(string(kind), matchedRoute.ToInboxes, fm.Targets, metadata)
 	idempotencyKey := domain.ContentIdempotencyKey(data)
 
-	// Per-target exact dedup: filter out already-delivered targets
+	// Per-target exact dedup: filter out already-delivered logical targets (inbox dirs).
+	// Key = content hash (idempotency_key), target = inbox directory (not file path).
+	// This ensures content-based dedup regardless of filename changes.
 	if dedup != nil {
 		var remaining []string
 		for _, inbox := range targetInboxes {
-			target := filepath.Join(inbox, fileName)
-			if delivered, _ := dedup.HasDelivered(ctx, idempotencyKey, target); !delivered {
+			if delivered, _ := dedup.HasDelivered(ctx, idempotencyKey, inbox); !delivered {
 				remaining = append(remaining, inbox)
 			}
 		}
 		if len(remaining) == 0 {
-			// All targets already delivered — skip entirely
+			// All targets already delivered — clean up source and skip
+			os.Remove(dmailPath) //nolint:errcheck // best-effort cleanup
 			return result, nil
 		}
 		targetInboxes = remaining
@@ -127,10 +129,11 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 		}
 	}
 
-	// Record successful deliveries in dedup store (per-target)
+	// Record successful deliveries in dedup store (logical target = inbox dir)
 	if dedup != nil {
 		for _, target := range result.DeliveredTo {
-			dedup.RecordDelivery(ctx, idempotencyKey, target) //nolint:errcheck // best-effort
+			inboxDir := filepath.Dir(target)
+			dedup.RecordDelivery(ctx, idempotencyKey, inboxDir) //nolint:errcheck // best-effort
 		}
 	}
 
