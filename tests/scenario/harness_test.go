@@ -593,6 +593,37 @@ func (w *Workspace) DumpPhonewaveLog(t *testing.T, tp *ToolProcess) {
 
 // FormatDMail creates a D-Mail file content with the given frontmatter fields and body.
 // Integer-like fields (priority) are written unquoted; strings are quoted for YAML safety.
+// FormatDMailWithMetadata produces a D-Mail with a nested metadata block.
+// fields are top-level frontmatter keys, metadata are nested under "metadata:".
+func FormatDMailWithMetadata(fields map[string]string, metadata map[string]string, body string) []byte {
+	intFields := map[string]bool{"priority": true}
+	var buf bytes.Buffer
+	buf.WriteString("---\n")
+	if v, ok := fields["dmail-schema-version"]; ok {
+		fmt.Fprintf(&buf, "dmail-schema-version: %q\n", v)
+	}
+	for k, v := range fields {
+		if k == "dmail-schema-version" {
+			continue
+		}
+		if intFields[k] {
+			fmt.Fprintf(&buf, "%s: %s\n", k, v)
+		} else {
+			fmt.Fprintf(&buf, "%s: %q\n", k, v)
+		}
+	}
+	if len(metadata) > 0 {
+		buf.WriteString("metadata:\n")
+		for k, v := range metadata {
+			fmt.Fprintf(&buf, "    %s: %q\n", k, v)
+		}
+	}
+	buf.WriteString("---\n\n")
+	buf.WriteString(body)
+	buf.WriteString("\n")
+	return buf.Bytes()
+}
+
 func FormatDMail(fields map[string]string, body string) []byte {
 	// Fields that should be written as unquoted integers
 	intFields := map[string]bool{"priority": true}
