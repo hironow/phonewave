@@ -228,8 +228,8 @@ func TestCrossTool_CorrectiveMetadataPreserved(t *testing.T) {
 		"provider_state": "active",
 		"correlation_id": "corr-e2e-001",
 		"trace_id":       "trace-e2e-001",
-		"owner_history":  "amadeus",
-		"routing_history": "amadeus>phonewave>paintress",
+		"owner_history":  "amadeus>paintress",
+		"routing_history": "retry>escalate",
 	}
 	for key, want := range metadataFields {
 		// Check that "key: value" or 'key: "value"' appears in the delivered content
