@@ -89,27 +89,21 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	// Per-target exact dedup: filter out already-delivered logical targets (inbox dirs).
 	// Key = content hash (idempotency_key), target = inbox directory (not file path).
 	// This ensures content-based dedup regardless of filename changes.
-	// Dedup errors are logged and recorded on the span — on read failure the target
-	// is treated as undelivered (fail-open) to avoid blocking legitimate deliveries.
+	// Dedup is on the correctness path — read failures abort delivery (fail-closed)
+	// so the file stays in the outbox for retry via error queue or next scan.
 	if dedup != nil {
 		var remaining []string
-		var dedupErr error
 		for _, inbox := range targetInboxes {
 			delivered, err := dedup.HasDelivered(ctx, idempotencyKey, inbox)
 			if err != nil {
-				dedupErr = err
-				span.RecordError(fmt.Errorf("dedup read %s: %w", inbox, err))
-				remaining = append(remaining, inbox) // fail-open: deliver on read error
-				continue
+				dedupErr := fmt.Errorf("dedup read %s: %w", inbox, err)
+				span.RecordError(dedupErr)
+				span.SetStatus(codes.Error, dedupErr.Error())
+				return nil, dedupErr
 			}
 			if !delivered {
 				remaining = append(remaining, inbox)
 			}
-		}
-		if dedupErr != nil {
-			span.AddEvent("dedup.read_error", trace.WithAttributes(
-				attribute.String("error", platform.SanitizeUTF8(dedupErr.Error())),
-			))
 		}
 		if len(remaining) == 0 {
 			// All targets already delivered — clean up source and skip
@@ -125,6 +119,10 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	for i, inbox := range targetInboxes {
 		targetPaths[i] = filepath.Join(inbox, fileName)
 	}
+
+	// StageDelivery only inserts/updates rows where flushed=0.
+	// Already-flushed rows (from a previous successful delivery) are preserved,
+	// preventing duplicate delivery when only the dedup record needs retry.
 	if err := ds.StageDelivery(ctx, dmailPath, data, targetPaths); err != nil {
 		stageErr := fmt.Errorf("stage delivery %s: %w", dmailPath, err)
 		span.RecordError(stageErr)
@@ -146,21 +144,39 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 		}
 	}
 
-	// Record successful deliveries in dedup store (logical target = inbox dir).
-	// Write errors are logged and recorded on the span — delivery itself succeeded,
-	// but future dedup may miss this record, so the error is observable.
+	// Determine dedup recording targets. Two categories:
+	// 1. Newly flushed in this run (result.DeliveredTo) — just delivered.
+	// 2. Previously flushed (flushed=1, StageDelivery was no-op) but dedup
+	//    unrecorded — passed HasDelivered=false filter yet absent from
+	//    DeliveredTo because FlushDeliveries had nothing to flush.
+	// Category 2 is detected via AllFlushedFor: if all rows are flushed,
+	// any targetInbox not in DeliveredTo must be previously flushed.
+	// When NOT all rows are flushed (partial flush), those missing targets
+	// are genuinely unflushed failures — do NOT record dedup for them.
+	var dedupRecordFailed bool
+	allDone, _ := ds.AllFlushedFor(dmailPath)
 	if dedup != nil {
+		newlyFlushedSet := make(map[string]bool, len(result.DeliveredTo))
+		var dedupTargets []string
 		for _, target := range result.DeliveredTo {
 			inboxDir := filepath.Dir(target)
-			if recErr := dedup.RecordDelivery(ctx, idempotencyKey, inboxDir); recErr != nil {
-				span.RecordError(fmt.Errorf("dedup record %s→%s: %w", idempotencyKey[:8], inboxDir, recErr))
+			newlyFlushedSet[inboxDir] = true
+			dedupTargets = append(dedupTargets, inboxDir)
+		}
+		// Add previously flushed targets that need dedup retry
+		if allDone {
+			for _, inbox := range targetInboxes {
+				if !newlyFlushedSet[inbox] {
+					dedupTargets = append(dedupTargets, inbox)
+				}
 			}
 		}
+		allRecorded := recordDedupForTargets(ctx, span, dedup, idempotencyKey, dedupTargets)
+		dedupRecordFailed = !allRecorded
 	}
 
-	// Remove source only when ALL targets are flushed
-	allDone, _ := ds.AllFlushedFor(dmailPath)
-	if allDone {
+	// Remove source only when ALL targets are flushed AND all dedup records written.
+	if allDone && !dedupRecordFailed {
 		if err := os.Remove(dmailPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			removeErr := fmt.Errorf("remove source %s: %w", dmailPath, err)
 			span.RecordError(removeErr)
@@ -168,8 +184,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 			return result, removeErr
 		}
 	}
-	// Partial: source stays in outbox, no error returned.
-	// DeliveryStore retry_count handles re-flush on next delivery or startup scan.
+	// Partial flush or dedup record failure: source stays in outbox.
 
 	attrs := []attribute.KeyValue{
 		attribute.Int("inbox.count", len(result.DeliveredTo)),
@@ -193,6 +208,24 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	}
 	span.SetAttributes(attrs...)
 	return result, nil
+}
+
+// recordDedupForTargets writes dedup records for all target inboxes.
+// Returns true if all records were written successfully.
+// On failure, errors are recorded on the span and the function continues
+// to attempt remaining targets (partial records are better than none).
+func recordDedupForTargets(ctx context.Context, span trace.Span, dedup port.DeliveryDedupStore, idempotencyKey string, targetInboxes []string) bool {
+	allOK := true
+	for _, inbox := range targetInboxes {
+		if recErr := dedup.RecordDelivery(ctx, idempotencyKey, inbox); recErr != nil {
+			span.RecordError(fmt.Errorf("dedup record %s→%s: %w", idempotencyKey[:8], inbox, recErr))
+			allOK = false
+		}
+	}
+	if !allOK {
+		span.SetAttributes(attribute.Bool("dedup.record_incomplete", true))
+	}
+	return allOK
 }
 
 // atomicWrite writes data to a temporary file in the same directory,
