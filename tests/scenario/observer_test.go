@@ -3,6 +3,7 @@
 package scenario_test
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -96,6 +97,25 @@ func (o *Observer) AssertDMailKind(path, expectedKind string) {
 	}
 	if kind != expectedKind {
 		o.t.Errorf("D-Mail %s: got kind %q, want %q", path, kind, expectedKind)
+	}
+}
+
+// AssertDMailMetadata asserts a specific metadata field value in a delivered D-Mail.
+func (o *Observer) AssertDMailMetadata(path, key, expected string) {
+	o.t.Helper()
+	fm, _ := o.ws.ReadDMail(o.t, path)
+	metadata, ok := fm["metadata"].(map[string]any)
+	if !ok {
+		o.t.Fatalf("D-Mail %s: metadata block missing or wrong type", path)
+	}
+	got, ok := metadata[key]
+	if !ok {
+		o.t.Errorf("D-Mail %s: metadata key %q not found", path, key)
+		return
+	}
+	gotStr := fmt.Sprintf("%v", got)
+	if gotStr != expected {
+		o.t.Errorf("D-Mail %s: metadata[%q] = %q, want %q", path, key, gotStr, expected)
 	}
 }
 
