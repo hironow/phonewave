@@ -619,6 +619,7 @@ type failDedupStore struct {
 	hasDeliveredErr  error
 	recordErr        error
 	hasDeliveredResp bool
+	recordedTargets  []string // tracks targets passed to RecordDelivery
 }
 
 func (f *failDedupStore) HasDelivered(_ context.Context, _, _ string) (bool, error) {
@@ -628,7 +629,8 @@ func (f *failDedupStore) HasDelivered(_ context.Context, _, _ string) (bool, err
 	return f.hasDeliveredResp, nil
 }
 
-func (f *failDedupStore) RecordDelivery(_ context.Context, _, _ string) error {
+func (f *failDedupStore) RecordDelivery(_ context.Context, _ string, target string) error {
+	f.recordedTargets = append(f.recordedTargets, target)
 	return f.recordErr
 }
 
@@ -806,6 +808,16 @@ description: "Dedup retry test"
 	}
 	if !stat2.ModTime().Equal(modTime1) {
 		t.Error("inbox file was re-written (duplicate delivery!) — StageDelivery should preserve flushed rows")
+	}
+
+	// RecordDelivery must have been called for the previously-flushed target
+	if len(okDedup.recordedTargets) != 1 {
+		t.Fatalf("2nd delivery: want 1 RecordDelivery call (dedup retry), got %d: %v",
+			len(okDedup.recordedTargets), okDedup.recordedTargets)
+	}
+	if okDedup.recordedTargets[0] != inbox {
+		t.Errorf("2nd delivery: RecordDelivery target = %q, want %q",
+			okDedup.recordedTargets[0], inbox)
 	}
 
 	// Source should be removed (allDone=true, dedupRecordFailed=false)

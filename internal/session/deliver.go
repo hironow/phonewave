@@ -144,23 +144,38 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 		}
 	}
 
-	// Record dedup only for targets that were actually flushed (result.DeliveredTo).
-	// Using targetInboxes here would record dedup for unflushed targets in a
-	// partial flush, causing HasDelivered=true for targets that were never delivered.
+	// Determine dedup recording targets. Two categories:
+	// 1. Newly flushed in this run (result.DeliveredTo) — just delivered.
+	// 2. Previously flushed (flushed=1, StageDelivery was no-op) but dedup
+	//    unrecorded — passed HasDelivered=false filter yet absent from
+	//    DeliveredTo because FlushDeliveries had nothing to flush.
+	// Category 2 is detected via AllFlushedFor: if all rows are flushed,
+	// any targetInbox not in DeliveredTo must be previously flushed.
+	// When NOT all rows are flushed (partial flush), those missing targets
+	// are genuinely unflushed failures — do NOT record dedup for them.
 	var dedupRecordFailed bool
+	allDone, _ := ds.AllFlushedFor(dmailPath)
 	if dedup != nil {
-		flushedInboxes := make([]string, len(result.DeliveredTo))
-		for i, target := range result.DeliveredTo {
-			flushedInboxes[i] = filepath.Dir(target)
+		newlyFlushedSet := make(map[string]bool, len(result.DeliveredTo))
+		var dedupTargets []string
+		for _, target := range result.DeliveredTo {
+			inboxDir := filepath.Dir(target)
+			newlyFlushedSet[inboxDir] = true
+			dedupTargets = append(dedupTargets, inboxDir)
 		}
-		allRecorded := recordDedupForTargets(ctx, span, dedup, idempotencyKey, flushedInboxes)
+		// Add previously flushed targets that need dedup retry
+		if allDone {
+			for _, inbox := range targetInboxes {
+				if !newlyFlushedSet[inbox] {
+					dedupTargets = append(dedupTargets, inbox)
+				}
+			}
+		}
+		allRecorded := recordDedupForTargets(ctx, span, dedup, idempotencyKey, dedupTargets)
 		dedupRecordFailed = !allRecorded
 	}
 
 	// Remove source only when ALL targets are flushed AND all dedup records written.
-	// When dedupRecordFailed, source stays in outbox — next scan enters the
-	// allPreviouslyFlushed fast path and retries RecordDelivery without re-staging.
-	allDone, _ := ds.AllFlushedFor(dmailPath)
 	if allDone && !dedupRecordFailed {
 		if err := os.Remove(dmailPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			removeErr := fmt.Errorf("remove source %s: %w", dmailPath, err)
@@ -169,8 +184,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 			return result, removeErr
 		}
 	}
-	// Partial: source stays in outbox, no error returned.
-	// Next scan: allPreviouslyFlushed fast path retries dedup record only.
+	// Partial flush or dedup record failure: source stays in outbox.
 
 	attrs := []attribute.KeyValue{
 		attribute.Int("inbox.count", len(result.DeliveredTo)),
