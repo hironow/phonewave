@@ -108,7 +108,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 		}
 		if dedupErr != nil {
 			span.AddEvent("dedup.read_error", trace.WithAttributes(
-				attribute.String("error", dedupErr.Error()),
+				attribute.String("error", platform.SanitizeUTF8(dedupErr.Error())),
 			))
 		}
 		if len(remaining) == 0 {
