@@ -50,20 +50,21 @@ func NewSQLiteDeliveryDedupStore(dbPath string) (*SQLiteDeliveryDedupStore, erro
 
 func createDeliveryDedupSchema(db *sql.DB) error {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS delivery_log (
-		idempotency_key TEXT PRIMARY KEY,
+		idempotency_key TEXT NOT NULL,
 		target          TEXT NOT NULL,
-		delivered_at    TEXT NOT NULL
+		delivered_at    TEXT NOT NULL,
+		PRIMARY KEY (idempotency_key, target)
 	)`)
 	return err
 }
 
 // HasDelivered returns true if a D-Mail with the given idempotency key
-// has already been delivered.
-func (s *SQLiteDeliveryDedupStore) HasDelivered(ctx context.Context, idempotencyKey string) (bool, error) {
+// has already been delivered to the specified target.
+func (s *SQLiteDeliveryDedupStore) HasDelivered(ctx context.Context, idempotencyKey, target string) (bool, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM delivery_log WHERE idempotency_key = ?`,
-		idempotencyKey).Scan(&count)
+		`SELECT COUNT(*) FROM delivery_log WHERE idempotency_key = ? AND target = ?`,
+		idempotencyKey, target).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("delivery dedup: has delivered: %w", err)
 	}

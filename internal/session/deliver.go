@@ -24,13 +24,15 @@ func Deliver(ctx context.Context, dmailPath string, routes []domain.ResolvedRout
 	if err != nil {
 		return nil, fmt.Errorf("read D-Mail: %w", err)
 	}
-	return DeliverData(ctx, dmailPath, data, routes, ds)
+	return DeliverData(ctx, dmailPath, data, routes, ds, nil)
 }
 
 // DeliverData processes pre-read D-Mail data via Stage→Flush transactional delivery.
 // Returns error only for parse/route/stage failures (error queue eligible).
 // Flush partial failures are handled internally by DeliveryStore retry_count.
-func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []domain.ResolvedRoute, ds port.DeliveryStore) (*domain.DeliveryResult, error) {
+// If dedup is non-nil, per-target exact-match dedup is applied: already-delivered
+// targets are skipped, and newly delivered targets are recorded.
+func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []domain.ResolvedRoute, ds port.DeliveryStore, dedup port.DeliveryDedupStore) (*domain.DeliveryResult, error) {
 	fm, err := domain.ParseDMailFrontmatter(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
@@ -82,6 +84,43 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 
 	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)
 	targetInboxes := harness.SelectDeliveryInboxes(string(kind), matchedRoute.ToInboxes, fm.Targets, metadata)
+	idempotencyKey := domain.ContentIdempotencyKey(data)
+
+	// Per-target exact dedup: filter out already-delivered logical targets (inbox dirs).
+	// Key = content hash (idempotency_key), target = inbox directory (not file path).
+	// This ensures content-based dedup regardless of filename changes.
+	// Dedup errors are logged and recorded on the span — on read failure the target
+	// is treated as undelivered (fail-open) to avoid blocking legitimate deliveries.
+	if dedup != nil {
+		var remaining []string
+		var dedupErr error
+		for _, inbox := range targetInboxes {
+			delivered, err := dedup.HasDelivered(ctx, idempotencyKey, inbox)
+			if err != nil {
+				dedupErr = err
+				span.RecordError(fmt.Errorf("dedup read %s: %w", inbox, err))
+				remaining = append(remaining, inbox) // fail-open: deliver on read error
+				continue
+			}
+			if !delivered {
+				remaining = append(remaining, inbox)
+			}
+		}
+		if dedupErr != nil {
+			span.AddEvent("dedup.read_error", trace.WithAttributes(
+				attribute.String("error", platform.SanitizeUTF8(dedupErr.Error())),
+			))
+		}
+		if len(remaining) == 0 {
+			// All targets already delivered — clean up source and skip
+			if removeErr := os.Remove(dmailPath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+				span.RecordError(fmt.Errorf("dedup cleanup source %s: %w", dmailPath, removeErr))
+			}
+			return result, nil
+		}
+		targetInboxes = remaining
+	}
+
 	targetPaths := make([]string, len(targetInboxes))
 	for i, inbox := range targetInboxes {
 		targetPaths[i] = filepath.Join(inbox, fileName)
@@ -104,6 +143,18 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	for _, f := range flushed {
 		if f.DMailPath == dmailPath {
 			result.DeliveredTo = append(result.DeliveredTo, f.Target)
+		}
+	}
+
+	// Record successful deliveries in dedup store (logical target = inbox dir).
+	// Write errors are logged and recorded on the span — delivery itself succeeded,
+	// but future dedup may miss this record, so the error is observable.
+	if dedup != nil {
+		for _, target := range result.DeliveredTo {
+			inboxDir := filepath.Dir(target)
+			if recErr := dedup.RecordDelivery(ctx, idempotencyKey, inboxDir); recErr != nil {
+				span.RecordError(fmt.Errorf("dedup record %s→%s: %w", idempotencyKey[:8], inboxDir, recErr))
+			}
 		}
 	}
 

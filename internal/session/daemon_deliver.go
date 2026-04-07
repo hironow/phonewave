@@ -59,7 +59,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore)
+	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore, d.dedupStore)
 	if err != nil {
 		kind, _ := domain.ExtractDMailKind(data)
 		if kind == "" {
@@ -165,7 +165,7 @@ func (d *Daemon) retryPending() int {
 	for _, e := range entries {
 		retryGroup.Submit(func() {
 			originalPath := filepath.Join(e.SourceOutbox, e.OriginalName)
-			result, deliverErr := DeliverData(ctx, originalPath, e.Data, d.opts.Routes, d.deliveryStore)
+			result, deliverErr := DeliverData(ctx, originalPath, e.Data, d.opts.Routes, d.deliveryStore, d.dedupStore)
 			if deliverErr != nil {
 				if incErr := d.incrementRetry(e.Name, deliverErr.Error()); incErr != nil {
 					d.logger.Warn("Retry: increment retry: %v", incErr)

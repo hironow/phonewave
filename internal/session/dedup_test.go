@@ -111,7 +111,7 @@ description: "Already delivered"
 	bf.Add(dmailPath)
 
 	// when
-	results, errs := session.ScanAndDeliver(context.Background(), outbox, routes, repoDir, &domain.NopLogger{}, ds, nil, bf)
+	results, errs := session.ScanAndDeliver(context.Background(), outbox, routes, repoDir, &domain.NopLogger{}, ds, nil, bf, nil)
 
 	// then — no deliveries, no errors
 	if len(results) != 0 {
@@ -193,7 +193,7 @@ description: "New one"
 	bf.Add(pathA)
 
 	// when
-	results, errs := session.ScanAndDeliver(context.Background(), outbox, routes, repoDir, &domain.NopLogger{}, ds, nil, bf)
+	results, errs := session.ScanAndDeliver(context.Background(), outbox, routes, repoDir, &domain.NopLogger{}, ds, nil, bf, nil)
 
 	// then — only spec-b should be delivered
 	if len(errs) != 0 {
@@ -245,7 +245,7 @@ description: "Should deliver"
 	ds := newTestDeliveryStore(t)
 
 	// when — nil BF means no dedup
-	results, errs := session.ScanAndDeliver(context.Background(), outbox, routes, repoDir, &domain.NopLogger{}, ds, nil, nil)
+	results, errs := session.ScanAndDeliver(context.Background(), outbox, routes, repoDir, &domain.NopLogger{}, ds, nil, nil, nil)
 
 	// then — should deliver normally
 	if len(errs) != 0 {

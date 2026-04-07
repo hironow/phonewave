@@ -79,6 +79,14 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		return nil, fmt.Errorf("create error queue store: %w", err)
 	}
 
+	dedupStore, err := NewSQLiteDeliveryDedupStore(filepath.Join(runDir, "delivery_dedup.db"))
+	if err != nil {
+		errorQueue.Close()
+		closeSeq()
+		unlock()
+		return nil, fmt.Errorf("create dedup store: %w", err)
+	}
+
 	d, err := NewDaemon(domain.DaemonOptions{
 		Routes:        routes,
 		OutboxDirs:    outboxDirs,
@@ -96,8 +104,11 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		return nil, fmt.Errorf("create daemon: %w", err)
 	}
 
+	d.dedupStore = dedupStore
+
 	dlog, err := NewDeliveryLog(stateDir)
 	if err != nil {
+		dedupStore.Close()
 		errorQueue.Close()
 		closeSeq()
 		unlock()
@@ -170,6 +181,9 @@ func (a *daemonRunnerAdapter) Run(ctx context.Context) error {
 }
 
 func (a *daemonRunnerAdapter) Close() error {
+	if a.daemon != nil {
+		a.daemon.closeDedupStore()
+	}
 	if a.closeSeq != nil {
 		a.closeSeq()
 	}

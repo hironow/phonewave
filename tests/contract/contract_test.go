@@ -233,6 +233,40 @@ func TestGroup4_RoundTrip(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────
+// Group 4b: Corrective Metadata Round-Trip (GAP-TST-024)
+// Improvement/corrective metadata fields must survive marshal→parse.
+// ──────────────────────────────────────────────
+
+func TestGroup4b_CorrectiveMetadataRoundTrip(t *testing.T) {
+	data := readGolden(t, "corrective-feedback.md")
+	dm, err := contract.Parse(data)
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+
+	requiredKeys := []string{
+		"routing_mode",
+		"target_agent",
+		"provider_state",
+		"correlation_id",
+		"owner_history",
+		"failure_type",
+	}
+	for _, key := range requiredKeys {
+		if v, ok := dm.Metadata[key]; !ok || v == "" {
+			t.Errorf("metadata[%q] missing or empty after parse", key)
+		}
+	}
+
+	if dm.Metadata["routing_mode"] != "escalate" {
+		t.Errorf("routing_mode = %q, want %q", dm.Metadata["routing_mode"], "escalate")
+	}
+	if dm.Metadata["target_agent"] != "sightjack" {
+		t.Errorf("target_agent = %q, want %q", dm.Metadata["target_agent"], "sightjack")
+	}
+}
+
+// ──────────────────────────────────────────────
 // Group 5: Postel Edge Cases
 // Unknown kinds and future schema versions should parse but differ from v1.
 // ──────────────────────────────────────────────
