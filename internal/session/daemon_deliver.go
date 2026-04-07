@@ -89,7 +89,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 
 	if d.dlog != nil {
 		for _, target := range result.DeliveredTo {
-			d.dlog.Delivered(result.Kind, result.SourcePath, target)
+			d.dlog.Delivered(string(result.Kind), result.SourcePath, target)
 		}
 		// Only log REMOVED if source was actually removed (all targets flushed)
 		if _, statErr := os.Stat(result.SourcePath); errors.Is(statErr, os.ErrNotExist) {
@@ -114,7 +114,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 func (d *Daemon) enqueueDeliveryFailure(path string, data []byte, kind string, deliverErr error) {
 	meta := domain.ErrorMetadata{
 		SourceOutbox: filepath.Dir(path),
-		Kind:         kind,
+		Kind:         domain.DMailKind(kind),
 		OriginalName: filepath.Base(path),
 		Attempts:     1,
 		Error:        deliverErr.Error(),
@@ -182,10 +182,10 @@ func (d *Daemon) retryPending() int {
 
 			if d.dlog != nil {
 				for _, target := range result.DeliveredTo {
-					d.dlog.Retried(result.Kind, originalPath, target)
+					d.dlog.Retried(string(result.Kind), originalPath, target)
 				}
 			}
-			d.recordRetryEvent(e.OriginalName, result.Kind)
+			d.recordRetryEvent(e.OriginalName, string(result.Kind))
 
 			// Mark as delivered in Bloom filter for future dedup
 			if d.bloomFilter != nil && len(result.DeliveredTo) > 0 {

@@ -23,7 +23,7 @@ type IndexEntry struct {
 // ErrorMetadata holds metadata for a failed D-Mail stored as a .err sidecar.
 type ErrorMetadata struct {
 	SourceOutbox string    `yaml:"source_outbox"`
-	Kind         string    `yaml:"kind"`
+	Kind         DMailKind `yaml:"kind"`
 	OriginalName string    `yaml:"original_name"`
 	Attempts     int       `yaml:"attempts"`
 	Error        string    `yaml:"error"`
@@ -63,7 +63,7 @@ type DMailFrontmatter struct {
 
 // ResolvedRoute is a concrete route with absolute paths for delivery.
 type ResolvedRoute struct {
-	Kind       string
+	Kind       DMailKind
 	FromOutbox string   // absolute outbox directory path
 	ToInboxes  []string // absolute inbox directory paths
 }
@@ -71,7 +71,7 @@ type ResolvedRoute struct {
 // DeliveryResult holds the outcome of a single D-Mail delivery.
 type DeliveryResult struct {
 	SourcePath  string
-	Kind        string
+	Kind        DMailKind
 	DeliveredTo []string // inbox paths where the file was copied
 }
 
@@ -92,10 +92,18 @@ const (
 // validDMailKinds lists the allowed D-Mail kind values per schema v1.
 var validDMailKinds = []DMailKind{KindSpecification, KindReport, KindDesignFeedback, KindImplFeedback, KindConvergence, KindCIResult, KindStallEscalation}
 
+// IsValidDMailKind returns true if the given kind is in the canonical set.
+func IsValidDMailKind(kind DMailKind) bool {
+	return slices.Contains(validDMailKinds, kind)
+}
+
+// ErrDMailKindInvalid is returned when a D-Mail kind is not in the canonical set.
+var ErrDMailKindInvalid = errors.New("dmail: invalid kind")
+
 // ValidateKind checks that kind is one of the allowed D-Mail kinds.
 func ValidateKind(kind DMailKind) error {
-	if !slices.Contains(validDMailKinds, kind) {
-		return fmt.Errorf("invalid D-Mail kind %q: must be one of %v", kind, validDMailKinds)
+	if !IsValidDMailKind(kind) {
+		return fmt.Errorf("invalid D-Mail kind %q: %w", kind, ErrDMailKindInvalid)
 	}
 	return nil
 }

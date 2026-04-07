@@ -31,7 +31,7 @@ func ResolveRoutes(cfg *domain.Config) ([]domain.ResolvedRoute, error) {
 		}
 
 		resolved = append(resolved, domain.ResolvedRoute{
-			Kind:       route.Kind,
+			Kind:       domain.DMailKind(route.Kind),
 			FromOutbox: fromAbs,
 			ToInboxes:  toAbs,
 		})
