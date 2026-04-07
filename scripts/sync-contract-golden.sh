@@ -20,9 +20,9 @@ if [ ! -d "$CANONICAL" ]; then
 fi
 
 declare -A TARGETS=(
-  [amadeus]="internal/domain/testdata/contract"
-  [sightjack]="internal/session/testdata/contract"
-  [paintress]="internal/harness/verifier/testdata/contract"
+  [amadeus]="tests/contract/testdata/golden"
+  [sightjack]="tests/contract/testdata/golden"
+  [paintress]="tests/contract/testdata/golden"
 )
 
 synced=0
