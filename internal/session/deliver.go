@@ -24,13 +24,15 @@ func Deliver(ctx context.Context, dmailPath string, routes []domain.ResolvedRout
 	if err != nil {
 		return nil, fmt.Errorf("read D-Mail: %w", err)
 	}
-	return DeliverData(ctx, dmailPath, data, routes, ds)
+	return DeliverData(ctx, dmailPath, data, routes, ds, nil)
 }
 
 // DeliverData processes pre-read D-Mail data via Stage→Flush transactional delivery.
 // Returns error only for parse/route/stage failures (error queue eligible).
 // Flush partial failures are handled internally by DeliveryStore retry_count.
-func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []domain.ResolvedRoute, ds port.DeliveryStore) (*domain.DeliveryResult, error) {
+// If dedup is non-nil, per-target exact-match dedup is applied: already-delivered
+// targets are skipped, and newly delivered targets are recorded.
+func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []domain.ResolvedRoute, ds port.DeliveryStore, dedup port.DeliveryDedupStore) (*domain.DeliveryResult, error) {
 	fm, err := domain.ParseDMailFrontmatter(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
@@ -82,6 +84,24 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 
 	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)
 	targetInboxes := harness.SelectDeliveryInboxes(string(kind), matchedRoute.ToInboxes, fm.Targets, metadata)
+	idempotencyKey := domain.ContentIdempotencyKey(data)
+
+	// Per-target exact dedup: filter out already-delivered targets
+	if dedup != nil {
+		var remaining []string
+		for _, inbox := range targetInboxes {
+			target := filepath.Join(inbox, fileName)
+			if delivered, _ := dedup.HasDelivered(ctx, idempotencyKey, target); !delivered {
+				remaining = append(remaining, inbox)
+			}
+		}
+		if len(remaining) == 0 {
+			// All targets already delivered — skip entirely
+			return result, nil
+		}
+		targetInboxes = remaining
+	}
+
 	targetPaths := make([]string, len(targetInboxes))
 	for i, inbox := range targetInboxes {
 		targetPaths[i] = filepath.Join(inbox, fileName)
@@ -104,6 +124,13 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	for _, f := range flushed {
 		if f.DMailPath == dmailPath {
 			result.DeliveredTo = append(result.DeliveredTo, f.Target)
+		}
+	}
+
+	// Record successful deliveries in dedup store (per-target)
+	if dedup != nil {
+		for _, target := range result.DeliveredTo {
+			dedup.RecordDelivery(ctx, idempotencyKey, target) //nolint:errcheck // best-effort
 		}
 	}
 

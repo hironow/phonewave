@@ -18,7 +18,7 @@ import (
 // delivering each one according to the provided routes. Files are delivered
 // sequentially. Failed deliveries are enqueued via errorQueue (SQLite).
 // If errorQueue is nil, failed files remain in the outbox for next startup.
-func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds port.DeliveryStore, errorQueue port.ErrorQueueStore, bf *domain.BloomFilter) ([]*domain.DeliveryResult, []error) {
+func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.ResolvedRoute, stateDir string, logger domain.Logger, ds port.DeliveryStore, errorQueue port.ErrorQueueStore, bf *domain.BloomFilter, dedup port.DeliveryDedupStore) ([]*domain.DeliveryResult, []error) {
 	ctx, span := platform.Tracer.Start(ctx, "phonewave.deliver")
 	defer span.End()
 
@@ -79,7 +79,7 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 			continue
 		}
 
-		result, deliverErr := DeliverData(ctx, dmailPath, data, routes, ds)
+		result, deliverErr := DeliverData(ctx, dmailPath, data, routes, ds, dedup)
 		if deliverErr != nil {
 			kind, _ := domain.ExtractDMailKind(data)
 			if kind == "" {

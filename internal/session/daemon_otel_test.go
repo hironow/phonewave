@@ -251,7 +251,7 @@ func TestDeliverData_CreatesSpan(t *testing.T) {
 	ds := newTestDeliveryStore(t)
 
 	// when
-	_, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds)
+	_, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds, nil)
 	if err != nil {
 		t.Fatalf("DeliverData: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestDeliverData_RecordsImprovementAttributes(t *testing.T) {
 	}
 
 	ds := newTestDeliveryStore(t)
-	if _, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds); err != nil {
+	if _, err := DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds, nil); err != nil {
 		t.Fatalf("DeliverData: %v", err)
 	}
 
@@ -334,7 +334,7 @@ func TestDeliverData_RecordsErrorSpan(t *testing.T) {
 	ds := newTestDeliveryStore(t)
 
 	// when — deliver with no matching route
-	_, err := DeliverData(context.Background(), filepath.Join(outbox, "err-span.md"), []byte(dmailContent), routes, ds)
+	_, err := DeliverData(context.Background(), filepath.Join(outbox, "err-span.md"), []byte(dmailContent), routes, ds, nil)
 
 	// then — should error
 	if err == nil {

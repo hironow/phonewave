@@ -59,9 +59,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	idempotencyKey := domain.ContentIdempotencyKey(data)
-
-	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore)
+	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore, d.dedupStore)
 	if err != nil {
 		kind, _ := domain.ExtractDMailKind(data)
 		if kind == "" {
@@ -99,13 +97,6 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		}
 	}
 	d.recordDeliveryEvent(result)
-
-	// Record in exact dedup store (survives daemon restart)
-	if d.dedupStore != nil && len(result.DeliveredTo) > 0 {
-		for _, target := range result.DeliveredTo {
-			d.dedupStore.RecordDelivery(ctx, idempotencyKey, target) //nolint:errcheck // best-effort
-		}
-	}
 
 	// Mark as delivered in Bloom filter for future dedup
 	if d.bloomFilter != nil && len(result.DeliveredTo) > 0 {
@@ -174,7 +165,7 @@ func (d *Daemon) retryPending() int {
 	for _, e := range entries {
 		retryGroup.Submit(func() {
 			originalPath := filepath.Join(e.SourceOutbox, e.OriginalName)
-			result, deliverErr := DeliverData(ctx, originalPath, e.Data, d.opts.Routes, d.deliveryStore)
+			result, deliverErr := DeliverData(ctx, originalPath, e.Data, d.opts.Routes, d.deliveryStore, d.dedupStore)
 			if deliverErr != nil {
 				if incErr := d.incrementRetry(e.Name, deliverErr.Error()); incErr != nil {
 					d.logger.Warn("Retry: increment retry: %v", incErr)

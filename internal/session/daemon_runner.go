@@ -341,7 +341,7 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 			if d.session != nil {
 				eq = d.errorQueueStore()
 			}
-			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore, eq, d.bloomFilter)
+			results, errs := ScanAndDeliver(scanCtx, dir, d.opts.Routes, d.opts.StateDir, d.logger, d.deliveryStore, eq, d.bloomFilter, d.dedupStore)
 			scanSpan.SetAttributes(attribute.Int("delivered.count", len(results)))
 			scanSpan.End()
 			for _, r := range results {
