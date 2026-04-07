@@ -53,7 +53,7 @@ type StagedDelivery struct {
 type DMailFrontmatter struct {
 	SchemaVersion string            `yaml:"dmail-schema-version"`
 	Name          string            `yaml:"name"`
-	Kind          string            `yaml:"kind"`
+	Kind          DMailKind         `yaml:"kind"`
 	Description   string            `yaml:"description"`
 	Action        string            `yaml:"action,omitempty"`
 	Priority      int               `yaml:"priority,omitempty"`
@@ -75,11 +75,25 @@ type DeliveryResult struct {
 	DeliveredTo []string // inbox paths where the file was copied
 }
 
+// DMailKind is the type-safe representation of D-Mail message kinds.
+type DMailKind string
+
+// Canonical D-Mail kind constants.
+const (
+	KindSpecification    DMailKind = "specification"
+	KindReport           DMailKind = "report"
+	KindDesignFeedback   DMailKind = "design-feedback"
+	KindImplFeedback     DMailKind = "implementation-feedback"
+	KindConvergence      DMailKind = "convergence"
+	KindCIResult         DMailKind = "ci-result"
+	KindStallEscalation  DMailKind = "stall-escalation"
+)
+
 // validDMailKinds lists the allowed D-Mail kind values per schema v1.
-var validDMailKinds = []string{"specification", "report", "design-feedback", "implementation-feedback", "convergence", "ci-result", "stall-escalation"}
+var validDMailKinds = []DMailKind{KindSpecification, KindReport, KindDesignFeedback, KindImplFeedback, KindConvergence, KindCIResult, KindStallEscalation}
 
 // ValidateKind checks that kind is one of the allowed D-Mail kinds.
-func ValidateKind(kind string) error {
+func ValidateKind(kind DMailKind) error {
 	if !slices.Contains(validDMailKinds, kind) {
 		return fmt.Errorf("invalid D-Mail kind %q: must be one of %v", kind, validDMailKinds)
 	}
@@ -87,7 +101,7 @@ func ValidateKind(kind string) error {
 }
 
 // ExtractDMailKind reads a D-Mail file's YAML frontmatter and returns the kind.
-func ExtractDMailKind(data []byte) (string, error) {
+func ExtractDMailKind(data []byte) (DMailKind, error) {
 	fm, err := ParseDMailFrontmatter(data)
 	if err != nil {
 		return "", err

@@ -86,12 +86,12 @@ func ParseSkillFrontmatter(data []byte) (*SkillFrontmatter, error) {
 
 	// Validate all declared kinds
 	for _, p := range skill.Produces {
-		if err := domain.ValidateKind(p.Kind); err != nil {
+		if err := domain.ValidateKind(domain.DMailKind(p.Kind)); err != nil {
 			return nil, fmt.Errorf("produces: %w", err)
 		}
 	}
 	for _, c := range skill.Consumes {
-		if err := domain.ValidateKind(c.Kind); err != nil {
+		if err := domain.ValidateKind(domain.DMailKind(c.Kind)); err != nil {
 			return nil, fmt.Errorf("consumes: %w", err)
 		}
 	}

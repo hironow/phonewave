@@ -11,7 +11,7 @@ func TestValidateKind_AcceptsStallEscalation(t *testing.T) {
 	kind := "stall-escalation"
 
 	// when
-	err := domain.ValidateKind(kind)
+	err := domain.ValidateKind(domain.DMailKind(kind))
 
 	// then
 	if err != nil {
@@ -24,7 +24,7 @@ func TestValidateKind_RejectsUnknownKind(t *testing.T) {
 	kind := "foo-bar"
 
 	// when
-	err := domain.ValidateKind(kind)
+	err := domain.ValidateKind(domain.DMailKind(kind))
 
 	// then
 	if err == nil {
@@ -45,7 +45,7 @@ func TestValidateKind_AcceptsAllOfficialKinds(t *testing.T) {
 
 	for _, kind := range officialKinds {
 		t.Run(kind, func(t *testing.T) {
-			if err := domain.ValidateKind(kind); err != nil {
+			if err := domain.ValidateKind(domain.DMailKind(kind)); err != nil {
 				t.Errorf("ValidateKind(%q) = %v, want nil", kind, err)
 			}
 		})

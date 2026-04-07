@@ -69,16 +69,16 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		if d.dlog != nil {
-			d.dlog.Failed(kind, event.Name, err.Error())
+			d.dlog.Failed(string(kind), event.Name, err.Error())
 		}
-		d.recordFailureEvent(event.Name, kind, err)
+		d.recordFailureEvent(event.Name, string(kind), err)
 
 		// Feed delivery error to circuit breaker
 		if d.cb != nil {
 			d.cb.RecordDeliveryError(ClassifyDeliveryError(err))
 		}
 
-		d.enqueueDeliveryFailure(event.Name, data, kind, err)
+		d.enqueueDeliveryFailure(event.Name, data, string(kind), err)
 		return
 	}
 
