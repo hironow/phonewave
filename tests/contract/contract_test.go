@@ -264,6 +264,24 @@ func TestGroup4b_CorrectiveMetadataRoundTrip(t *testing.T) {
 	if dm.Metadata["target_agent"] != "sightjack" {
 		t.Errorf("target_agent = %q, want %q", dm.Metadata["target_agent"], "sightjack")
 	}
+
+	// Semantic history check: canonical delimiter is ">", values must
+	// match domain semantics (owner_history = agent names, routing_history = routing modes).
+	ownerHistory := dm.Metadata["owner_history"]
+	if ownerHistory != "amadeus>sightjack" {
+		t.Errorf("owner_history = %q, want %q", ownerHistory, "amadeus>sightjack")
+	}
+	routingHistory := dm.Metadata["routing_history"]
+	if routingHistory != "retry>escalate" {
+		t.Errorf("routing_history = %q, want %q", routingHistory, "retry>escalate")
+	}
+	// Detect legacy comma delimiter drift
+	if strings.Contains(ownerHistory, ",") {
+		t.Errorf("owner_history uses legacy ',' delimiter: %q", ownerHistory)
+	}
+	if strings.Contains(routingHistory, ",") {
+		t.Errorf("routing_history uses legacy ',' delimiter: %q", routingHistory)
+	}
 }
 
 // ──────────────────────────────────────────────

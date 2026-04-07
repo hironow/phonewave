@@ -9,8 +9,8 @@ metadata:
   provider_state: "active"
   correlation_id: "corr-e2e-001"
   trace_id: "trace-e2e-001"
-  owner_history: "amadeus"
-  routing_history: "amadeus>phonewave>paintress"
+  owner_history: "amadeus>paintress"
+  routing_history: "retry>escalate"
 ---
 
 # Corrective feedback

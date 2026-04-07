@@ -241,3 +241,55 @@ func TestFilterInboxesByTargets(t *testing.T) {
 		t.Fatalf("filtered inboxes = %v", got)
 	}
 }
+
+func TestParseImprovementHistory(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want []string
+	}{
+		{name: "canonical >", raw: "amadeus>sightjack", want: []string{"amadeus", "sightjack"}},
+		{name: "legacy comma", raw: "amadeus,sightjack", want: []string{"amadeus", "sightjack"}},
+		{name: "single value", raw: "amadeus", want: []string{"amadeus"}},
+		{name: "empty", raw: "", want: nil},
+		{name: "> with spaces", raw: "amadeus > sightjack", want: []string{"amadeus", "sightjack"}},
+		{name: "comma with spaces", raw: "amadeus, sightjack", want: []string{"amadeus", "sightjack"}},
+		{name: "> wins over comma", raw: "a:retry>b:escalate", want: []string{"a:retry", "b:escalate"}},
+		{name: "dedup consecutive", raw: "a>a>b", want: []string{"a", "b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := domain.ParseImprovementHistory(tt.raw)
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("ParseImprovementHistory(%q) = %v, want %v", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatImprovementHistory_CanonicalDelimiter(t *testing.T) {
+	// given
+	values := []string{"amadeus", "sightjack"}
+
+	// when
+	got := domain.FormatImprovementHistory(values)
+
+	// then
+	if got != "amadeus>sightjack" {
+		t.Fatalf("FormatImprovementHistory = %q, want %q", got, "amadeus>sightjack")
+	}
+}
+
+func TestImprovementHistory_RoundTrip(t *testing.T) {
+	// given: format then parse should be identity
+	original := []string{"amadeus", "sightjack", "paintress"}
+
+	// when
+	serialized := domain.FormatImprovementHistory(original)
+	parsed := domain.ParseImprovementHistory(serialized)
+
+	// then
+	if !slices.Equal(parsed, original) {
+		t.Fatalf("roundtrip: formatted=%q, parsed=%v, want %v", serialized, parsed, original)
+	}
+}

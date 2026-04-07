@@ -52,8 +52,8 @@ func TestScenario_CorrectiveMetadataRoundtrip(t *testing.T) {
 			"provider_state":  "active",
 			"correlation_id":  "corr-roundtrip-001",
 			"trace_id":        "trace-roundtrip-001",
-			"owner_history":   "amadeus,sightjack",
-			"routing_history": "amadeus:retry,sightjack:escalate",
+			"owner_history":   "amadeus>sightjack",
+			"routing_history": "retry>escalate",
 		},
 		"# Corrective Metadata Roundtrip\n\nVerifying metadata preservation through phonewave routing.",
 	)
@@ -75,8 +75,8 @@ func TestScenario_CorrectiveMetadataRoundtrip(t *testing.T) {
 		"provider_state":  "active",
 		"correlation_id":  "corr-roundtrip-001",
 		"trace_id":        "trace-roundtrip-001",
-		"owner_history":   "amadeus,sightjack",
-		"routing_history": "amadeus:retry,sightjack:escalate",
+		"owner_history":   "amadeus>sightjack",
+		"routing_history": "retry>escalate",
 	}
 	for key, want := range metadataChecks {
 		obs.AssertDMailMetadata(sirenPath, key, want)
