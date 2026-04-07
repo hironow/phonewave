@@ -72,11 +72,11 @@ func (s *DaemonSession) ErrorQueueStore() port.ErrorQueueStore {
 // RecordDeliveryEvent records a delivery.completed event to the event store.
 // Best-effort: errors are logged but do not fail the delivery.
 func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {
-	platform.RecordDelivery(context.Background(), "completed", result.Kind)
+	platform.RecordDelivery(context.Background(), "completed", string(result.Kind))
 	if s.Emitter == nil {
 		return
 	}
-	if err := s.Emitter.EmitDelivery(result.SourcePath, result.Kind, time.Now().UTC()); err != nil {
+	if err := s.Emitter.EmitDelivery(result.SourcePath, string(result.Kind), time.Now().UTC()); err != nil {
 		s.Logger.Warn("emit delivery event: %v", err)
 	}
 }

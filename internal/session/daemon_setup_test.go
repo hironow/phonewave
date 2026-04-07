@@ -169,7 +169,7 @@ func TestResolveRoutes_MultiRepoSameEndpoint(t *testing.T) {
 
 func findResolvedRoute(routes []domain.ResolvedRoute, kind string) *domain.ResolvedRoute {
 	for i := range routes {
-		if routes[i].Kind == kind {
+		if string(routes[i].Kind) == kind {
 			return &routes[i]
 		}
 	}

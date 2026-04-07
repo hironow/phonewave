@@ -339,7 +339,7 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 			for _, r := range results {
 				if d.dlog != nil {
 					for _, target := range r.DeliveredTo {
-						d.dlog.Delivered(r.Kind, r.SourcePath, target)
+						d.dlog.Delivered(string(r.Kind), r.SourcePath, target)
 					}
 					// Only log REMOVED if source was actually removed (all targets flushed)
 					if _, statErr := os.Stat(r.SourcePath); errors.Is(statErr, os.ErrNotExist) {
