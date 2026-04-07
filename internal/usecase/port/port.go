@@ -105,10 +105,10 @@ type DeliveryStore interface {
 // Implemented in usecase layer, injected into session via DaemonRunner.SetEmitter.
 // Dispatch is best-effort: errors are logged but not returned.
 type DaemonEventEmitter interface {
-	EmitDelivery(sourcePath string, kind string, now time.Time) error
-	EmitFailure(filePath string, kind string, errMsg string, now time.Time) error
+	EmitDelivery(sourcePath string, kind domain.DMailKind, now time.Time) error
+	EmitFailure(filePath string, kind domain.DMailKind, errMsg string, now time.Time) error
 	EmitScan(outboxDir string, delivered, errors int, now time.Time) error
-	EmitRetry(name string, kind string, now time.Time) error
+	EmitRetry(name string, kind domain.DMailKind, now time.Time) error
 }
 
 // InsightAppender writes insight entries to insight ledger files.

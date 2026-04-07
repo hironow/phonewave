@@ -57,7 +57,7 @@ func (e *deliveryEventEmitter) emit(ev domain.Event) error {
 	return nil
 }
 
-func (e *deliveryEventEmitter) EmitDelivery(sourcePath string, kind string, now time.Time) error {
+func (e *deliveryEventEmitter) EmitDelivery(sourcePath string, kind domain.DMailKind, now time.Time) error {
 	ev, err := e.agg.RecordDelivery(sourcePath, kind, now)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func (e *deliveryEventEmitter) EmitDelivery(sourcePath string, kind string, now 
 	return e.emit(ev)
 }
 
-func (e *deliveryEventEmitter) EmitFailure(filePath string, kind string, errMsg string, now time.Time) error {
+func (e *deliveryEventEmitter) EmitFailure(filePath string, kind domain.DMailKind, errMsg string, now time.Time) error {
 	ev, err := e.agg.RecordFailure(filePath, kind, errMsg, now)
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func (e *deliveryEventEmitter) EmitScan(outboxDir string, delivered, errors int,
 	return e.emit(ev)
 }
 
-func (e *deliveryEventEmitter) EmitRetry(name string, kind string, now time.Time) error {
+func (e *deliveryEventEmitter) EmitRetry(name string, kind domain.DMailKind, now time.Time) error {
 	ev, err := e.agg.RecordRetry(name, kind, now)
 	if err != nil {
 		return err

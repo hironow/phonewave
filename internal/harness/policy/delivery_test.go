@@ -14,7 +14,7 @@ func TestSelectDeliveryInboxes_TargetsTakePrecedence(t *testing.T) {
 	}
 
 	got := policy.SelectDeliveryInboxes(
-		"design-feedback",
+		domain.KindDesignFeedback,
 		inboxes,
 		[]string{"paintress"},
 		domain.CorrectionMetadata{TargetAgent: "sightjack"},
@@ -32,7 +32,7 @@ func TestSelectDeliveryInboxes_ExplicitEscalatedOwnerNarrowsDelivery(t *testing.
 	}
 
 	got := policy.SelectDeliveryInboxes(
-		"implementation-feedback",
+		domain.KindImplFeedback,
 		inboxes,
 		nil,
 		domain.CorrectionMetadata{
@@ -55,7 +55,7 @@ func TestSelectDeliveryInboxes_FallsBackToRouteFanout(t *testing.T) {
 		"/repo/paintress/.expedition/inbox",
 	}
 
-	got := policy.SelectDeliveryInboxes("design-feedback", inboxes, nil, domain.CorrectionMetadata{})
+	got := policy.SelectDeliveryInboxes(domain.KindDesignFeedback, inboxes, nil, domain.CorrectionMetadata{})
 	if len(got) != len(inboxes) {
 		t.Fatalf("len(SelectDeliveryInboxes()) = %d, want %d", len(got), len(inboxes))
 	}

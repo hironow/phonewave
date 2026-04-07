@@ -169,13 +169,13 @@ func TestFilterInboxesByTargetAgent(t *testing.T) {
 func TestPreferredImprovementTargetAgent(t *testing.T) {
 	tests := []struct {
 		name string
-		kind string
+		kind domain.DMailKind
 		meta domain.CorrectionMetadata
 		want string
 	}{
 		{
 			name: "explicit target agent wins",
-			kind: "design-feedback",
+			kind: domain.KindDesignFeedback,
 			meta: domain.CorrectionMetadata{
 				TargetAgent: "paintress",
 			},
@@ -183,7 +183,7 @@ func TestPreferredImprovementTargetAgent(t *testing.T) {
 		},
 		{
 			name: "retry mode falls back to design owner",
-			kind: "design-feedback",
+			kind: domain.KindDesignFeedback,
 			meta: domain.CorrectionMetadata{
 				RoutingMode: domain.RoutingModeRetry,
 			},
@@ -191,7 +191,7 @@ func TestPreferredImprovementTargetAgent(t *testing.T) {
 		},
 		{
 			name: "escalated feedback does not synthesize target",
-			kind: "implementation-feedback",
+			kind: domain.KindImplFeedback,
 			meta: domain.CorrectionMetadata{
 				Outcome: domain.ImprovementOutcomeEscalated,
 			},
@@ -199,7 +199,7 @@ func TestPreferredImprovementTargetAgent(t *testing.T) {
 		},
 		{
 			name: "retry disabled feedback does not synthesize target",
-			kind: "implementation-feedback",
+			kind: domain.KindImplFeedback,
 			meta: domain.CorrectionMetadata{
 				RetryAllowed: domain.BoolPtr(false),
 			},
@@ -207,7 +207,7 @@ func TestPreferredImprovementTargetAgent(t *testing.T) {
 		},
 		{
 			name: "reroute without explicit target does not guess",
-			kind: "implementation-feedback",
+			kind: domain.KindImplFeedback,
 			meta: domain.CorrectionMetadata{
 				RoutingMode: domain.RoutingModeReroute,
 			},
@@ -215,7 +215,7 @@ func TestPreferredImprovementTargetAgent(t *testing.T) {
 		},
 		{
 			name: "non improvement leaves routing broad",
-			kind: "design-feedback",
+			kind: domain.KindDesignFeedback,
 			meta: domain.CorrectionMetadata{},
 			want: "",
 		},

@@ -304,14 +304,14 @@ func (d *Daemon) recordDeliveryEvent(result *domain.DeliveryResult) {
 	d.session.RecordDeliveryEvent(result)
 }
 
-func (d *Daemon) recordFailureEvent(filePath string, kind string, deliverErr error) {
+func (d *Daemon) recordFailureEvent(filePath string, kind domain.DMailKind, deliverErr error) {
 	if d.session == nil {
 		return
 	}
 	d.session.RecordFailureEvent(filePath, kind, deliverErr)
 }
 
-func (d *Daemon) recordRetryEvent(name string, kind string) {
+func (d *Daemon) recordRetryEvent(name string, kind domain.DMailKind) {
 	if d.session == nil {
 		return
 	}

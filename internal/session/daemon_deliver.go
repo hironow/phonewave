@@ -71,7 +71,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		if d.dlog != nil {
 			d.dlog.Failed(string(kind), event.Name, err.Error())
 		}
-		d.recordFailureEvent(event.Name, string(kind), err)
+		d.recordFailureEvent(event.Name, kind, err)
 
 		// Feed delivery error to circuit breaker
 		if d.cb != nil {
@@ -185,7 +185,7 @@ func (d *Daemon) retryPending() int {
 					d.dlog.Retried(string(result.Kind), originalPath, target)
 				}
 			}
-			d.recordRetryEvent(e.OriginalName, string(result.Kind))
+			d.recordRetryEvent(e.OriginalName, result.Kind)
 
 			// Mark as delivered in Bloom filter for future dedup
 			if d.bloomFilter != nil && len(result.DeliveredTo) > 0 {

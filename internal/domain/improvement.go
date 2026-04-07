@@ -430,18 +430,18 @@ func BoolPtr(v bool) *bool {
 	return &v
 }
 
-func DefaultImprovementTargetAgent(kind string) string {
+func DefaultImprovementTargetAgent(kind DMailKind) string {
 	switch kind {
-	case "design-feedback":
+	case KindDesignFeedback:
 		return "sightjack"
-	case "implementation-feedback":
+	case KindImplFeedback:
 		return "paintress"
 	default:
 		return ""
 	}
 }
 
-func PreferredImprovementTargetAgent(kind string, meta CorrectionMetadata) string {
+func PreferredImprovementTargetAgent(kind DMailKind, meta CorrectionMetadata) string {
 	if meta.TargetAgent != "" {
 		return meta.TargetAgent
 	}

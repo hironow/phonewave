@@ -11,11 +11,11 @@ func TestDeliveryAggregate_SeqNrIncrements(t *testing.T) {
 	agg := NewDeliveryAggregate("session-1")
 	now := time.Now()
 
-	ev1, err := agg.RecordDelivery("/path/a", "spec", now)
+	ev1, err := agg.RecordDelivery("/path/a", KindSpecification, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ev2, err := agg.RecordFailure("/path/b", "report", "err", now)
+	ev2, err := agg.RecordFailure("/path/b", KindReport, "err", now)
 	if err != nil {
 		t.Fatal(err)
 	}
