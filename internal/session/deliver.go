@@ -141,24 +141,30 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	}
 
 	// Record successful deliveries in dedup store (logical target = inbox dir).
-	// Write failure is returned as error — the source stays in the outbox so the
-	// next scan retries both delivery (idempotent via stage) and dedup recording.
-	// This prevents dedup record gaps that would allow future duplicate deliveries.
+	// Write failure does NOT return an error — delivery already succeeded and
+	// returning error would cause the caller to enqueue to error queue, which
+	// re-stages with flushed=0 and triggers duplicate delivery.
+	// Instead, dedupRecordFailed prevents source removal so the next scan
+	// naturally retries: Stage (idempotent overwrite) → Flush → RecordDelivery.
+	var dedupRecordFailed bool
 	if dedup != nil {
 		for _, target := range result.DeliveredTo {
 			inboxDir := filepath.Dir(target)
 			if recErr := dedup.RecordDelivery(ctx, idempotencyKey, inboxDir); recErr != nil {
-				dedupWriteErr := fmt.Errorf("dedup record %s→%s: %w", idempotencyKey[:8], inboxDir, recErr)
-				span.RecordError(dedupWriteErr)
-				span.SetStatus(codes.Error, dedupWriteErr.Error())
-				return result, dedupWriteErr
+				span.RecordError(fmt.Errorf("dedup record %s→%s: %w", idempotencyKey[:8], inboxDir, recErr))
+				dedupRecordFailed = true
+				// Continue remaining targets — partial records are better than none
 			}
+		}
+		if dedupRecordFailed {
+			span.SetAttributes(attribute.Bool("dedup.record_incomplete", true))
 		}
 	}
 
-	// Remove source only when ALL targets are flushed
+	// Remove source only when ALL targets are flushed AND all dedup records written.
+	// When dedupRecordFailed, source stays in outbox for natural retry on next scan.
 	allDone, _ := ds.AllFlushedFor(dmailPath)
-	if allDone {
+	if allDone && !dedupRecordFailed {
 		if err := os.Remove(dmailPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			removeErr := fmt.Errorf("remove source %s: %w", dmailPath, err)
 			span.RecordError(removeErr)

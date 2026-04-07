@@ -678,7 +678,7 @@ description: "Dedup read error test"
 	}
 }
 
-func TestDeliverData_DedupRecordError_ReturnsError(t *testing.T) {
+func TestDeliverData_DedupRecordError_SourceStaysNoError(t *testing.T) {
 	// given — a D-Mail file and a dedup store that fails on write
 	repoDir := t.TempDir()
 	outbox := filepath.Join(repoDir, ".siren", "outbox")
@@ -710,17 +710,24 @@ description: "Dedup write error test"
 	// when
 	result, err := session.DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds, dedup)
 
-	// then — error returned, but result has partial deliveries
-	if err == nil {
-		t.Fatal("expected error from dedup record failure, got nil")
+	// then — NO error (delivery succeeded; dedup record failure is not delivery failure)
+	if err != nil {
+		t.Fatalf("unexpected error: dedup record failure should not be returned as delivery error: %v", err)
 	}
 	// result should contain the delivered targets (files were already written)
 	if result == nil {
-		t.Fatal("expected non-nil result with partial deliveries")
+		t.Fatal("expected non-nil result with deliveries")
 	}
-	// source should still exist (not removed due to dedup record failure)
+	if len(result.DeliveredTo) == 0 {
+		t.Error("expected at least one delivered target")
+	}
+	// source must still exist (dedup record incomplete → source stays for retry)
 	if _, statErr := os.Stat(dmailPath); statErr != nil {
-		t.Errorf("source should remain in outbox after dedup record error: %v", statErr)
+		t.Errorf("source should remain in outbox when dedup record failed: %v", statErr)
+	}
+	// inbox should have the file (delivery succeeded)
+	if _, statErr := os.Stat(filepath.Join(inbox, "spec-dedup-write.md")); statErr != nil {
+		t.Errorf("inbox should have file (delivery succeeded): %v", statErr)
 	}
 }
 
