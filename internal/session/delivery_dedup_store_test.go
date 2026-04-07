@@ -22,7 +22,7 @@ func TestSQLiteDeliveryDedupStore_RecordAndCheck(t *testing.T) {
 	key := "abc123def456"
 
 	// when — check before recording
-	has, err := store.HasDelivered(ctx, key)
+	has, err := store.HasDelivered(ctx, key, "/inbox/sightjack")
 
 	// then
 	if err != nil {
@@ -39,7 +39,7 @@ func TestSQLiteDeliveryDedupStore_RecordAndCheck(t *testing.T) {
 	}
 
 	// when — check after recording
-	has, err = store.HasDelivered(ctx, key)
+	has, err = store.HasDelivered(ctx, key, "/inbox/sightjack")
 	if err != nil {
 		t.Fatalf("HasDelivered after record: %v", err)
 	}

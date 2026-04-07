@@ -59,14 +59,7 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	// Exact-match dedup: skip if already delivered (survives daemon restart)
 	idempotencyKey := domain.ContentIdempotencyKey(data)
-	if d.dedupStore != nil {
-		if delivered, _ := d.dedupStore.HasDelivered(ctx, idempotencyKey); delivered {
-			d.logger.Debug("Dedup: skip %s (already delivered)", event.Name)
-			return
-		}
-	}
 
 	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore)
 	if err != nil {

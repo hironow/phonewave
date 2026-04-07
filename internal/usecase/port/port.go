@@ -171,7 +171,7 @@ func (NopDaemonRunner) Close() error                          { return nil }
 // Prevents the same D-Mail content from being delivered twice using
 // content-based idempotency keys backed by persistent storage.
 type DeliveryDedupStore interface {
-	HasDelivered(ctx context.Context, idempotencyKey string) (bool, error)
+	HasDelivered(ctx context.Context, idempotencyKey, target string) (bool, error)
 	RecordDelivery(ctx context.Context, idempotencyKey string, target string) error
 	Close() error
 }

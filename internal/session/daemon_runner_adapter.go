@@ -79,7 +79,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		return nil, fmt.Errorf("create error queue store: %w", err)
 	}
 
-	dedupStore, err := NewSQLiteDeliveryDedupStore(runDir)
+	dedupStore, err := NewSQLiteDeliveryDedupStore(filepath.Join(runDir, "delivery_dedup.db"))
 	if err != nil {
 		errorQueue.Close()
 		closeSeq()
