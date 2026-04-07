@@ -32,6 +32,7 @@ type Daemon struct {
 	session       *DaemonSession
 	bloomFilter   *domain.BloomFilter    // advisory dedup filter (nil = disabled)
 	cb            *platform.CircuitBreaker // delivery circuit breaker (nil = disabled)
+	dedupStore    port.DeliveryDedupStore  // exact-match dedup (nil = disabled)
 }
 
 // NewDaemon creates a new Daemon with the given options and logger.
@@ -52,6 +53,13 @@ func NewDaemon(opts domain.DaemonOptions, logger domain.Logger) (*Daemon, error)
 		pool:    pond.NewPool(runtime.NumCPU()),
 		eventCh: make(chan fsnotify.Event, runtime.NumCPU()*16),
 	}, nil
+}
+
+// closeDedupStore closes the dedup store if present.
+func (d *Daemon) closeDedupStore() {
+	if d.dedupStore != nil {
+		d.dedupStore.Close()
+	}
 }
 
 // Run starts the daemon event loop. It blocks until ctx is cancelled.

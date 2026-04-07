@@ -59,6 +59,15 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		return
 	}
 
+	// Exact-match dedup: skip if already delivered (survives daemon restart)
+	idempotencyKey := domain.ContentIdempotencyKey(data)
+	if d.dedupStore != nil {
+		if delivered, _ := d.dedupStore.HasDelivered(ctx, idempotencyKey); delivered {
+			d.logger.Debug("Dedup: skip %s (already delivered)", event.Name)
+			return
+		}
+	}
+
 	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore)
 	if err != nil {
 		kind, _ := domain.ExtractDMailKind(data)
@@ -97,6 +106,13 @@ func (d *Daemon) handleEvent(event fsnotify.Event) {
 		}
 	}
 	d.recordDeliveryEvent(result)
+
+	// Record in exact dedup store (survives daemon restart)
+	if d.dedupStore != nil && len(result.DeliveredTo) > 0 {
+		for _, target := range result.DeliveredTo {
+			d.dedupStore.RecordDelivery(ctx, idempotencyKey, target) //nolint:errcheck // best-effort
+		}
+	}
 
 	// Mark as delivered in Bloom filter for future dedup
 	if d.bloomFilter != nil && len(result.DeliveredTo) > 0 {
