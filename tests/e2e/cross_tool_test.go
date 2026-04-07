@@ -188,6 +188,64 @@ func TestCrossTool_Idempotency(t *testing.T) {
 	}
 }
 
+func TestCrossTool_CorrectiveMetadataPreserved(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping Docker test in short mode")
+	}
+	if os.Getenv("CROSS_TOOL_E2E") == "" {
+		t.Skip("skipping cross-tool test: set CROSS_TOOL_E2E=1")
+	}
+	ctx := context.Background()
+	c := buildCrossToolContainer(t, ctx)
+	repoPath := "/workspace/repo"
+
+	setupEcosystemInContainer(t, ctx, c, repoPath)
+	execInContainer(t, ctx, c, []string{
+		"sh", "-c", fmt.Sprintf("cd /workspace && phonewave init %s", repoPath),
+	})
+	startDaemonInContainer(t, ctx, c, "/workspace", "--verbose")
+	defer stopDaemonInContainer(t, ctx, c, "/workspace")
+
+	// Inject corrective metadata D-Mail into .gate/outbox
+	// Route: implementation-feedback from .gate/outbox -> .expedition/inbox
+	// target_agent: paintress narrows delivery to .expedition/inbox only
+	content := loadGoldenFile(t, "am-corrective-feedback.md")
+	heredocWrite(t, ctx, c, repoPath+"/.gate/outbox/am-corrective-feedback.md", content)
+
+	// Wait for delivery to .expedition/inbox
+	deliveredPath := repoPath + "/.expedition/inbox/am-corrective-feedback.md"
+	waitForFileInContainer(t, ctx, c, deliveredPath, 15*time.Second)
+
+	// Verify source removed from outbox
+	waitForFileAbsentInContainer(t, ctx, c, repoPath+"/.gate/outbox/am-corrective-feedback.md", 10*time.Second)
+
+	// Read delivered file and assert all 7 metadata fields are preserved
+	delivered := readFileInContainer(t, ctx, c, deliveredPath)
+
+	metadataFields := map[string]string{
+		"routing_mode":   "escalate",
+		"target_agent":   "paintress",
+		"provider_state": "active",
+		"correlation_id": "corr-e2e-001",
+		"trace_id":       "trace-e2e-001",
+		"owner_history":  "amadeus",
+		"routing_history": "amadeus>phonewave>paintress",
+	}
+	for key, want := range metadataFields {
+		// Check that "key: value" or 'key: "value"' appears in the delivered content
+		if !strings.Contains(delivered, key+": "+want) &&
+			!strings.Contains(delivered, key+": \""+want+"\"") {
+			t.Errorf("metadata field %q=%q not found in delivered D-Mail:\n%s", key, want, delivered)
+		}
+	}
+
+	// Verify the D-Mail was NOT delivered to .siren/inbox (target_agent narrows)
+	sirenPath := repoPath + "/.siren/inbox/am-corrective-feedback.md"
+	if fileExistsInContainer(t, ctx, c, sirenPath) {
+		t.Error("corrective feedback with target_agent=paintress should NOT be delivered to .siren/inbox")
+	}
+}
+
 func TestCrossTool_DeliveryLog(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Docker test in short mode")
