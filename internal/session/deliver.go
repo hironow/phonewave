@@ -83,7 +83,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	}
 
 	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)
-	targetInboxes := harness.SelectDeliveryInboxes(string(kind), matchedRoute.ToInboxes, fm.Targets, metadata)
+	targetInboxes := harness.SelectDeliveryInboxes(kind, matchedRoute.ToInboxes, fm.Targets, metadata)
 	idempotencyKey := domain.ContentIdempotencyKey(data)
 
 	// Per-target exact dedup: filter out already-delivered logical targets (inbox dirs).

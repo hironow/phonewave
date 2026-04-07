@@ -12,7 +12,7 @@ func TestDeliveryAggregate_RecordDelivery(t *testing.T) {
 	agg := domain.NewDeliveryAggregate("")
 
 	// when
-	ev, err := agg.RecordDelivery("/outbox/test.md", "specification", time.Now().UTC())
+	ev, err := agg.RecordDelivery("/outbox/test.md", domain.KindSpecification, time.Now().UTC())
 
 	// then
 	if err != nil {
@@ -28,7 +28,7 @@ func TestDeliveryAggregate_RecordFailure(t *testing.T) {
 	agg := domain.NewDeliveryAggregate("")
 
 	// when
-	ev, err := agg.RecordFailure("/outbox/test.md", "specification", "parse error", time.Now().UTC())
+	ev, err := agg.RecordFailure("/outbox/test.md", domain.KindSpecification, "parse error", time.Now().UTC())
 
 	// then
 	if err != nil {
@@ -44,7 +44,7 @@ func TestDeliveryAggregate_RecordRetry(t *testing.T) {
 	agg := domain.NewDeliveryAggregate("")
 
 	// when
-	ev, err := agg.RecordRetry("retry-spec.md", "specification", time.Now().UTC())
+	ev, err := agg.RecordRetry("retry-spec.md", domain.KindSpecification, time.Now().UTC())
 
 	// then
 	if err != nil {

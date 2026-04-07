@@ -33,21 +33,21 @@ func (a *DeliveryAggregate) nextEvent(eventType EventType, data any, now time.Ti
 
 // DeliveryCompletedPayload is the payload for EventDeliveryCompleted.
 type DeliveryCompletedPayload struct {
-	Path string `json:"path"`
-	Kind string `json:"kind"`
+	Path string    `json:"path"`
+	Kind DMailKind `json:"kind"`
 }
 
 // DeliveryFailedPayload is the payload for EventDeliveryFailed.
 type DeliveryFailedPayload struct {
-	Path  string `json:"path"`
-	Kind  string `json:"kind"`
-	Error string `json:"error"`
+	Path  string    `json:"path"`
+	Kind  DMailKind `json:"kind"`
+	Error string    `json:"error"`
 }
 
 // ErrorRetriedPayload is the payload for EventErrorRetried.
 type ErrorRetriedPayload struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"`
+	Name string    `json:"name"`
+	Kind DMailKind `json:"kind"`
 }
 
 // ScanCompletedPayload is the payload for EventScanCompleted.
@@ -58,7 +58,7 @@ type ScanCompletedPayload struct {
 }
 
 // RecordDelivery produces a delivery.completed event.
-func (a *DeliveryAggregate) RecordDelivery(path, kind string, now time.Time) (Event, error) {
+func (a *DeliveryAggregate) RecordDelivery(path string, kind DMailKind, now time.Time) (Event, error) {
 	return a.nextEvent(EventDeliveryCompleted, DeliveryCompletedPayload{
 		Path: path,
 		Kind: kind,
@@ -66,7 +66,7 @@ func (a *DeliveryAggregate) RecordDelivery(path, kind string, now time.Time) (Ev
 }
 
 // RecordFailure produces a delivery.failed event.
-func (a *DeliveryAggregate) RecordFailure(path, kind, errMsg string, now time.Time) (Event, error) {
+func (a *DeliveryAggregate) RecordFailure(path string, kind DMailKind, errMsg string, now time.Time) (Event, error) {
 	return a.nextEvent(EventDeliveryFailed, DeliveryFailedPayload{
 		Path:  path,
 		Kind:  kind,
@@ -75,7 +75,7 @@ func (a *DeliveryAggregate) RecordFailure(path, kind, errMsg string, now time.Ti
 }
 
 // RecordRetry produces an error.retried event.
-func (a *DeliveryAggregate) RecordRetry(name, kind string, now time.Time) (Event, error) {
+func (a *DeliveryAggregate) RecordRetry(name string, kind DMailKind, now time.Time) (Event, error) {
 	return a.nextEvent(EventErrorRetried, ErrorRetriedPayload{
 		Name: name,
 		Kind: kind,

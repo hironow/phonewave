@@ -19,7 +19,7 @@ type testDaemonEventEmitter struct {
 	store port.EventStore
 }
 
-func (e *testDaemonEventEmitter) EmitDelivery(sourcePath string, kind string, now time.Time) error {
+func (e *testDaemonEventEmitter) EmitDelivery(sourcePath string, kind domain.DMailKind, now time.Time) error {
 	ev, err := e.agg.RecordDelivery(sourcePath, kind, now)
 	if err != nil {
 		return err
@@ -28,7 +28,7 @@ func (e *testDaemonEventEmitter) EmitDelivery(sourcePath string, kind string, no
 	return appendErr
 }
 
-func (e *testDaemonEventEmitter) EmitFailure(filePath string, kind string, errMsg string, now time.Time) error {
+func (e *testDaemonEventEmitter) EmitFailure(filePath string, kind domain.DMailKind, errMsg string, now time.Time) error {
 	ev, err := e.agg.RecordFailure(filePath, kind, errMsg, now)
 	if err != nil {
 		return err
@@ -46,7 +46,7 @@ func (e *testDaemonEventEmitter) EmitScan(outboxDir string, delivered, errors in
 	return appendErr
 }
 
-func (e *testDaemonEventEmitter) EmitRetry(name string, kind string, now time.Time) error {
+func (e *testDaemonEventEmitter) EmitRetry(name string, kind domain.DMailKind, now time.Time) error {
 	ev, err := e.agg.RecordRetry(name, kind, now)
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func TestDaemonSession_RecordFailureEvent(t *testing.T) {
 	ds, eventStore := newTestDaemonSession(t)
 
 	// when
-	ds.RecordFailureEvent("/tmp/outbox/bad.md", "specification", fmt.Errorf("no route"))
+	ds.RecordFailureEvent("/tmp/outbox/bad.md", domain.KindSpecification, fmt.Errorf("no route"))
 
 	// then
 	events, _, err := eventStore.LoadAll()
@@ -168,7 +168,7 @@ func TestDaemonSession_RecordRetryEvent(t *testing.T) {
 	ds, eventStore := newTestDaemonSession(t)
 
 	// when
-	ds.RecordRetryEvent("retry-spec.md", "specification")
+	ds.RecordRetryEvent("retry-spec.md", domain.KindSpecification)
 
 	// then
 	events, _, err := eventStore.LoadAll()

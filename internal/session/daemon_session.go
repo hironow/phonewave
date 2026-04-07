@@ -76,15 +76,15 @@ func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {
 	if s.Emitter == nil {
 		return
 	}
-	if err := s.Emitter.EmitDelivery(result.SourcePath, string(result.Kind), time.Now().UTC()); err != nil {
+	if err := s.Emitter.EmitDelivery(result.SourcePath, result.Kind, time.Now().UTC()); err != nil {
 		s.Logger.Warn("emit delivery event: %v", err)
 	}
 }
 
 // RecordFailureEvent records a delivery.failed event to the event store.
 // Best-effort: errors are logged but do not fail the error recording.
-func (s *DaemonSession) RecordFailureEvent(filePath string, kind string, deliverErr error) {
-	platform.RecordDelivery(context.Background(), "failed", kind)
+func (s *DaemonSession) RecordFailureEvent(filePath string, kind domain.DMailKind, deliverErr error) {
+	platform.RecordDelivery(context.Background(), "failed", string(kind))
 	if s.Emitter == nil {
 		return
 	}
@@ -104,7 +104,7 @@ func (s *DaemonSession) RecordScanEvent(outboxDir string, deliveredCount int, er
 }
 
 // RecordRetryEvent records an error.retried event to the event store.
-func (s *DaemonSession) RecordRetryEvent(name string, kind string) {
+func (s *DaemonSession) RecordRetryEvent(name string, kind domain.DMailKind) {
 	if s.Emitter == nil {
 		return
 	}
