@@ -2,6 +2,7 @@ package domain_test
 
 import (
 	"encoding/json"
+	"regexp"
 	"testing"
 	"time"
 
@@ -41,9 +42,10 @@ func TestValidateEvent_RejectsEmptyFields(t *testing.T) {
 		name  string
 		event domain.Event
 	}{
-		{name: "empty ID", event: domain.Event{Type: "test", Timestamp: time.Now()}},
-		{name: "empty Type", event: domain.Event{ID: "abc", Timestamp: time.Now()}},
-		{name: "zero Timestamp", event: domain.Event{ID: "abc", Type: "test"}},
+		{name: "empty ID", event: domain.Event{Type: domain.EventDeliveryCompleted, Timestamp: time.Now(), Data: []byte(`{}`)}},
+		{name: "empty Type", event: domain.Event{ID: "abc", Timestamp: time.Now(), Data: []byte(`{}`)}},
+		{name: "zero Timestamp", event: domain.Event{ID: "abc", Type: domain.EventDeliveryCompleted, Data: []byte(`{}`)}},
+		{name: "empty Data", event: domain.Event{ID: "abc", Type: domain.EventDeliveryCompleted, Timestamp: time.Now()}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -90,5 +92,24 @@ func TestValidateEvent_AcceptsValidEvent(t *testing.T) {
 	e, _ := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{"k": "v"}, time.Now())
 	if err := domain.ValidateEvent(e); err != nil {
 		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+func TestValidateEvent_RejectsUnknownType(t *testing.T) {
+	ev, err := domain.NewEvent("totally.unknown.type", map[string]string{"k": "v"}, time.Now())
+	if err != nil {
+		t.Fatalf("NewEvent: %v", err)
+	}
+	if err := domain.ValidateEvent(ev); err == nil {
+		t.Error("expected ValidateEvent to reject unknown event type")
+	}
+}
+
+func TestAllEventTypes_AreDotCase(t *testing.T) {
+	dotCaseRe := regexp.MustCompile(`^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$`)
+	for et := range domain.AllValidEventTypes() {
+		if !dotCaseRe.MatchString(string(et)) {
+			t.Errorf("EventType %q violates dot.case naming convention", et)
+		}
 	}
 }

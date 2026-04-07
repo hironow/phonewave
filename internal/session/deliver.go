@@ -53,7 +53,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	ctx, span := platform.Tracer.Start(ctx, "delivery.deliver",
 		trace.WithAttributes(
 			attribute.String("dmail.path", platform.SanitizeUTF8(dmailPath)),
-			attribute.String("dmail.kind", platform.SanitizeUTF8(kind)),
+			attribute.String("dmail.kind", platform.SanitizeUTF8(string(kind))),
 		),
 	)
 	defer span.End()
@@ -62,7 +62,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	sourceDir := filepath.Dir(dmailPath)
 	var matchedRoute *domain.ResolvedRoute
 	for i := range routes {
-		if routes[i].Kind == kind && routes[i].FromOutbox == sourceDir {
+		if routes[i].Kind == string(kind) && routes[i].FromOutbox == sourceDir {
 			matchedRoute = &routes[i]
 			break
 		}
@@ -77,11 +77,11 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	fileName := filepath.Base(dmailPath)
 	result := &domain.DeliveryResult{
 		SourcePath: dmailPath,
-		Kind:       kind,
+		Kind: string(kind),
 	}
 
 	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)
-	targetInboxes := harness.SelectDeliveryInboxes(kind, matchedRoute.ToInboxes, fm.Targets, metadata)
+	targetInboxes := harness.SelectDeliveryInboxes(string(kind), matchedRoute.ToInboxes, fm.Targets, metadata)
 	targetPaths := make([]string, len(targetInboxes))
 	for i, inbox := range targetInboxes {
 		targetPaths[i] = filepath.Join(inbox, fileName)

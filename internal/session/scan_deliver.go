@@ -87,7 +87,7 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 			}
 			meta := domain.ErrorMetadata{
 				SourceOutbox: outboxDir,
-				Kind:         kind,
+				Kind: string(kind),
 				OriginalName: entry.Name(),
 				Attempts:     1,
 				Error:        deliverErr.Error(),

@@ -151,7 +151,7 @@ description: "Unsupported schema version"
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got != tt.want {
+			if string(got) != tt.want {
 				t.Errorf("kind = %q, want %q", got, tt.want)
 			}
 		})
@@ -163,7 +163,7 @@ func TestValidateKind_CIResult(t *testing.T) {
 	kind := "ci-result"
 
 	// when
-	err := domain.ValidateKind(kind)
+	err := domain.ValidateKind(domain.DMailKind(kind))
 
 	// then
 	if err != nil {
@@ -235,7 +235,7 @@ func TestValidateKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.kind, func(t *testing.T) {
-			err := domain.ValidateKind(tt.kind)
+			err := domain.ValidateKind(domain.DMailKind(tt.kind))
 			if tt.wantErr && err == nil {
 				t.Errorf("domain.ValidateKind(%q) = nil, want error", tt.kind)
 			}
