@@ -89,27 +89,21 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	// Per-target exact dedup: filter out already-delivered logical targets (inbox dirs).
 	// Key = content hash (idempotency_key), target = inbox directory (not file path).
 	// This ensures content-based dedup regardless of filename changes.
-	// Dedup errors are logged and recorded on the span — on read failure the target
-	// is treated as undelivered (fail-open) to avoid blocking legitimate deliveries.
+	// Dedup is on the correctness path — read failures abort delivery (fail-closed)
+	// so the file stays in the outbox for retry via error queue or next scan.
 	if dedup != nil {
 		var remaining []string
-		var dedupErr error
 		for _, inbox := range targetInboxes {
 			delivered, err := dedup.HasDelivered(ctx, idempotencyKey, inbox)
 			if err != nil {
-				dedupErr = err
-				span.RecordError(fmt.Errorf("dedup read %s: %w", inbox, err))
-				remaining = append(remaining, inbox) // fail-open: deliver on read error
-				continue
+				dedupErr := fmt.Errorf("dedup read %s: %w", inbox, err)
+				span.RecordError(dedupErr)
+				span.SetStatus(codes.Error, dedupErr.Error())
+				return nil, dedupErr
 			}
 			if !delivered {
 				remaining = append(remaining, inbox)
 			}
-		}
-		if dedupErr != nil {
-			span.AddEvent("dedup.read_error", trace.WithAttributes(
-				attribute.String("error", platform.SanitizeUTF8(dedupErr.Error())),
-			))
 		}
 		if len(remaining) == 0 {
 			// All targets already delivered — clean up source and skip
@@ -147,13 +141,17 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	}
 
 	// Record successful deliveries in dedup store (logical target = inbox dir).
-	// Write errors are logged and recorded on the span — delivery itself succeeded,
-	// but future dedup may miss this record, so the error is observable.
+	// Write failure is returned as error — the source stays in the outbox so the
+	// next scan retries both delivery (idempotent via stage) and dedup recording.
+	// This prevents dedup record gaps that would allow future duplicate deliveries.
 	if dedup != nil {
 		for _, target := range result.DeliveredTo {
 			inboxDir := filepath.Dir(target)
 			if recErr := dedup.RecordDelivery(ctx, idempotencyKey, inboxDir); recErr != nil {
-				span.RecordError(fmt.Errorf("dedup record %s→%s: %w", idempotencyKey[:8], inboxDir, recErr))
+				dedupWriteErr := fmt.Errorf("dedup record %s→%s: %w", idempotencyKey[:8], inboxDir, recErr)
+				span.RecordError(dedupWriteErr)
+				span.SetStatus(codes.Error, dedupWriteErr.Error())
+				return result, dedupWriteErr
 			}
 		}
 	}

@@ -611,3 +611,159 @@ description: "Partial failure test"
 		t.Error("source should still exist (not all targets flushed)")
 	}
 }
+
+// --- Dedup strict error handling tests ---
+
+// failDedupStore is a DeliveryDedupStore that returns errors on demand.
+type failDedupStore struct {
+	hasDeliveredErr  error
+	recordErr        error
+	hasDeliveredResp bool
+}
+
+func (f *failDedupStore) HasDelivered(_ context.Context, _, _ string) (bool, error) {
+	if f.hasDeliveredErr != nil {
+		return false, f.hasDeliveredErr
+	}
+	return f.hasDeliveredResp, nil
+}
+
+func (f *failDedupStore) RecordDelivery(_ context.Context, _, _ string) error {
+	return f.recordErr
+}
+
+func (f *failDedupStore) Close() error { return nil }
+
+func TestDeliverData_DedupReadError_ReturnsError(t *testing.T) {
+	// given — a D-Mail file and a dedup store that fails on read
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	for _, dir := range []string{outbox, inbox} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+dmail-schema-version: "1"
+name: spec-dedup-read
+kind: specification
+description: "Dedup read error test"
+---
+`
+	dmailPath := filepath.Join(outbox, "spec-dedup-read.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+	ds := newTestDeliveryStore(t)
+	dedup := &failDedupStore{hasDeliveredErr: errors.New("sqlite: database is locked")}
+
+	// when
+	result, err := session.DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds, dedup)
+
+	// then — error returned (fail-closed), source stays in outbox
+	if err == nil {
+		t.Fatal("expected error from dedup read failure, got nil")
+	}
+	if result != nil {
+		t.Errorf("expected nil result on dedup read error, got %+v", result)
+	}
+	if _, statErr := os.Stat(dmailPath); statErr != nil {
+		t.Errorf("source should remain in outbox after dedup read error: %v", statErr)
+	}
+}
+
+func TestDeliverData_DedupRecordError_ReturnsError(t *testing.T) {
+	// given — a D-Mail file and a dedup store that fails on write
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	for _, dir := range []string{outbox, inbox} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+dmail-schema-version: "1"
+name: spec-dedup-write
+kind: specification
+description: "Dedup write error test"
+---
+`
+	dmailPath := filepath.Join(outbox, "spec-dedup-write.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+	ds := newTestDeliveryStore(t)
+	dedup := &failDedupStore{recordErr: errors.New("sqlite: disk I/O error")}
+
+	// when
+	result, err := session.DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds, dedup)
+
+	// then — error returned, but result has partial deliveries
+	if err == nil {
+		t.Fatal("expected error from dedup record failure, got nil")
+	}
+	// result should contain the delivered targets (files were already written)
+	if result == nil {
+		t.Fatal("expected non-nil result with partial deliveries")
+	}
+	// source should still exist (not removed due to dedup record failure)
+	if _, statErr := os.Stat(dmailPath); statErr != nil {
+		t.Errorf("source should remain in outbox after dedup record error: %v", statErr)
+	}
+}
+
+func TestDeliverData_DedupSuccess_SkipsDuplicate(t *testing.T) {
+	// given — a D-Mail file and a dedup store that says already delivered
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	for _, dir := range []string{outbox, inbox} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := `---
+dmail-schema-version: "1"
+name: spec-already
+kind: specification
+description: "Already delivered"
+---
+`
+	dmailPath := filepath.Join(outbox, "spec-already.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+	ds := newTestDeliveryStore(t)
+	dedup := &failDedupStore{hasDeliveredResp: true}
+
+	// when
+	result, err := session.DeliverData(context.Background(), dmailPath, []byte(dmailContent), routes, ds, dedup)
+
+	// then — no error, no deliveries, source removed
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.DeliveredTo) != 0 {
+		t.Errorf("want 0 deliveries for duplicate, got %d", len(result.DeliveredTo))
+	}
+	if _, statErr := os.Stat(dmailPath); !errors.Is(statErr, fs.ErrNotExist) {
+		t.Error("source should be removed after full dedup skip")
+	}
+}
