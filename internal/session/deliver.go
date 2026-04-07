@@ -144,15 +144,16 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 		}
 	}
 
-	// Record successful deliveries in dedup store (logical target = inbox dir).
-	// Write failure does NOT return an error — delivery already succeeded and
-	// returning error would cause the caller to enqueue to error queue, which
-	// re-stages with flushed=0 and triggers duplicate delivery.
-	// Instead, failed recording prevents source removal; the next scan hits
-	// the allPreviouslyFlushed fast path above and retries only the record.
+	// Record dedup only for targets that were actually flushed (result.DeliveredTo).
+	// Using targetInboxes here would record dedup for unflushed targets in a
+	// partial flush, causing HasDelivered=true for targets that were never delivered.
 	var dedupRecordFailed bool
 	if dedup != nil {
-		allRecorded := recordDedupForTargets(ctx, span, dedup, idempotencyKey, targetInboxes)
+		flushedInboxes := make([]string, len(result.DeliveredTo))
+		for i, target := range result.DeliveredTo {
+			flushedInboxes[i] = filepath.Dir(target)
+		}
+		allRecorded := recordDedupForTargets(ctx, span, dedup, idempotencyKey, flushedInboxes)
 		dedupRecordFailed = !allRecorded
 	}
 
