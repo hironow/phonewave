@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -190,6 +191,9 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool, _ string) domain.D
 		}
 	}
 
+	// Dead-letter check
+	checkDeadLetters(&report, stateDir)
+
 	// Success rate (informational)
 	stats := ParseDeliveryStats(stateDir)
 	m := domain.DeliveryMetrics{Delivered: stats.Delivered, Failed: stats.Failed}
@@ -338,6 +342,34 @@ func IsProcessAlive(pid int) bool {
 }
 
 // checkEventStoreIntegrity loads all events and reports corrupt lines.
+// checkDeadLetters reports delivery items that have exceeded max retry count.
+func checkDeadLetters(report *domain.DoctorReport, stateDir string) {
+	dbPath := filepath.Join(stateDir, ".run", "deliveries.db")
+	if _, err := os.Stat(dbPath); err != nil {
+		return // no delivery DB yet — skip silently
+	}
+	store, err := NewSQLiteDeliveryStore(stateDir)
+	if err != nil {
+		report.AddWarnWithHint("", fmt.Sprintf("dead-letter check: cannot open delivery store: %v", err),
+			"check file permissions on .phonewave/.run/deliveries.db")
+		return
+	}
+	defer store.Close()
+
+	count, err := store.DeadLetterCount(context.Background())
+	if err != nil {
+		report.AddWarnWithHint("", fmt.Sprintf("dead-letter check: count failed: %v", err),
+			"delivery store may be corrupted")
+		return
+	}
+	if count > 0 {
+		report.AddWarnWithHint("", fmt.Sprintf("%d dead-lettered delivery item(s)", count),
+			"these items failed delivery 3+ times and are permanently stuck — inspect deliveries.db in .phonewave/.run/")
+	} else {
+		report.AddOK("dead-letters", "no dead-lettered items")
+	}
+}
+
 func checkEventStoreIntegrity(report *domain.DoctorReport, stateDir string) {
 	eventsDir := filepath.Join(stateDir, "events")
 	if _, err := os.Stat(eventsDir); err != nil {
