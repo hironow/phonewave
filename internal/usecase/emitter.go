@@ -45,7 +45,7 @@ func (e *deliveryEventEmitter) emit(ev domain.Event) error {
 		ev.SeqNr = seq
 	}
 	if e.store != nil {
-		if _, err := e.store.Append(ev); err != nil {
+		if _, err := e.store.Append(context.Background(), ev); err != nil {
 			return err
 		}
 	}

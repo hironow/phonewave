@@ -376,7 +376,7 @@ func checkEventStoreIntegrity(report *domain.DoctorReport, stateDir string) {
 		return // no events dir = nothing to check
 	}
 	store := NewEventStore(stateDir, &domain.NopLogger{})
-	_, result, err := store.LoadAll()
+	_, result, err := store.LoadAll(context.Background())
 	if err != nil {
 		report.AddWarnWithHint("event-store", fmt.Sprintf("event store load failed: %v", err),
 			"check permissions on "+eventsDir)

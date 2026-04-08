@@ -52,7 +52,7 @@ or rendering with terminal tools (sampler, wtf).`,
 			now := time.Now().UTC()
 			windowStart := now.Add(-windowDur)
 
-			events, _, err := store.LoadSince(windowStart)
+			events, _, err := store.LoadSince(cmd.Context(), windowStart)
 			if err != nil {
 				return fmt.Errorf("load events: %w", err)
 			}
