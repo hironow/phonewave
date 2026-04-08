@@ -105,8 +105,8 @@ func RunToolDoctor(ctx context.Context, tool string, repoPath string, repair boo
 				name = domain.DefaultEndpointName
 			}
 			status := check.Status
-			if status == "" {
-				status = "WARN" // fail-closed: unknown status → WARN
+			if status != "OK" && status != "FAIL" && status != "WARN" && status != "SKIP" && status != "FIX" {
+				status = "WARN" // fail-closed: unrecognized status → WARN
 			}
 			section.Checks = append(section.Checks, domain.UnifiedCheck{
 				Name:    name,
