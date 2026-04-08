@@ -888,3 +888,58 @@ func writeSkillFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestDoctor_EventStoreCorruptLines(t *testing.T) {
+	// given: state dir with corrupt event lines
+	stateDir := t.TempDir()
+	eventsDir := filepath.Join(stateDir, "events")
+	os.MkdirAll(eventsDir, 0755)
+
+	// Valid event + corrupt line + another valid event
+	validEvent := `{"type":"delivery.completed","data":{"path":"/test"},"timestamp":"2026-04-08T00:00:00Z","schema_version":1}`
+	corruptLine := `{not valid json`
+	os.WriteFile(filepath.Join(eventsDir, "2026-04-08.jsonl"),
+		[]byte(validEvent+"\n"+corruptLine+"\n"+validEvent+"\n"), 0644)
+
+	cfg := &domain.Config{}
+	report := session.Doctor(cfg, stateDir, false, "")
+
+	// then: report should contain a warning about corrupt lines
+	found := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "warn" && strings.Contains(issue.Message, "corrupt line") {
+			found = true
+			if !strings.Contains(issue.Message, "1 corrupt line") {
+				t.Errorf("expected 1 corrupt line, got: %q", issue.Message)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected warn issue about corrupt event lines, got none")
+	}
+}
+
+func TestDoctor_EventStoreClean(t *testing.T) {
+	// given: state dir with clean event files
+	stateDir := t.TempDir()
+	eventsDir := filepath.Join(stateDir, "events")
+	os.MkdirAll(eventsDir, 0755)
+
+	validEvent := `{"type":"delivery.completed","data":{"path":"/test"},"timestamp":"2026-04-08T00:00:00Z","schema_version":1}`
+	os.WriteFile(filepath.Join(eventsDir, "2026-04-08.jsonl"),
+		[]byte(validEvent+"\n"), 0644)
+
+	cfg := &domain.Config{}
+	report := session.Doctor(cfg, stateDir, false, "")
+
+	// then: report should have OK for event store
+	found := false
+	for _, issue := range report.Issues {
+		if issue.Severity == "ok" && strings.Contains(issue.Message, "event store OK") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected OK issue for clean event store, got none")
+	}
+}

@@ -198,6 +198,9 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool, _ string) domain.D
 	// Check daemon status
 	report.DaemonStatus = checkDaemonStatus(stateDir)
 
+	// Check event store integrity: detect corrupt lines in JSONL event files.
+	checkEventStoreIntegrity(&report, stateDir)
+
 	// Repair: clean up stale PID file and associated watch.started if daemon is not running
 	if repair && !report.DaemonStatus.Running {
 		pidPath := filepath.Join(stateDir, "watch.pid")
@@ -332,4 +335,26 @@ func IsProcessAlive(pid int) bool {
 	}
 
 	return true
+}
+
+// checkEventStoreIntegrity loads all events and reports corrupt lines.
+func checkEventStoreIntegrity(report *domain.DoctorReport, stateDir string) {
+	eventsDir := filepath.Join(stateDir, "events")
+	if _, err := os.Stat(eventsDir); err != nil {
+		return // no events dir = nothing to check
+	}
+	store := NewEventStore(stateDir, &domain.NopLogger{})
+	_, result, err := store.LoadAll()
+	if err != nil {
+		report.AddWarnWithHint("event-store", fmt.Sprintf("event store load failed: %v", err),
+			"check permissions on "+eventsDir)
+		return
+	}
+	if result.CorruptLineCount > 0 {
+		report.AddWarnWithHint("event-store",
+			fmt.Sprintf("%d corrupt line(s) in event store (%d file(s) scanned)", result.CorruptLineCount, result.FileCount),
+			"corrupt lines are skipped during replay — review JSONL files in "+eventsDir)
+	} else {
+		report.AddOK("event-store", fmt.Sprintf("event store OK (%d file(s), 0 corrupt lines)", result.FileCount))
+	}
 }
