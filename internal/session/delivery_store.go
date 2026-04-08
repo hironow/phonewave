@@ -383,6 +383,32 @@ func (s *SQLiteDeliveryStore) deleteFlushedRows() (int, error) {
 	return int(affected), nil
 }
 
+// DeadLetterCount returns the number of delivery items that have exceeded maxDeliveryRetryCount.
+func (s *SQLiteDeliveryStore) DeadLetterCount(ctx context.Context) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM staged_delivery WHERE flushed = 0 AND retry_count >= ?`, maxDeliveryRetryCount).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("delivery store: dead letter count: %w", err)
+	}
+	return count, nil
+}
+
+// PurgeDeadLetters deletes delivery items that have exceeded maxDeliveryRetryCount.
+// Returns the number of purged items.
+func (s *SQLiteDeliveryStore) PurgeDeadLetters(ctx context.Context) (int, error) {
+	result, err := s.db.ExecContext(ctx,
+		`DELETE FROM staged_delivery WHERE flushed = 0 AND retry_count >= ?`, maxDeliveryRetryCount)
+	if err != nil {
+		return 0, fmt.Errorf("delivery store: purge dead letters: %w", err)
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("delivery store: rows affected: %w", err)
+	}
+	return int(deleted), nil
+}
+
 // Close closes the underlying database connection.
 func (s *SQLiteDeliveryStore) Close() error {
 	return s.db.Close()
