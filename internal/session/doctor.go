@@ -350,17 +350,21 @@ func checkDeadLetters(report *domain.DoctorReport, stateDir string) {
 	}
 	store, err := NewSQLiteDeliveryStore(stateDir)
 	if err != nil {
-		return // best-effort
+		report.AddWarnWithHint("", fmt.Sprintf("dead-letter check: cannot open delivery store: %v", err),
+			"check file permissions on .phonewave/.run/deliveries.db")
+		return
 	}
 	defer store.Close()
 
 	count, err := store.DeadLetterCount(context.Background())
 	if err != nil {
-		return // best-effort
+		report.AddWarnWithHint("", fmt.Sprintf("dead-letter check: count failed: %v", err),
+			"delivery store may be corrupted")
+		return
 	}
 	if count > 0 {
 		report.AddWarnWithHint("", fmt.Sprintf("%d dead-lettered delivery item(s)", count),
-			`these items failed delivery 3+ times — review or purge via "phonewave archive prune --include-dead-letters"`)
+			"these items failed delivery 3+ times and are permanently stuck — inspect deliveries.db in .phonewave/.run/")
 	} else {
 		report.AddOK("dead-letters", "no dead-lettered items")
 	}
