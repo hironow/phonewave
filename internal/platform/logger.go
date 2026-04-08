@@ -138,17 +138,38 @@ func (l *Logger) Colorize(text, color string) string {
 	return color + text + ansiReset
 }
 
-// SeverityColor returns the ANSI color code for a doctor issue severity string.
-func SeverityColor(severity string) string {
-	switch severity {
-	case "ok", "fixed":
+// StatusColor returns the ANSI color code for a doctor check status.
+func StatusColor(s domain.CheckStatus) string {
+	switch s {
+	case domain.CheckOK:
 		return ansiBoldBlue
-	case "warn":
+	case domain.CheckWarn:
 		return ansiYellow
-	case "error":
+	case domain.CheckFail:
 		return ansiBoldRed
+	case domain.CheckSkip:
+		return ansiGray
+	case domain.CheckFixed:
+		return ansiBoldBlue
 	default:
 		return ""
+	}
+}
+
+// StatusColorFromLabel returns the ANSI color code for a status label string.
+// Used for unified (cross-tool) report rendering where status is a string.
+func StatusColorFromLabel(label string) string {
+	switch label {
+	case "OK", "FIX":
+		return ansiBoldBlue
+	case "WARN":
+		return ansiYellow
+	case "FAIL":
+		return ansiBoldRed
+	case "SKIP":
+		return ansiGray
+	default:
+		return ansiYellow // unknown → visible (fail-closed)
 	}
 }
 

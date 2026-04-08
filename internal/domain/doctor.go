@@ -3,12 +3,41 @@ package domain
 // DefaultEndpointName is used when an endpoint name is empty or unresolvable.
 const DefaultEndpointName = "-"
 
-// DoctorIssue represents a single health check finding.
-type DoctorIssue struct {
-	Endpoint string `json:"endpoint"`
-	Message  string `json:"message"`
-	Severity string `json:"severity"` // "error", "warn", "fixed", "ok"
-	Hint     string `json:"hint,omitempty"`
+// CheckStatus represents the outcome of a single doctor check.
+type CheckStatus int
+
+const (
+	CheckOK CheckStatus = iota
+	CheckFail
+	CheckSkip
+	CheckWarn
+	CheckFixed
+)
+
+// StatusLabel returns a display string for the check status.
+func (s CheckStatus) StatusLabel() string {
+	switch s {
+	case CheckOK:
+		return "OK"
+	case CheckFail:
+		return "FAIL"
+	case CheckSkip:
+		return "SKIP"
+	case CheckWarn:
+		return "WARN"
+	case CheckFixed:
+		return "FIX"
+	default:
+		return "????"
+	}
+}
+
+// DoctorCheck holds the outcome of a single doctor check.
+type DoctorCheck struct {
+	Name    string
+	Status  CheckStatus
+	Message string
+	Hint    string // optional remediation hint shown on failure
 }
 
 // DaemonHealthStatus holds daemon-related health info.
@@ -29,40 +58,40 @@ type EndpointHealth struct {
 
 // DoctorReport holds the complete health check result.
 type DoctorReport struct {
-	Healthy      bool               `json:"healthy"`
-	Issues       []DoctorIssue      `json:"issues"`
-	Endpoints    []EndpointHealth   `json:"endpoints,omitempty"`
-	DaemonStatus DaemonHealthStatus `json:"daemon_status"`
+	Healthy      bool
+	Checks       []DoctorCheck
+	Endpoints    []EndpointHealth
+	DaemonStatus DaemonHealthStatus
 }
 
-// AddError appends an error-level issue and marks the report unhealthy.
-func (r *DoctorReport) AddError(endpoint, msg string) {
+// AddError appends a FAIL check and marks the report unhealthy.
+func (r *DoctorReport) AddError(name, msg string) {
 	r.Healthy = false
-	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "error"})
+	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckFail, Message: msg})
 }
 
-// AddWarn appends a warning-level issue.
-func (r *DoctorReport) AddWarn(endpoint, msg string) {
-	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "warn"})
+// AddWarn appends a WARN check.
+func (r *DoctorReport) AddWarn(name, msg string) {
+	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckWarn, Message: msg})
 }
 
-// AddErrorWithHint appends an error-level issue with a remediation hint.
-func (r *DoctorReport) AddErrorWithHint(endpoint, msg, hint string) {
+// AddErrorWithHint appends a FAIL check with a remediation hint.
+func (r *DoctorReport) AddErrorWithHint(name, msg, hint string) {
 	r.Healthy = false
-	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "error", Hint: hint})
+	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckFail, Message: msg, Hint: hint})
 }
 
-// AddWarnWithHint appends a warning-level issue with a remediation hint.
-func (r *DoctorReport) AddWarnWithHint(endpoint, msg, hint string) {
-	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "warn", Hint: hint})
+// AddWarnWithHint appends a WARN check with a remediation hint.
+func (r *DoctorReport) AddWarnWithHint(name, msg, hint string) {
+	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckWarn, Message: msg, Hint: hint})
 }
 
-// AddFixed appends a fixed-level issue (auto-repaired).
-func (r *DoctorReport) AddFixed(endpoint, msg string) {
-	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "fixed"})
+// AddFixed appends a FIX check (auto-repaired).
+func (r *DoctorReport) AddFixed(name, msg string) {
+	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckFixed, Message: msg})
 }
 
-// AddOK appends an ok-level issue (informational).
-func (r *DoctorReport) AddOK(endpoint, msg string) {
-	r.Issues = append(r.Issues, DoctorIssue{Endpoint: endpoint, Message: msg, Severity: "ok"})
+// AddOK appends an OK check (informational).
+func (r *DoctorReport) AddOK(name, msg string) {
+	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckOK, Message: msg})
 }

@@ -84,40 +84,35 @@ func RunToolDoctor(ctx context.Context, tool string, repoPath string, repair boo
 		return section
 	}
 
-	// Try format 3: phonewave DoctorReport
+	// Try format 3: phonewave DoctorReport (new format: checks with status labels)
 	var pwReport struct {
 		Healthy bool `json:"healthy"`
-		Issues  []struct {
-			Endpoint string `json:"endpoint"`
-			Message  string `json:"message"`
-			Severity string `json:"severity"`
-			Hint     string `json:"hint,omitempty"`
-		} `json:"issues"`
+		Checks  []struct {
+			Name    string `json:"name"`
+			Status  string `json:"status"` // "OK", "FAIL", "WARN", "SKIP", "FIX"
+			Message string `json:"message"`
+			Hint    string `json:"hint,omitempty"`
+		} `json:"checks"`
 		DaemonStatus struct {
 			Running bool `json:"running"`
 			PID     int  `json:"pid"`
 		} `json:"daemon_status"`
 	}
-	if jsonErr := json.Unmarshal(out, &pwReport); jsonErr == nil {
-		for _, issue := range pwReport.Issues {
-			status := "OK"
-			switch issue.Severity {
-			case "error":
-				status = "FAIL"
-			case "warn":
-				status = "WARN"
-			case "fixed":
-				status = "FIX"
-			}
-			name := issue.Endpoint
+	if jsonErr := json.Unmarshal(out, &pwReport); jsonErr == nil && len(pwReport.Checks) > 0 {
+		for _, check := range pwReport.Checks {
+			name := check.Name
 			if name == "" {
 				name = domain.DefaultEndpointName
+			}
+			status := check.Status
+			if status == "" {
+				status = "WARN" // fail-closed: unknown status → WARN
 			}
 			section.Checks = append(section.Checks, domain.UnifiedCheck{
 				Name:    name,
 				Status:  status,
-				Message: issue.Message,
-				Hint:    issue.Hint,
+				Message: check.Message,
+				Hint:    check.Hint,
 			})
 		}
 		// Add daemon status as a check
