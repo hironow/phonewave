@@ -16,18 +16,20 @@ type deliveryEventEmitter struct {
 	seqAlloc   port.SeqAllocator // nil = no SeqNr assignment
 	dispatcher port.EventDispatcher
 	logger     domain.Logger
+	ctx        context.Context //nolint:containedctx // stored for trace propagation into emit chain
 }
 
 // NewDeliveryEventEmitter creates a DaemonEventEmitter that wraps
 // the aggregate, event store, and dispatcher into a single emit chain.
-// Dispatch is best-effort: errors are logged but not returned.
+// ctx is used for trace propagation in store/dispatcher operations.
 func NewDeliveryEventEmitter(
+	ctx context.Context,
 	agg *domain.DeliveryAggregate,
 	store port.EventStore,
 	dispatcher port.EventDispatcher,
 	logger domain.Logger,
 ) port.DaemonEventEmitter {
-	return &deliveryEventEmitter{agg: agg, store: store, dispatcher: dispatcher, logger: logger}
+	return &deliveryEventEmitter{ctx: ctx, agg: agg, store: store, dispatcher: dispatcher, logger: logger}
 }
 
 // SetSeqAllocator attaches a SeqAllocator for global SeqNr assignment.
@@ -38,19 +40,19 @@ func (e *deliveryEventEmitter) SetSeqAllocator(alloc port.SeqAllocator) {
 // emit persists the event and dispatches it (best-effort).
 func (e *deliveryEventEmitter) emit(ev domain.Event) error {
 	if e.seqAlloc != nil {
-		seq, err := e.seqAlloc.AllocSeqNr(context.Background())
+		seq, err := e.seqAlloc.AllocSeqNr(e.ctx)
 		if err != nil {
 			return err
 		}
 		ev.SeqNr = seq
 	}
 	if e.store != nil {
-		if _, err := e.store.Append(context.Background(), ev); err != nil {
+		if _, err := e.store.Append(e.ctx, ev); err != nil {
 			return err
 		}
 	}
 	if e.dispatcher != nil {
-		if err := e.dispatcher.Dispatch(context.Background(), ev); err != nil {
+		if err := e.dispatcher.Dispatch(e.ctx, ev); err != nil {
 			e.logger.Warn("policy dispatch %s: %v", ev.Type, err)
 		}
 	}
