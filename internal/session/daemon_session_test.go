@@ -2,6 +2,7 @@ package session_test
 
 import (
 	"fmt"
+	"context"
 	"io"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func (e *testDaemonEventEmitter) EmitDelivery(sourcePath string, kind domain.DMa
 	if err != nil {
 		return err
 	}
-	_, appendErr := e.store.Append(ev)
+	_, appendErr := e.store.Append(context.Background(), ev)
 	return appendErr
 }
 
@@ -33,7 +34,7 @@ func (e *testDaemonEventEmitter) EmitFailure(filePath string, kind domain.DMailK
 	if err != nil {
 		return err
 	}
-	_, appendErr := e.store.Append(ev)
+	_, appendErr := e.store.Append(context.Background(), ev)
 	return appendErr
 }
 
@@ -42,7 +43,7 @@ func (e *testDaemonEventEmitter) EmitScan(outboxDir string, delivered, errors in
 	if err != nil {
 		return err
 	}
-	_, appendErr := e.store.Append(ev)
+	_, appendErr := e.store.Append(context.Background(), ev)
 	return appendErr
 }
 
@@ -51,7 +52,7 @@ func (e *testDaemonEventEmitter) EmitRetry(name string, kind domain.DMailKind, n
 	if err != nil {
 		return err
 	}
-	_, appendErr := e.store.Append(ev)
+	_, appendErr := e.store.Append(context.Background(), ev)
 	return appendErr
 }
 
@@ -111,7 +112,7 @@ func TestDaemonSession_RecordDeliveryEvent(t *testing.T) {
 	ds.RecordDeliveryEvent(result)
 
 	// then
-	events, _, err := eventStore.LoadAll()
+	events, _, err := eventStore.LoadAll(context.Background())
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestDaemonSession_RecordFailureEvent(t *testing.T) {
 	ds.RecordFailureEvent("/tmp/outbox/bad.md", domain.KindSpecification, fmt.Errorf("no route"))
 
 	// then
-	events, _, err := eventStore.LoadAll()
+	events, _, err := eventStore.LoadAll(context.Background())
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -151,7 +152,7 @@ func TestDaemonSession_RecordScanEvent(t *testing.T) {
 	ds.RecordScanEvent("/tmp/outbox", 3, 1)
 
 	// then
-	events, _, err := eventStore.LoadAll()
+	events, _, err := eventStore.LoadAll(context.Background())
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -171,7 +172,7 @@ func TestDaemonSession_RecordRetryEvent(t *testing.T) {
 	ds.RecordRetryEvent("retry-spec.md", domain.KindSpecification)
 
 	// then
-	events, _, err := eventStore.LoadAll()
+	events, _, err := eventStore.LoadAll(context.Background())
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}

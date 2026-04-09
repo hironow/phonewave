@@ -30,7 +30,7 @@ func SetupAndRunDaemon(ctx context.Context, cmd domain.RunDaemonCommand, logger 
 
 	// Aggregate lives in usecase — never exposed to session layer.
 	agg := domain.NewDeliveryAggregate("")
-	emitter := NewDeliveryEventEmitter(agg, runner.EventStore(), engine, logger)
+	emitter := NewDeliveryEventEmitter(ctx, agg, runner.EventStore(), engine, logger)
 	runner.SetEmitter(emitter)
 
 	logger.OK("phonewave daemon starting (%d routes, %d outboxes)", runner.RouteCount(), runner.OutboxCount())
