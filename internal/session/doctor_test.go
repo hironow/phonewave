@@ -919,6 +919,35 @@ func TestDoctor_EventStoreCorruptLines(t *testing.T) {
 	}
 }
 
+func TestFormatDoctorJSON_StatusLabelsAreKnown(t *testing.T) {
+	report := domain.DoctorReport{
+		Healthy: true,
+		Checks: []domain.DoctorCheck{
+			{Name: "test-ok", Status: domain.CheckOK, Message: "ok"},
+			{Name: "test-fail", Status: domain.CheckFail, Message: "fail"},
+			{Name: "test-warn", Status: domain.CheckWarn, Message: "warn"},
+			{Name: "test-skip", Status: domain.CheckSkip, Message: "skip"},
+			{Name: "test-fix", Status: domain.CheckFixed, Message: "fix"},
+		},
+	}
+	data, err := session.FormatDoctorJSON(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	known := map[string]bool{"OK": true, "FAIL": true, "SKIP": true, "WARN": true, "FIX": true}
+	var parsed struct {
+		Checks []struct{ Status string } `json:"checks"`
+	}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range parsed.Checks {
+		if !known[c.Status] {
+			t.Errorf("unknown status label in JSON: %q", c.Status)
+		}
+	}
+}
+
 func TestDoctor_EventStoreClean(t *testing.T) {
 	// given: state dir with clean event files
 	stateDir := t.TempDir()
