@@ -373,14 +373,14 @@ func IsProcessAlive(pid int) bool {
 // checkEventStoreIntegrity loads all events and reports corrupt lines.
 // checkDeadLetters reports delivery items that have exceeded max retry count.
 func checkDeadLetters(report *domain.DoctorReport, stateDir string) {
-	dbPath := filepath.Join(stateDir, ".run", "deliveries.db")
+	dbPath := filepath.Join(stateDir, ".run", "delivery.db")
 	if _, err := os.Stat(dbPath); err != nil {
 		return // no delivery DB yet — skip silently
 	}
 	store, err := NewSQLiteDeliveryStore(stateDir)
 	if err != nil {
 		report.AddWarnWithHint("", fmt.Sprintf("dead-letter check: cannot open delivery store: %v", err),
-			"check file permissions on .phonewave/.run/deliveries.db")
+			"check file permissions on .phonewave/.run/delivery.db")
 		return
 	}
 	defer store.Close()
