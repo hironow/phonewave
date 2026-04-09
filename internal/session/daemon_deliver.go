@@ -18,12 +18,12 @@ import (
 )
 
 // handleEvent processes a single fsnotify event.
-func (d *Daemon) handleEvent(event fsnotify.Event) {
+func (d *Daemon) handleEvent(ctx context.Context, event fsnotify.Event) {
 	if !shouldProcessEvent(event) {
 		return
 	}
 
-	ctx, span := platform.Tracer.Start(context.Background(), "daemon.handle_event",
+	ctx, span := platform.Tracer.Start(ctx, "daemon.handle_event",
 		trace.WithAttributes(
 			attribute.String("event.name", platform.SanitizeUTF8(event.Name)),
 			attribute.String("event.op", event.Op.String()), // nosemgrep: otel-attribute-string-unsanitized — fsnotify Op.String() returns Go constant, always valid UTF-8 [permanent]
@@ -135,12 +135,12 @@ func (d *Daemon) enqueueDeliveryFailure(path string, data []byte, kind string, d
 
 // retryPending claims pending error queue entries via SQLite and attempts
 // to re-deliver them. Returns the number of successful retries.
-func (d *Daemon) retryPending() int {
+func (d *Daemon) retryPending(ctx context.Context) int {
 	if !d.hasErrorQueue() {
 		return 0
 	}
 
-	ctx, retrySpan := platform.Tracer.Start(context.Background(), "daemon.retry_pending")
+	ctx, retrySpan := platform.Tracer.Start(ctx, "daemon.retry_pending")
 	defer retrySpan.End()
 
 	maxRetries := d.opts.MaxRetries
