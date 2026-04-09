@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -67,13 +68,25 @@ Pass --execute to actually delete dead-lettered items.`,
 				return fmt.Errorf("count dead letters: %w", err)
 			}
 
+			outputFmt, _ := cmd.Flags().GetString("output")
+			jsonOut := outputFmt == "json"
+
 			if count == 0 {
-				fmt.Fprintln(errW, "No dead-lettered items.")
+				if jsonOut {
+					fmt.Fprintln(cmd.OutOrStdout(), `{"dead_letters":0,"purged":0}`)
+				} else {
+					fmt.Fprintln(errW, "No dead-lettered items.")
+				}
 				return nil
 			}
 
 			if !execute {
-				fmt.Fprintf(errW, "%d dead-lettered item(s) would be purged (use --execute to delete)\n", count)
+				if jsonOut {
+					data, _ := json.Marshal(map[string]int{"dead_letters": count, "purged": 0})
+					fmt.Fprintln(cmd.OutOrStdout(), string(data))
+				} else {
+					fmt.Fprintf(errW, "%d dead-lettered item(s) would be purged (use --execute to delete)\n", count)
+				}
 				return nil
 			}
 
@@ -99,7 +112,12 @@ Pass --execute to actually delete dead-lettered items.`,
 			if err != nil {
 				return fmt.Errorf("purge dead letters: %w", err)
 			}
-			fmt.Fprintf(errW, "Purged %d dead-lettered item(s).\n", purged)
+			if jsonOut {
+				data, _ := json.Marshal(map[string]int{"dead_letters": count, "purged": purged})
+				fmt.Fprintln(cmd.OutOrStdout(), string(data))
+			} else {
+				fmt.Fprintf(errW, "Purged %d dead-lettered item(s).\n", purged)
+			}
 			return nil
 		},
 	}

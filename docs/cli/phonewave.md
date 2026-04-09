@@ -27,6 +27,7 @@ phonewave [flags]
 * [phonewave add](phonewave_add.md)	 - Add a new repository to the ecosystem
 * [phonewave archive-prune](phonewave_archive-prune.md)	 - Prune expired event files
 * [phonewave clean](phonewave_clean.md)	 - Remove runtime state from .phonewave/
+* [phonewave dead-letters](phonewave_dead-letters.md)	 - Manage dead-lettered delivery items
 * [phonewave doctor](phonewave_doctor.md)	 - Verify ecosystem health
 * [phonewave init](phonewave_init.md)	 - Scan repositories, discover tools, generate routing table
 * [phonewave metrics](phonewave_metrics.md)	 - Output delivery health time-series as JSON
