@@ -66,9 +66,38 @@ func OverrideRepairSync(fn func(*domain.Config, string) error) func() {
 	return func() { repairSyncFn = old }
 }
 
+// doctorCheckJSON is the JSON-serializable form of DoctorCheck.
+type doctorCheckJSON struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"` // "OK", "FAIL", "WARN", "SKIP", "FIX"
+	Message string `json:"message"`
+	Hint    string `json:"hint,omitempty"`
+}
+
+// doctorReportJSON is the JSON-serializable form of DoctorReport.
+type doctorReportJSON struct {
+	Healthy      bool                       `json:"healthy"`
+	Checks       []doctorCheckJSON          `json:"checks"`
+	Endpoints    []domain.EndpointHealth    `json:"endpoints,omitempty"`
+	DaemonStatus domain.DaemonHealthStatus  `json:"daemon_status"`
+}
+
 // FormatDoctorJSON marshals a DoctorReport to indented JSON.
 func FormatDoctorJSON(report domain.DoctorReport) ([]byte, error) {
-	return json.MarshalIndent(report, "", "  ")
+	out := doctorReportJSON{
+		Healthy:      report.Healthy,
+		Endpoints:    report.Endpoints,
+		DaemonStatus: report.DaemonStatus,
+	}
+	for _, c := range report.Checks {
+		out.Checks = append(out.Checks, doctorCheckJSON{
+			Name:    c.Name,
+			Status:  c.Status.StatusLabel(),
+			Message: c.Message,
+			Hint:    c.Hint,
+		})
+	}
+	return json.MarshalIndent(out, "", "  ")
 }
 
 // Doctor verifies ecosystem health and returns a report.

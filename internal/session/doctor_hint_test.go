@@ -28,8 +28,8 @@ func TestDoctor_MissingRepoPath_HasHint(t *testing.T) {
 	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
-	for _, issue := range report.Issues {
-		if issue.Severity == "error" && strings.Contains(issue.Message, "does not exist") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckFail && strings.Contains(issue.Message, "does not exist") {
 			if issue.Hint == "" {
 				t.Error("expected hint for missing repo path error")
 			}
@@ -65,8 +65,8 @@ func TestDoctor_MissingEndpointDir_HasHint(t *testing.T) {
 	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
-	for _, issue := range report.Issues {
-		if issue.Severity == "error" && strings.Contains(issue.Message, "Endpoint directory missing") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckFail && strings.Contains(issue.Message, "Endpoint directory missing") {
 			if issue.Hint == "" {
 				t.Error("expected hint for missing endpoint directory error")
 			}
@@ -105,8 +105,8 @@ func TestDoctor_OrphanedKind_HasHint(t *testing.T) {
 	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then
-	for _, issue := range report.Issues {
-		if issue.Severity == "warn" && strings.Contains(issue.Message, "Orphaned") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckWarn && strings.Contains(issue.Message, "Orphaned") {
 			if issue.Hint == "" {
 				t.Error("expected hint for orphaned kind warning")
 			}
@@ -127,14 +127,14 @@ func TestAddErrorWithHint(t *testing.T) {
 	if report.Healthy {
 		t.Error("expected unhealthy")
 	}
-	if len(report.Issues) != 1 {
-		t.Fatalf("issues len = %d, want 1", len(report.Issues))
+	if len(report.Checks) != 1 {
+		t.Fatalf("issues len = %d, want 1", len(report.Checks))
 	}
-	if report.Issues[0].Hint != "the hint" {
-		t.Errorf("hint = %q, want %q", report.Issues[0].Hint, "the hint")
+	if report.Checks[0].Hint != "the hint" {
+		t.Errorf("hint = %q, want %q", report.Checks[0].Hint, "the hint")
 	}
-	if report.Issues[0].Severity != "error" {
-		t.Errorf("severity = %q, want %q", report.Issues[0].Severity, "error")
+	if report.Checks[0].Status != domain.CheckFail {
+		t.Errorf("status = %v, want %v", report.Checks[0].Status, domain.CheckFail)
 	}
 }
 
@@ -149,11 +149,11 @@ func TestAddWarnWithHint(t *testing.T) {
 	if !report.Healthy {
 		t.Error("warn should not mark unhealthy")
 	}
-	if len(report.Issues) != 1 {
-		t.Fatalf("issues len = %d, want 1", len(report.Issues))
+	if len(report.Checks) != 1 {
+		t.Fatalf("issues len = %d, want 1", len(report.Checks))
 	}
-	if report.Issues[0].Hint != "warn hint" {
-		t.Errorf("hint = %q, want %q", report.Issues[0].Hint, "warn hint")
+	if report.Checks[0].Hint != "warn hint" {
+		t.Errorf("hint = %q, want %q", report.Checks[0].Hint, "warn hint")
 	}
 }
 
@@ -161,8 +161,8 @@ func TestFormatDoctorJSON_IncludesHint(t *testing.T) {
 	// given
 	report := domain.DoctorReport{
 		Healthy: true,
-		Issues: []domain.DoctorIssue{
-			{Endpoint: "ep", Message: "msg", Severity: "error", Hint: "do this"},
+		Checks: []domain.DoctorCheck{
+			{Name: "ep", Status: domain.CheckFail, Message: "msg", Hint: "do this"},
 		},
 		DaemonStatus: domain.DaemonHealthStatus{Checked: true},
 	}
@@ -186,8 +186,8 @@ func TestFormatDoctorJSON_OmitsEmptyHint(t *testing.T) {
 	// given
 	report := domain.DoctorReport{
 		Healthy: true,
-		Issues: []domain.DoctorIssue{
-			{Endpoint: "ep", Message: "OK", Severity: "ok"},
+		Checks: []domain.DoctorCheck{
+			{Name: "ep", Status: domain.CheckOK, Message: "OK"},
 		},
 		DaemonStatus: domain.DaemonHealthStatus{Checked: true},
 	}

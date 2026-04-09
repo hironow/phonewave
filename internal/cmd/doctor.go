@@ -60,7 +60,7 @@ the specified repo path and presents a unified report with cross-tool checks.`,
 			if err != nil {
 				w := cmd.ErrOrStderr()
 				earlyLogger := platform.NewLogger(w, false)
-				failLabel := earlyLogger.Colorize(fmt.Sprintf("%-4s", "FAIL"), platform.SeverityColor("error"))
+				failLabel := earlyLogger.Colorize(fmt.Sprintf("%-4s", "FAIL"), platform.StatusColor(domain.CheckFail))
 				fmt.Fprintf(w, "  [%s] %-16s %s\n", failLabel, "config", "Run 'phonewave init' first")
 				return fmt.Errorf("load config: %w", err)
 			}
@@ -86,29 +86,26 @@ the specified repo path and presents a unified report with cross-tool checks.`,
 			fmt.Fprintln(w)
 
 			var fails, warns int
-			for _, issue := range report.Issues {
-				status := severityToStatus(issue.Severity)
-				name := issue.Endpoint
+			for _, check := range report.Checks {
+				name := check.Name
 				if name == "" {
 					name = "-"
 				}
-
-				label := logger.Colorize(fmt.Sprintf("%-4s", status), platform.SeverityColor(issue.Severity))
-				fmt.Fprintf(w, "  [%s] %-16s %s\n", label, name, issue.Message)
-				if issue.Hint != "" {
-					fmt.Fprintf(w, "         %-16s hint: %s\n", "", issue.Hint)
+				label := logger.Colorize(fmt.Sprintf("%-4s", check.Status.StatusLabel()), platform.StatusColor(check.Status))
+				fmt.Fprintf(w, "  [%s] %-16s %s\n", label, name, check.Message)
+				if check.Hint != "" {
+					fmt.Fprintf(w, "         %-16s hint: %s\n", "", check.Hint)
 				}
-
-				switch issue.Severity {
-				case "error":
+				switch check.Status {
+				case domain.CheckFail:
 					fails++
-				case "warn":
+				case domain.CheckWarn:
 					warns++
 				}
 			}
 
 			// Daemon status
-			daemonLabel := logger.Colorize(fmt.Sprintf("%-4s", "OK"), platform.SeverityColor("ok"))
+			daemonLabel := logger.Colorize(fmt.Sprintf("%-4s", "OK"), platform.StatusColor(domain.CheckOK))
 			if report.DaemonStatus.Running {
 				fmt.Fprintf(w, "  [%s] %-16s running (PID %d)\n", daemonLabel, "daemon", report.DaemonStatus.PID)
 			} else {
@@ -169,12 +166,12 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 		pwReport = session.Doctor(cfg, stateDir, repair, cfgPath)
 	}
 	pwSection := domain.ToolSection{Tool: "phonewave"}
-	for _, issue := range pwReport.Issues {
+	for _, check := range pwReport.Checks {
 		pwSection.Checks = append(pwSection.Checks, domain.UnifiedCheck{
-			Name:    issue.Endpoint,
-			Status:  severityToStatus(issue.Severity),
-			Message: issue.Message,
-			Hint:    issue.Hint,
+			Name:    check.Name,
+			Status:  check.Status.StatusLabel(),
+			Message: check.Message,
+			Hint:    check.Hint,
 		})
 	}
 	daemonMsg := "not running"
@@ -259,15 +256,14 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 		fmt.Fprintf(w, "  %s\n", header)
 
 		if sec.Error != "" {
-			label := logger.Colorize(fmt.Sprintf("%-4s", "FAIL"), platform.SeverityColor("error"))
+			label := logger.Colorize(fmt.Sprintf("%-4s", "FAIL"), platform.StatusColorFromLabel("FAIL"))
 			fmt.Fprintf(w, "  [%s] %-16s %s\n", label, "exec", sec.Error)
 			totalFails++
 			continue
 		}
 
 		for _, c := range sec.Checks {
-			sev := statusToSeverity(c.Status)
-			label := logger.Colorize(fmt.Sprintf("%-4s", c.Status), platform.SeverityColor(sev))
+			label := logger.Colorize(fmt.Sprintf("%-4s", c.Status), platform.StatusColorFromLabel(c.Status))
 			fmt.Fprintf(w, "  [%s] %-16s %s\n", label, c.Name, c.Message)
 			if c.Hint != "" {
 				fmt.Fprintf(w, "         %-16s hint: %s\n", "", c.Hint)
@@ -285,8 +281,7 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 	if len(report.CrossTool) > 0 {
 		fmt.Fprintln(w, "  [cross-tool]")
 		for _, c := range report.CrossTool {
-			sev := statusToSeverity(c.Status)
-			label := logger.Colorize(fmt.Sprintf("%-4s", c.Status), platform.SeverityColor(sev))
+			label := logger.Colorize(fmt.Sprintf("%-4s", c.Status), platform.StatusColorFromLabel(c.Status))
 			fmt.Fprintf(w, "  [%s] %-16s %s\n", label, c.Name, c.Message)
 			if c.Hint != "" {
 				fmt.Fprintf(w, "         %-16s hint: %s\n", "", c.Hint)
@@ -314,32 +309,4 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 	}
 	fmt.Fprintln(w, "All checks passed.")
 	return nil
-}
-
-// statusToSeverity converts UnifiedCheck status to phonewave severity for coloring.
-func statusToSeverity(status string) string {
-	switch status {
-	case "FAIL":
-		return "error"
-	case "WARN":
-		return "warn"
-	case "FIX":
-		return "fixed"
-	default:
-		return "ok"
-	}
-}
-
-// severityToStatus maps phonewave DoctorIssue severity to [FAIL]/[OK]/[WARN]/[FIX] labels.
-func severityToStatus(severity string) string {
-	switch severity {
-	case "error":
-		return "FAIL"
-	case "warn":
-		return "WARN"
-	case "fixed":
-		return "FIX"
-	default:
-		return "OK"
-	}
 }

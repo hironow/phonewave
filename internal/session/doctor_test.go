@@ -49,13 +49,13 @@ func TestDoctor_RepairReceivesStateDir(t *testing.T) {
 	}
 	// report should show fixed
 	hasFixed := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "fixed" && strings.Contains(issue.Message, "resolved") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckFixed && strings.Contains(issue.Message, "resolved") {
 			hasFixed = true
 		}
 	}
 	if !hasFixed {
-		t.Errorf("expected fixed issue for resolved.yaml, got: %v", report.Issues)
+		t.Errorf("expected fixed issue for resolved.yaml, got: %v", report.Checks)
 	}
 }
 
@@ -127,13 +127,13 @@ func TestDoctor_RepairSkillsRef_UvAvailable_NoSubmodule(t *testing.T) {
 		t.Error("expected uv tool install skills-ref to be called")
 	}
 	hasFixed := false
-	for _, issue := range report.Issues {
-		if issue.Endpoint == "skills-ref" && issue.Severity == "fixed" {
+	for _, issue := range report.Checks {
+		if issue.Name == "skills-ref" && issue.Status == domain.CheckFixed {
 			hasFixed = true
 		}
 	}
 	if !hasFixed {
-		t.Errorf("expected fixed issue for skills-ref, got: %v", report.Issues)
+		t.Errorf("expected fixed issue for skills-ref, got: %v", report.Checks)
 	}
 }
 
@@ -171,13 +171,13 @@ func TestDoctor_RepairSkillsRef_SubmoduleAvailable_NoInstall(t *testing.T) {
 		t.Error("should not install skills-ref when submodule is available")
 	}
 	hasOK := false
-	for _, issue := range report.Issues {
-		if issue.Endpoint == "skills-ref" && issue.Severity == "ok" {
+	for _, issue := range report.Checks {
+		if issue.Name == "skills-ref" && issue.Status == domain.CheckOK {
 			hasOK = true
 		}
 	}
 	if !hasOK {
-		t.Errorf("expected OK issue for skills-ref with submodule, got: %v", report.Issues)
+		t.Errorf("expected OK issue for skills-ref with submodule, got: %v", report.Checks)
 	}
 }
 
@@ -221,13 +221,13 @@ func TestDoctor_RepairResolvedState(t *testing.T) {
 		t.Error("expected repair sync to be called for missing resolved.yaml")
 	}
 	hasFixed := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "fixed" && strings.Contains(issue.Message, "resolved") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckFixed && strings.Contains(issue.Message, "resolved") {
 			hasFixed = true
 		}
 	}
 	if !hasFixed {
-		t.Errorf("expected fixed issue for resolved.yaml, got: %v", report.Issues)
+		t.Errorf("expected fixed issue for resolved.yaml, got: %v", report.Checks)
 	}
 }
 
@@ -282,7 +282,7 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 
 	// then
 	if !report.Healthy {
-		t.Errorf("expected healthy ecosystem, got issues: %v", report.Issues)
+		t.Errorf("expected healthy ecosystem, got issues: %v", report.Checks)
 	}
 	if len(report.Endpoints) != 2 {
 		t.Errorf("endpoints = %d, want 2", len(report.Endpoints))
@@ -318,8 +318,8 @@ func TestDoctor_MissingDirs(t *testing.T) {
 
 	// then — should have warnings about missing dirs but auto-create them
 	hasCreated := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "fixed" {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckFixed {
 			hasCreated = true
 		}
 	}
@@ -359,8 +359,8 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 		t.Error("expected unhealthy with missing repo path")
 	}
 	hasError := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "error" {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckFail {
 			hasError = true
 		}
 	}
@@ -404,13 +404,13 @@ func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
 
 	// then — should have a warning about invalid kind
 	hasKindWarn := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "warn" && strings.Contains(issue.Message, "invalid D-Mail kind") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckWarn && strings.Contains(issue.Message, "invalid D-Mail kind") {
 			hasKindWarn = true
 		}
 	}
 	if !hasKindWarn {
-		t.Errorf("expected warning about invalid kind, got issues: %v", report.Issues)
+		t.Errorf("expected warning about invalid kind, got issues: %v", report.Checks)
 	}
 }
 
@@ -477,13 +477,13 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 
 	// then — should have a warning from skills-ref validation
 	hasSpecWarn := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "warn" && strings.Contains(issue.Message, "skills-ref") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckWarn && strings.Contains(issue.Message, "skills-ref") {
 			hasSpecWarn = true
 		}
 	}
 	if !hasSpecWarn {
-		t.Errorf("expected skills-ref validation warning for non-compliant SKILL.md, got issues: %v", report.Issues)
+		t.Errorf("expected skills-ref validation warning for non-compliant SKILL.md, got issues: %v", report.Checks)
 	}
 }
 
@@ -491,9 +491,9 @@ func TestFormatDoctorJSON_Parseable(t *testing.T) {
 	// given — a DoctorReport with mixed issues
 	report := domain.DoctorReport{
 		Healthy: true,
-		Issues: []domain.DoctorIssue{
-			{Endpoint: "repo/.siren", Message: "OK", Severity: "ok"},
-			{Endpoint: "repo/.expedition", Message: "Created outbox", Severity: "fixed"},
+		Checks: []domain.DoctorCheck{
+			{Name: "repo/.siren", Status: domain.CheckOK, Message: "OK"},
+			{Name: "repo/.expedition", Status: domain.CheckFixed, Message: "Created outbox"},
 		},
 		Endpoints: []domain.EndpointHealth{
 			{Repo: "/tmp/repo", Dir: ".siren", Produces: []string{"specification"}, OK: true},
@@ -516,8 +516,8 @@ func TestFormatDoctorJSON_Parseable(t *testing.T) {
 	if _, ok := parsed["healthy"]; !ok {
 		t.Error("missing 'healthy' key in JSON output")
 	}
-	if _, ok := parsed["issues"]; !ok {
-		t.Error("missing 'issues' key in JSON output")
+	if _, ok := parsed["checks"]; !ok {
+		t.Error("missing 'checks' key in JSON output")
 	}
 }
 
@@ -543,8 +543,8 @@ func TestDoctor_IncludesSuccessRate(t *testing.T) {
 
 	// then — should include a success-rate issue with correct stats
 	var found bool
-	for _, issue := range report.Issues {
-		if issue.Endpoint == "success-rate" && issue.Severity == "ok" {
+	for _, issue := range report.Checks {
+		if issue.Name == "success-rate" && issue.Status == domain.CheckOK {
 			found = true
 			if !strings.Contains(issue.Message, "66.7%") || !strings.Contains(issue.Message, "(2/3)") {
 				t.Errorf("unexpected success-rate message: %s", issue.Message)
@@ -552,7 +552,7 @@ func TestDoctor_IncludesSuccessRate(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected success-rate issue in doctor report, got: %v", report.Issues)
+		t.Errorf("expected success-rate issue in doctor report, got: %v", report.Checks)
 	}
 }
 
@@ -566,8 +566,8 @@ func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
 
 	// then — should still include success-rate with "no deliveries"
 	var found bool
-	for _, issue := range report.Issues {
-		if issue.Endpoint == "success-rate" {
+	for _, issue := range report.Checks {
+		if issue.Name == "success-rate" {
 			found = true
 			if issue.Message != "no deliveries" {
 				t.Errorf("expected 'no deliveries', got %q", issue.Message)
@@ -623,8 +623,8 @@ func TestDoctor_MissingRepoPath_HintReferencesConfigYAML(t *testing.T) {
 	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — hint should reference config.yaml
-	for _, issue := range report.Issues {
-		if issue.Severity == "error" && strings.Contains(issue.Message, "does not exist") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckFail && strings.Contains(issue.Message, "does not exist") {
 			if !strings.Contains(issue.Hint, "config.yaml") {
 				t.Errorf("hint should reference config.yaml, got: %q", issue.Hint)
 			}
@@ -661,13 +661,13 @@ func TestDoctor_WarnsWhenResolvedStateMissing(t *testing.T) {
 
 	// then — should have a warning about missing resolved state
 	hasResolvedWarn := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "warn" && strings.Contains(issue.Message, "resolved.yaml") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckWarn && strings.Contains(issue.Message, "resolved.yaml") {
 			hasResolvedWarn = true
 		}
 	}
 	if !hasResolvedWarn {
-		t.Errorf("expected warning about missing resolved.yaml, got issues: %v", report.Issues)
+		t.Errorf("expected warning about missing resolved.yaml, got issues: %v", report.Checks)
 	}
 }
 
@@ -690,8 +690,8 @@ func TestDoctor_NoWarningWhenResolvedStateExists(t *testing.T) {
 	report := session.Doctor(cfg, stateDir, false, "")
 
 	// then — should NOT have a warning about missing resolved state
-	for _, issue := range report.Issues {
-		if issue.Severity == "warn" && strings.Contains(issue.Message, "resolved.yaml") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckWarn && strings.Contains(issue.Message, "resolved.yaml") {
 			t.Errorf("unexpected warning about resolved.yaml when it exists: %v", issue)
 		}
 	}
@@ -708,8 +708,8 @@ func TestDoctor_SkillsRefToolchainCheck(t *testing.T) {
 
 	// then — should have a skills-ref related issue (ok or warn)
 	hasSkillsRef := false
-	for _, issue := range report.Issues {
-		if issue.Endpoint == "skills-ref" {
+	for _, issue := range report.Checks {
+		if issue.Name == "skills-ref" {
 			hasSkillsRef = true
 			break
 		}
@@ -751,12 +751,12 @@ func TestDoctor_SkillsRefInstallSucceedsButNotOnPath(t *testing.T) {
 	// then — should be WARN (not FIXED) since skills-ref is still not on PATH
 	hasWarn := false
 	hasFixed := false
-	for _, issue := range report.Issues {
-		if issue.Endpoint == "skills-ref" {
-			if issue.Severity == "warn" {
+	for _, issue := range report.Checks {
+		if issue.Name == "skills-ref" {
+			if issue.Status == domain.CheckWarn {
 				hasWarn = true
 			}
-			if issue.Severity == "fixed" {
+			if issue.Status == domain.CheckFixed {
 				hasFixed = true
 			}
 		}
@@ -765,7 +765,7 @@ func TestDoctor_SkillsRefInstallSucceedsButNotOnPath(t *testing.T) {
 		t.Error("should not report FIXED when skills-ref is still not on PATH after install")
 	}
 	if !hasWarn {
-		t.Errorf("expected WARN when skills-ref is not on PATH after install, got: %v", report.Issues)
+		t.Errorf("expected WARN when skills-ref is not on PATH after install, got: %v", report.Checks)
 	}
 }
 
@@ -846,13 +846,13 @@ func TestDoctor_RepairDoesNotDropMissingRepoFromConfig(t *testing.T) {
 
 	// report should show fixed for resolved.yaml
 	hasFixed := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "fixed" && strings.Contains(issue.Message, "resolved") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckFixed && strings.Contains(issue.Message, "resolved") {
 			hasFixed = true
 		}
 	}
 	if !hasFixed {
-		t.Errorf("expected fixed issue for resolved.yaml, got: %v", report.Issues)
+		t.Errorf("expected fixed issue for resolved.yaml, got: %v", report.Checks)
 	}
 }
 
@@ -906,8 +906,8 @@ func TestDoctor_EventStoreCorruptLines(t *testing.T) {
 
 	// then: report should contain a warning about corrupt lines
 	found := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "warn" && strings.Contains(issue.Message, "corrupt line") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckWarn && strings.Contains(issue.Message, "corrupt line") {
 			found = true
 			if !strings.Contains(issue.Message, "1 corrupt line") {
 				t.Errorf("expected 1 corrupt line, got: %q", issue.Message)
@@ -934,8 +934,8 @@ func TestDoctor_EventStoreClean(t *testing.T) {
 
 	// then: report should have OK for event store
 	found := false
-	for _, issue := range report.Issues {
-		if issue.Severity == "ok" && strings.Contains(issue.Message, "event store OK") {
+	for _, issue := range report.Checks {
+		if issue.Status == domain.CheckOK && strings.Contains(issue.Message, "event store OK") {
 			found = true
 		}
 	}
