@@ -393,7 +393,7 @@ func checkDeadLetters(report *domain.DoctorReport, stateDir string) {
 	}
 	if count > 0 {
 		report.AddWarnWithHint("", fmt.Sprintf("%d dead-lettered delivery item(s)", count),
-			"these items failed delivery 3+ times and are permanently stuck — inspect deliveries.db in .phonewave/.run/")
+			"run 'phonewave dead-letters purge --execute' to remove")
 	} else {
 		report.AddOK("dead-letters", "no dead-lettered items")
 	}

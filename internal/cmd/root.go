@@ -104,6 +104,7 @@ func NewRootCommand() *cobra.Command {
 		newMetricsCmd(),
 		newCleanCmd(),
 		newArchivePruneCmd(),
+		newDeadLettersCmd(),
 		newVersionCmd(),
 		newUpdateCmd(),
 	)
