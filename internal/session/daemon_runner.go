@@ -151,7 +151,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	go func() {
 		defer close(workerDone)
 		for event := range d.eventCh {
-			d.handleEvent(event)
+			d.handleEvent(ctx, event)
 		}
 	}()
 
@@ -230,7 +230,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 					continue
 				}
 			}
-			successes := d.retryPending()
+			successes := d.retryPending(ctx)
 			if successes > 0 {
 				backoff.RecordSuccess()
 				if d.cb != nil {

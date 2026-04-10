@@ -921,7 +921,7 @@ description: "Preserve test"
 	defer dlog.Close()
 	d.deliveryStore = newTestDeliveryStore(t)
 
-	d.handleEvent(fsnotify.Event{
+	d.handleEvent(context.Background(), fsnotify.Event{
 		Name: dmailPath,
 		Op:   fsnotify.Create,
 	})
@@ -1011,7 +1011,7 @@ description: "Rename event test"
 	defer dlog.Close()
 	d.deliveryStore = newTestDeliveryStore(t)
 
-	d.handleEvent(fsnotify.Event{
+	d.handleEvent(context.Background(), fsnotify.Event{
 		Name: dmailPath,
 		Op:   fsnotify.Rename,
 	})
@@ -1076,7 +1076,7 @@ PR #30 has merge conflicts.
 	d.bloomFilter = bf
 
 	// when: fsnotify fires a Create event for the re-staged D-Mail
-	d.handleEvent(fsnotify.Event{
+	d.handleEvent(context.Background(), fsnotify.Event{
 		Name: dmailPath,
 		Op:   fsnotify.Create,
 	})
@@ -1115,7 +1115,7 @@ func TestDaemon_HandleRenameEvent_FileGone(t *testing.T) {
 	defer dlog.Close()
 	d.deliveryStore = newTestDeliveryStore(t)
 
-	d.handleEvent(fsnotify.Event{
+	d.handleEvent(context.Background(), fsnotify.Event{
 		Name: filepath.Join(outbox, "gone.md"),
 		Op:   fsnotify.Rename,
 	})

@@ -162,7 +162,7 @@ func TestDaemon_HandleEvent_CreatesSpan(t *testing.T) {
 	daemon.deliveryStore = newTestDeliveryStore(t)
 
 	// when — call handleEvent directly
-	daemon.handleEvent(fsnotify.Event{Name: dmailPath, Op: fsnotify.Create})
+	daemon.handleEvent(context.Background(), fsnotify.Event{Name: dmailPath, Op: fsnotify.Create})
 
 	// then — should have a handle_event span
 	spans := exp.GetSpans()
@@ -212,7 +212,7 @@ func TestDaemon_HandleEvent_RecordsErrorOnFailure(t *testing.T) {
 	daemon.deliveryStore = newTestDeliveryStore(t)
 
 	// when — handle event with no matching route
-	daemon.handleEvent(fsnotify.Event{Name: dmailPath, Op: fsnotify.Create})
+	daemon.handleEvent(context.Background(), fsnotify.Event{Name: dmailPath, Op: fsnotify.Create})
 
 	// then — span should exist and have error status
 	spans := exp.GetSpans()
@@ -381,5 +381,116 @@ func TestRecordRetryCycleTelemetry_RecordsProviderStateAttrs(t *testing.T) {
 	}
 	if got := spanAttributeIntValue(s, "retry.success.count"); got != 0 {
 		t.Fatalf("retry.success.count = %d, want 0", got)
+	}
+}
+
+func TestHandleEvent_PropagatesTraceContext(t *testing.T) {
+	exp := setupTestTracer(t)
+
+	// given — daemon with valid route and a D-Mail in outbox
+	repoDir := t.TempDir()
+	outbox := filepath.Join(repoDir, ".siren", "outbox")
+	inbox := filepath.Join(repoDir, ".expedition", "inbox")
+	stateDir := filepath.Join(repoDir, ".run")
+	for _, d := range []string{outbox, inbox, stateDir} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dmailContent := "---\ndmail-schema-version: \"1\"\nname: ctx-prop\nkind: specification\ndescription: \"Context propagation test\"\n---\n\n# Test\n"
+	dmailPath := filepath.Join(outbox, "ctx-prop.md")
+	if err := os.WriteFile(dmailPath, []byte(dmailContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	routes := []domain.ResolvedRoute{
+		{Kind: "specification", FromOutbox: outbox, ToInboxes: []string{inbox}},
+	}
+
+	daemon, err := NewDaemon(domain.DaemonOptions{
+		Routes:     routes,
+		OutboxDirs: []string{outbox},
+		StateDir:   stateDir,
+	}, platform.NewLogger(nil, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dlog, err := NewDeliveryLog(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	daemon.dlog = dlog
+	defer dlog.Close()
+	daemon.deliveryStore = newTestDeliveryStore(t)
+
+	// when — create a parent span and pass its context to handleEvent
+	parentCtx, parentSpan := platform.Tracer.Start(context.Background(), "test.parent")
+	defer parentSpan.End()
+	parentSpanCtx := parentSpan.SpanContext()
+	daemon.handleEvent(parentCtx, fsnotify.Event{Name: dmailPath, Op: fsnotify.Create})
+
+	// then — the child span "daemon.handle_event" should have the parent's trace ID
+	spans := exp.GetSpans()
+	child := findSpanByName(spans, "daemon.handle_event")
+	if child == nil {
+		t.Fatalf("missing daemon.handle_event span; got spans: %v", spanNames(spans))
+	}
+
+	if child.SpanContext.TraceID() != parentSpanCtx.TraceID() {
+		t.Errorf("child trace ID = %s, want parent trace ID = %s", child.SpanContext.TraceID(), parentSpanCtx.TraceID())
+	}
+	if child.Parent.SpanID() != parentSpanCtx.SpanID() {
+		t.Errorf("child parent span ID = %s, want %s", child.Parent.SpanID(), parentSpanCtx.SpanID())
+	}
+}
+
+func TestRetryPending_PropagatesTraceContext(t *testing.T) {
+	exp := setupTestTracer(t)
+
+	// given — daemon with error queue so retryPending creates a span
+	repoDir := t.TempDir()
+	stateDir := filepath.Join(repoDir, ".phonewave")
+	runDir := filepath.Join(stateDir, ".run")
+	if err := os.MkdirAll(runDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	daemon, err := NewDaemon(domain.DaemonOptions{
+		StateDir:   stateDir,
+		MaxRetries: 3,
+	}, platform.NewLogger(nil, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a real error queue store so HasErrorQueue() returns true
+	eq, eqErr := NewErrorQueueStore(stateDir)
+	if eqErr != nil {
+		t.Fatal(eqErr)
+	}
+	defer eq.Close()
+
+	sess := NewDaemonSession(eq, nil, nil, stateDir, platform.NewLogger(nil, false))
+	daemon.session = sess
+
+	// when — create a parent span and pass its context to retryPending
+	parentCtx, parentSpan := platform.Tracer.Start(context.Background(), "test.retry_parent")
+	defer parentSpan.End()
+	parentSpanCtx := parentSpan.SpanContext()
+	daemon.retryPending(parentCtx)
+
+	// then — the child span "daemon.retry_pending" should share the parent's trace ID
+	spans := exp.GetSpans()
+	child := findSpanByName(spans, "daemon.retry_pending")
+	if child == nil {
+		t.Fatalf("missing daemon.retry_pending span; got spans: %v", spanNames(spans))
+	}
+
+	if child.SpanContext.TraceID() != parentSpanCtx.TraceID() {
+		t.Errorf("child trace ID = %s, want parent trace ID = %s", child.SpanContext.TraceID(), parentSpanCtx.TraceID())
+	}
+	if child.Parent.SpanID() != parentSpanCtx.SpanID() {
+		t.Errorf("child parent span ID = %s, want %s", child.Parent.SpanID(), parentSpanCtx.SpanID())
 	}
 }
