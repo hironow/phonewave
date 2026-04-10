@@ -339,7 +339,6 @@ rules:
         - "internal/session/delivery_dedup_store.go"
         - "internal/session/daemon_runner_adapter.go"
         - "internal/session/doctor.go"
-        - "internal/session/validate.go"
 
   # --- D4: Resource leak detection ---
 

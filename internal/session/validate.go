@@ -52,7 +52,7 @@ func ValidateSkillDir(skillDir string) ([]string, error) {
 //  1. "skills-ref" on PATH (global install)
 //  2. "uv run --project <submodule>" (bundled submodule)
 func skillsRefCommand(skillDir string) (*exec.Cmd, context.CancelFunc, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), skillsRefTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), skillsRefTimeout) // nosemgrep: gap050-session-context-background — standalone command factory; caller has no runtime ctx (returns CancelFunc for lifecycle)
 
 	if path, err := exec.LookPath("skills-ref"); err == nil {
 		cmd := exec.CommandContext(ctx, path, "validate", skillDir)
