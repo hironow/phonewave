@@ -337,7 +337,6 @@ rules:
         - "internal/session/error_queue_store.go"
         - "internal/session/delivery_store.go"
         - "internal/session/delivery_dedup_store.go"
-        - "internal/session/daemon_runner_adapter.go"
 
   # --- D4: Resource leak detection ---
 
