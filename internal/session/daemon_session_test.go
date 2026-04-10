@@ -109,7 +109,7 @@ func TestDaemonSession_RecordDeliveryEvent(t *testing.T) {
 	}
 
 	// when
-	ds.RecordDeliveryEvent(result)
+	ds.RecordDeliveryEvent(context.Background(), result)
 
 	// then
 	events, _, err := eventStore.LoadAll(context.Background())
@@ -129,7 +129,7 @@ func TestDaemonSession_RecordFailureEvent(t *testing.T) {
 	ds, eventStore := newTestDaemonSession(t)
 
 	// when
-	ds.RecordFailureEvent("/tmp/outbox/bad.md", domain.KindSpecification, fmt.Errorf("no route"))
+	ds.RecordFailureEvent(context.Background(), "/tmp/outbox/bad.md", domain.KindSpecification, fmt.Errorf("no route"))
 
 	// then
 	events, _, err := eventStore.LoadAll(context.Background())
@@ -190,7 +190,7 @@ func TestDaemonSession_RecordDeliveryEvent_NilEmitter(t *testing.T) {
 	ds.Emitter = nil
 
 	// when: should not panic
-	ds.RecordDeliveryEvent(&domain.DeliveryResult{
+	ds.RecordDeliveryEvent(context.Background(), &domain.DeliveryResult{
 		Kind:       "specification",
 		SourcePath: "/tmp/outbox/spec.md",
 	})

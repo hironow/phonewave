@@ -166,8 +166,8 @@ type validationTarget struct {
 // collectSkillWarnings runs skills-ref validation concurrently across
 // repositories in cfg. Each endpoint is validated in a separate worker.
 // If filterRepoPath is non-empty, only that repository's endpoints are checked.
-func collectSkillWarnings(cfg *domain.Config, filterRepoPath string) []string {
-	ctx, span := platform.Tracer.Start(context.Background(), "phonewave.validate")
+func collectSkillWarnings(ctx context.Context, cfg *domain.Config, filterRepoPath string) []string {
+	ctx, span := platform.Tracer.Start(ctx, "phonewave.validate")
 	defer span.End()
 	_ = ctx // span-only; no child spans needed
 	start := time.Now()

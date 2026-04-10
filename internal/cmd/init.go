@@ -52,7 +52,7 @@ func newInitCmd() *cobra.Command {
 			}
 
 			initCmd := domain.NewInitCommand(paths, cp)
-			result, err := usecase.RunInit(initCmd, &session.InitAdapter{})
+			result, err := usecase.RunInit(cmd.Context(), initCmd, &session.InitAdapter{})
 			if err != nil {
 				return err
 			}

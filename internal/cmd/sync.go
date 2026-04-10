@@ -26,7 +26,7 @@ func newSyncCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			report, err := session.Sync(cfg)
+			report, err := session.Sync(cmd.Context(), cfg)
 			if err != nil {
 				return fmt.Errorf("sync: %w", err)
 			}

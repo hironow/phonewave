@@ -66,6 +66,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 	eventStore := NewEventStore(stateDir, logger)
 
 	// One-time cutover: migrate to global SeqNr (ADR S0040, idempotent)
+	// Root bootstrap context — no caller context available during daemon construction.
 	seqAlloc, closeSeq, cutoverErr := EnsureCutover(context.Background(), stateDir, "phonewave.state", logger)
 	if cutoverErr != nil {
 		unlock()

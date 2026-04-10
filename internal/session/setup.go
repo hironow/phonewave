@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -120,7 +121,7 @@ type repoScanResult struct {
 
 // Init scans multiple repositories concurrently, derives routes, and generates
 // a Config. Repository scanning is parallelized via a worker pool.
-func Init(repoPaths []string) (*domain.InitResult, error) {
+func Init(ctx context.Context, repoPaths []string) (*domain.InitResult, error) {
 	cfg := &domain.Config{
 		LastSynced: time.Now().UTC(),
 	}
@@ -162,12 +163,12 @@ func Init(repoPaths []string) (*domain.InitResult, error) {
 		Config:    cfg,
 		Orphans:   orphans,
 		RepoCount: len(repoPaths),
-		Warnings:  collectSkillWarnings(cfg, ""),
+		Warnings:  collectSkillWarnings(ctx, cfg, ""),
 	}, nil
 }
 
 // Add scans a new repository and adds it to an existing config.
-func Add(cfg *domain.Config, repoPath string) (*domain.AddResult, error) {
+func Add(ctx context.Context, cfg *domain.Config, repoPath string) (*domain.AddResult, error) {
 	absPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid path %q: %w", repoPath, err)
@@ -193,7 +194,7 @@ func Add(cfg *domain.Config, repoPath string) (*domain.AddResult, error) {
 
 	return &domain.AddResult{
 		Orphans:  orphans,
-		Warnings: collectSkillWarnings(cfg, absPath),
+		Warnings: collectSkillWarnings(ctx, cfg, absPath),
 	}, nil
 }
 
@@ -223,7 +224,7 @@ type syncRepoResult struct {
 
 // Sync re-scans all repositories concurrently, computes diffs, and updates
 // endpoints/routes. Repository scanning is parallelized via a worker pool.
-func Sync(cfg *domain.Config) (*domain.SyncReport, error) {
+func Sync(ctx context.Context, cfg *domain.Config) (*domain.SyncReport, error) {
 	// Snapshot before re-scan
 	oldEndpoints := snapshotEndpoints(cfg)
 	oldRoutes := snapshotRoutes(cfg)
@@ -279,6 +280,6 @@ func Sync(cfg *domain.Config) (*domain.SyncReport, error) {
 		RouteChanges:    diffRoutes(oldRoutes, newRoutes),
 		RepoCount:       len(cfg.Repositories),
 		TotalRoutes:     len(cfg.Routes),
-		Warnings:        collectSkillWarnings(cfg, ""),
+		Warnings:        collectSkillWarnings(ctx, cfg, ""),
 	}, nil
 }

@@ -297,18 +297,18 @@ func (d *Daemon) markResolved(name string) error {
 	return d.session.MarkResolved(name)
 }
 
-func (d *Daemon) recordDeliveryEvent(result *domain.DeliveryResult) {
+func (d *Daemon) recordDeliveryEvent(ctx context.Context, result *domain.DeliveryResult) {
 	if d.session == nil {
 		return
 	}
-	d.session.RecordDeliveryEvent(result)
+	d.session.RecordDeliveryEvent(ctx, result)
 }
 
-func (d *Daemon) recordFailureEvent(filePath string, kind domain.DMailKind, deliverErr error) {
+func (d *Daemon) recordFailureEvent(ctx context.Context, filePath string, kind domain.DMailKind, deliverErr error) {
 	if d.session == nil {
 		return
 	}
-	d.session.RecordFailureEvent(filePath, kind, deliverErr)
+	d.session.RecordFailureEvent(ctx, filePath, kind, deliverErr)
 }
 
 func (d *Daemon) recordRetryEvent(name string, kind domain.DMailKind) {

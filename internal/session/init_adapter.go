@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -11,8 +12,8 @@ import (
 type InitAdapter struct{}
 
 // ScanAndInit scans repositories, writes config, and creates the state directory.
-func (a *InitAdapter) ScanAndInit(repoPaths []string, cfgPath string) (*domain.InitResult, error) {
-	result, err := Init(repoPaths)
+func (a *InitAdapter) ScanAndInit(ctx context.Context, repoPaths []string, cfgPath string) (*domain.InitResult, error) {
+	result, err := Init(ctx, repoPaths)
 	if err != nil {
 		return nil, err
 	}

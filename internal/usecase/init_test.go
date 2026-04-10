@@ -1,6 +1,7 @@
 package usecase_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -16,7 +17,7 @@ type stubInitRunner struct {
 	err       error
 }
 
-func (s *stubInitRunner) ScanAndInit(repoPaths []string, cfgPath string) (*domain.InitResult, error) {
+func (s *stubInitRunner) ScanAndInit(_ context.Context, repoPaths []string, cfgPath string) (*domain.InitResult, error) {
 	s.called = true
 	s.repoPaths = repoPaths
 	s.cfgPath = cfgPath
@@ -31,7 +32,7 @@ func TestRunInit_ValidCommand(t *testing.T) {
 	cp, _ := domain.NewConfigPath("/tmp/.phonewave/config.yaml")
 	cmd := domain.NewInitCommand(paths, cp)
 
-	result, err := usecase.RunInit(cmd, runner)
+	result, err := usecase.RunInit(context.Background(), cmd, runner)
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -60,7 +61,7 @@ func TestRunInit_RunnerError(t *testing.T) {
 	cp, _ := domain.NewConfigPath("/tmp/.phonewave/config.yaml")
 	cmd := domain.NewInitCommand(paths, cp)
 
-	_, err := usecase.RunInit(cmd, runner)
+	_, err := usecase.RunInit(context.Background(), cmd, runner)
 
 	if err == nil {
 		t.Fatal("expected error from runner")

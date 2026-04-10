@@ -129,7 +129,7 @@ func TestLifecycle_FullEcosystem(t *testing.T) {
 	// =====================================================================
 	repoDir := setupEcosystemDir(t)
 
-	result, err := session.Init([]string{repoDir})
+	result, err := session.Init(context.Background(), []string{repoDir})
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
