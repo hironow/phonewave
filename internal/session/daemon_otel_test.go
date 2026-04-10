@@ -426,9 +426,9 @@ func TestHandleEvent_PropagatesTraceContext(t *testing.T) {
 
 	// when — create a parent span and pass its context to handleEvent
 	parentCtx, parentSpan := platform.Tracer.Start(context.Background(), "test.parent")
+	defer parentSpan.End()
 	parentSpanCtx := parentSpan.SpanContext()
 	daemon.handleEvent(parentCtx, fsnotify.Event{Name: dmailPath, Op: fsnotify.Create})
-	parentSpan.End()
 
 	// then — the child span "daemon.handle_event" should have the parent's trace ID
 	spans := exp.GetSpans()
@@ -476,9 +476,9 @@ func TestRetryPending_PropagatesTraceContext(t *testing.T) {
 
 	// when — create a parent span and pass its context to retryPending
 	parentCtx, parentSpan := platform.Tracer.Start(context.Background(), "test.retry_parent")
+	defer parentSpan.End()
 	parentSpanCtx := parentSpan.SpanContext()
 	daemon.retryPending(parentCtx)
-	parentSpan.End()
 
 	// then — the child span "daemon.retry_pending" should share the parent's trace ID
 	spans := exp.GetSpans()
