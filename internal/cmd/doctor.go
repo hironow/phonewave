@@ -65,7 +65,7 @@ the specified repo path and presents a unified report with cross-tool checks.`,
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			report := session.Doctor(cfg, stateDir, repair, cfgPath)
+			report := session.Doctor(cmd.Context(), cfg, stateDir, repair, cfgPath)
 
 			if jsonOut {
 				data, err := session.FormatDoctorJSON(report)
@@ -163,7 +163,7 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 		pwReport = domain.DoctorReport{Healthy: true}
 		pwReport.AddWarn("config", fmt.Sprintf("phonewave not initialized (%s)", cfgPath))
 	} else {
-		pwReport = session.Doctor(cfg, stateDir, repair, cfgPath)
+		pwReport = session.Doctor(cmd.Context(), cfg, stateDir, repair, cfgPath)
 	}
 	pwSection := domain.ToolSection{Tool: "phonewave"}
 	for _, check := range pwReport.Checks {

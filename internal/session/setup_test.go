@@ -3,6 +3,7 @@ package session
 // white-box-reason: session internals: tests unexported multi-tool repository setup helpers
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,7 +60,7 @@ func TestInit_FullEcosystem(t *testing.T) {
 	})
 
 	// when
-	result, err := Init([]string{repo})
+	result, err := Init(context.Background(), []string{repo})
 
 	// then
 	if err != nil {
@@ -87,7 +88,7 @@ func TestAdd_NewRepository(t *testing.T) {
 	repo1 := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
 		".siren": {produces: []string{"specification"}, consumes: []string{"design-feedback"}},
 	})
-	result, err := Init([]string{repo1})
+	result, err := Init(context.Background(), []string{repo1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +99,7 @@ func TestAdd_NewRepository(t *testing.T) {
 	})
 
 	// when
-	addResult, err := Add(result.Config, repo2)
+	addResult, err := Add(context.Background(), result.Config, repo2)
 
 	// then
 	if err != nil {
@@ -114,13 +115,13 @@ func TestAdd_DuplicateRepository(t *testing.T) {
 	repo := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
 		".siren": {produces: []string{"specification"}},
 	})
-	result, err := Init([]string{repo})
+	result, err := Init(context.Background(), []string{repo})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// when — add the same repo again
-	_, err = Add(result.Config, repo)
+	_, err = Add(context.Background(), result.Config, repo)
 	if err == nil {
 		t.Fatal("expected error for duplicate repository")
 	}
@@ -135,7 +136,7 @@ func TestAdd_SkillsRefWarnings(t *testing.T) {
 	repo1 := setupTestRepo(t, map[string]struct{ produces, consumes []string }{
 		".gate": {produces: []string{"design-feedback"}},
 	})
-	initResult, err := Init([]string{repo1})
+	initResult, err := Init(context.Background(), []string{repo1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +151,7 @@ func TestAdd_SkillsRefWarnings(t *testing.T) {
 		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 
 	// when
-	addResult, err := Add(initResult.Config, repo2)
+	addResult, err := Add(context.Background(), initResult.Config, repo2)
 
 	// then
 	if err != nil {
@@ -175,7 +176,7 @@ func TestRemove_ExistingRepository(t *testing.T) {
 		".expedition": {produces: []string{"report"}},
 	})
 
-	result, err := Init([]string{repo1, repo2})
+	result, err := Init(context.Background(), []string{repo1, repo2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +298,7 @@ func TestInit_SkillsRefWarnings(t *testing.T) {
 		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 
 	// when
-	result, err := Init([]string{repoDir})
+	result, err := Init(context.Background(), []string{repoDir})
 
 	// then
 	if err != nil {
@@ -319,13 +320,13 @@ func TestSync_UpdatesEndpoints(t *testing.T) {
 		".siren": {produces: []string{"specification"}, consumes: []string{"design-feedback"}},
 	})
 
-	result, err := Init([]string{repo})
+	result, err := Init(context.Background(), []string{repo})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// when — sync (even if nothing changed, should still work)
-	report, err := Sync(result.Config)
+	report, err := Sync(context.Background(), result.Config)
 
 	// then
 	if err != nil {
@@ -360,13 +361,13 @@ func TestSync_SkillsRefWarnings(t *testing.T) {
 	writeSkillFile(t, filepath.Join(sendableDir, "SKILL.md"),
 		"---\nname: wrong-name\ndescription: test\nlicense: Apache-2.0\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: specification\n---\n")
 
-	result, err := Init([]string{repoDir})
+	result, err := Init(context.Background(), []string{repoDir})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// when
-	report, err := Sync(result.Config)
+	report, err := Sync(context.Background(), result.Config)
 
 	// then
 	if err != nil {

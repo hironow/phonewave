@@ -52,7 +52,7 @@ func ValidateSkillDir(skillDir string) ([]string, error) {
 //  1. "skills-ref" on PATH (global install)
 //  2. "uv run --project <submodule>" (bundled submodule)
 func skillsRefCommand(skillDir string) (*exec.Cmd, context.CancelFunc, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), skillsRefTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), skillsRefTimeout) // nosemgrep: gap050-session-context-background [permanent] — standalone command factory; caller has no runtime ctx (returns CancelFunc for lifecycle)
 
 	if path, err := exec.LookPath("skills-ref"); err == nil {
 		cmd := exec.CommandContext(ctx, path, "validate", skillDir)
@@ -166,8 +166,8 @@ type validationTarget struct {
 // collectSkillWarnings runs skills-ref validation concurrently across
 // repositories in cfg. Each endpoint is validated in a separate worker.
 // If filterRepoPath is non-empty, only that repository's endpoints are checked.
-func collectSkillWarnings(cfg *domain.Config, filterRepoPath string) []string {
-	ctx, span := platform.Tracer.Start(context.Background(), "phonewave.validate")
+func collectSkillWarnings(ctx context.Context, cfg *domain.Config, filterRepoPath string) []string {
+	ctx, span := platform.Tracer.Start(ctx, "phonewave.validate")
 	defer span.End()
 	_ = ctx // span-only; no child spans needed
 	start := time.Now()

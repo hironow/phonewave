@@ -103,7 +103,7 @@ func FormatDoctorJSON(report domain.DoctorReport) ([]byte, error) {
 // Doctor verifies ecosystem health and returns a report.
 // configPath is accepted for backward compatibility but no longer used by repair
 // (repair now regenerates resolved.yaml without touching config.yaml).
-func Doctor(cfg *domain.Config, stateDir string, repair bool, _ string) domain.DoctorReport {
+func Doctor(ctx context.Context, cfg *domain.Config, stateDir string, repair bool, _ string) domain.DoctorReport {
 	report := domain.DoctorReport{
 		Healthy: true,
 		DaemonStatus: domain.DaemonHealthStatus{
@@ -221,7 +221,7 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool, _ string) domain.D
 	}
 
 	// Dead-letter check
-	checkDeadLetters(&report, stateDir)
+	checkDeadLetters(ctx, &report, stateDir)
 
 	// Success rate (informational)
 	stats := ParseDeliveryStats(stateDir)
@@ -232,7 +232,7 @@ func Doctor(cfg *domain.Config, stateDir string, repair bool, _ string) domain.D
 	report.DaemonStatus = checkDaemonStatus(stateDir)
 
 	// Check event store integrity: detect corrupt lines in JSONL event files.
-	checkEventStoreIntegrity(&report, stateDir)
+	checkEventStoreIntegrity(ctx, &report, stateDir)
 
 	// Repair: clean up stale PID file and associated watch.started if daemon is not running
 	if repair && !report.DaemonStatus.Running {
@@ -372,7 +372,7 @@ func IsProcessAlive(pid int) bool {
 
 // checkEventStoreIntegrity loads all events and reports corrupt lines.
 // checkDeadLetters reports delivery items that have exceeded max retry count.
-func checkDeadLetters(report *domain.DoctorReport, stateDir string) {
+func checkDeadLetters(ctx context.Context, report *domain.DoctorReport, stateDir string) {
 	dbPath := filepath.Join(stateDir, ".run", "delivery.db")
 	if _, err := os.Stat(dbPath); err != nil {
 		return // no delivery DB yet — skip silently
@@ -385,7 +385,7 @@ func checkDeadLetters(report *domain.DoctorReport, stateDir string) {
 	}
 	defer store.Close()
 
-	count, err := store.DeadLetterCount(context.Background())
+	count, err := store.DeadLetterCount(ctx)
 	if err != nil {
 		report.AddWarnWithHint("", fmt.Sprintf("dead-letter check: count failed: %v", err),
 			"delivery store may be corrupted")
@@ -399,13 +399,13 @@ func checkDeadLetters(report *domain.DoctorReport, stateDir string) {
 	}
 }
 
-func checkEventStoreIntegrity(report *domain.DoctorReport, stateDir string) {
+func checkEventStoreIntegrity(ctx context.Context, report *domain.DoctorReport, stateDir string) {
 	eventsDir := filepath.Join(stateDir, "events")
 	if _, err := os.Stat(eventsDir); err != nil {
 		return // no events dir = nothing to check
 	}
 	store := NewEventStore(stateDir, &domain.NopLogger{})
-	_, result, err := store.LoadAll(context.Background())
+	_, result, err := store.LoadAll(ctx)
 	if err != nil {
 		report.AddWarnWithHint("event-store", fmt.Sprintf("event store load failed: %v", err),
 			"check permissions on "+eventsDir)

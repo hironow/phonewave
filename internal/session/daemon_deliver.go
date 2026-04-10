@@ -71,7 +71,7 @@ func (d *Daemon) handleEvent(ctx context.Context, event fsnotify.Event) {
 		if d.dlog != nil {
 			d.dlog.Failed(string(kind), event.Name, err.Error())
 		}
-		d.recordFailureEvent(event.Name, kind, err)
+		d.recordFailureEvent(ctx, event.Name, kind, err)
 
 		// Feed delivery error to circuit breaker
 		if d.cb != nil {
@@ -96,7 +96,7 @@ func (d *Daemon) handleEvent(ctx context.Context, event fsnotify.Event) {
 			d.dlog.Removed(result.SourcePath)
 		}
 	}
-	d.recordDeliveryEvent(result)
+	d.recordDeliveryEvent(ctx, result)
 
 	// Mark as delivered in Bloom filter for future dedup
 	if d.bloomFilter != nil && len(result.DeliveredTo) > 0 {

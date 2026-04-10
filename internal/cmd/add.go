@@ -28,7 +28,7 @@ func newAddCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			result, err := session.Add(cfg, args[0])
+			result, err := session.Add(cmd.Context(), cfg, args[0])
 			if err != nil {
 				return err
 			}

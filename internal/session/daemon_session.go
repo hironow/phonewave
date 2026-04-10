@@ -71,8 +71,8 @@ func (s *DaemonSession) ErrorQueueStore() port.ErrorQueueStore {
 
 // RecordDeliveryEvent records a delivery.completed event to the event store.
 // Best-effort: errors are logged but do not fail the delivery.
-func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {
-	platform.RecordDelivery(context.Background(), "completed", string(result.Kind))
+func (s *DaemonSession) RecordDeliveryEvent(ctx context.Context, result *domain.DeliveryResult) {
+	platform.RecordDelivery(ctx, "completed", string(result.Kind))
 	if s.Emitter == nil {
 		return
 	}
@@ -83,8 +83,8 @@ func (s *DaemonSession) RecordDeliveryEvent(result *domain.DeliveryResult) {
 
 // RecordFailureEvent records a delivery.failed event to the event store.
 // Best-effort: errors are logged but do not fail the error recording.
-func (s *DaemonSession) RecordFailureEvent(filePath string, kind domain.DMailKind, deliverErr error) {
-	platform.RecordDelivery(context.Background(), "failed", string(kind))
+func (s *DaemonSession) RecordFailureEvent(ctx context.Context, filePath string, kind domain.DMailKind, deliverErr error) {
+	platform.RecordDelivery(ctx, "failed", string(kind))
 	if s.Emitter == nil {
 		return
 	}

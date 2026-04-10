@@ -1,6 +1,7 @@
 package session_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,7 +42,7 @@ func TestDoctor_RepairReceivesStateDir(t *testing.T) {
 	defer cleanup()
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, true, "")
 
 	// then — repairSyncFn should receive stateDir
 	if receivedStateDir != stateDir {
@@ -71,7 +72,7 @@ func TestDoctor_RepairStalePID(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, true, "")
 
 	// then — stale PID file should be removed
 	if _, err := os.Stat(pidPath); !errors.Is(err, fs.ErrNotExist) {
@@ -120,7 +121,7 @@ func TestDoctor_RepairSkillsRef_UvAvailable_NoSubmodule(t *testing.T) {
 	defer cleanup3()
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, true, "")
 
 	// then — install should have been called
 	if !installCalled {
@@ -164,7 +165,7 @@ func TestDoctor_RepairSkillsRef_SubmoduleAvailable_NoInstall(t *testing.T) {
 	defer cleanup3()
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, true, "")
 
 	// then — install should NOT have been called (submodule suffices)
 	if installCalled {
@@ -214,7 +215,7 @@ func TestDoctor_RepairResolvedState(t *testing.T) {
 	defer cleanup()
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, true, "")
 
 	// then
 	if !repairCalled {
@@ -278,7 +279,7 @@ func TestDoctor_HealthyEcosystem(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then
 	if !report.Healthy {
@@ -314,7 +315,7 @@ func TestDoctor_MissingDirs(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — should have warnings about missing dirs but auto-create them
 	hasCreated := false
@@ -352,7 +353,7 @@ func TestDoctor_MissingRepoPath(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then
 	if report.Healthy {
@@ -400,7 +401,7 @@ func TestDoctor_InvalidKindInSkillMD(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — should have a warning about invalid kind
 	hasKindWarn := false
@@ -425,7 +426,7 @@ func TestDoctor_DaemonNotRunning(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then
 	if !report.DaemonStatus.Checked {
@@ -473,7 +474,7 @@ func TestDoctor_SkillsRefValidation(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — should have a warning from skills-ref validation
 	hasSpecWarn := false
@@ -539,7 +540,7 @@ func TestDoctor_IncludesSuccessRate(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — should include a success-rate issue with correct stats
 	var found bool
@@ -562,7 +563,7 @@ func TestDoctor_SuccessRate_NoDeliveries(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — should still include success-rate with "no deliveries"
 	var found bool
@@ -596,7 +597,7 @@ func TestDoctor_StalePIDFile(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — daemon should NOT be reported as running (stale PID)
 	if report.DaemonStatus.Running {
@@ -620,7 +621,7 @@ func TestDoctor_MissingRepoPath_HintReferencesConfigYAML(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — hint should reference config.yaml
 	for _, issue := range report.Checks {
@@ -657,7 +658,7 @@ func TestDoctor_WarnsWhenResolvedStateMissing(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — should have a warning about missing resolved state
 	hasResolvedWarn := false
@@ -687,7 +688,7 @@ func TestDoctor_NoWarningWhenResolvedStateExists(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — should NOT have a warning about missing resolved state
 	for _, issue := range report.Checks {
@@ -704,7 +705,7 @@ func TestDoctor_SkillsRefToolchainCheck(t *testing.T) {
 	os.MkdirAll(stateDir, 0755)
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then — should have a skills-ref related issue (ok or warn)
 	hasSkillsRef := false
@@ -746,7 +747,7 @@ func TestDoctor_SkillsRefInstallSucceedsButNotOnPath(t *testing.T) {
 	defer cleanup3()
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, true, "")
 
 	// then — should be WARN (not FIXED) since skills-ref is still not on PATH
 	hasWarn := false
@@ -826,7 +827,7 @@ func TestDoctor_RepairDoesNotDropMissingRepoFromConfig(t *testing.T) {
 	// which should call WriteResolvedOnly (not Sync)
 
 	// when — repair=true
-	report := session.Doctor(cfg, stateDir, true, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, true, "")
 
 	// then — config.Repositories should NOT have been modified (repo not dropped)
 	if len(cfg.Repositories) != originalRepoCount {
@@ -871,7 +872,7 @@ func TestDoctor_RepairStalePID_AlsoRemovesWatchStarted(t *testing.T) {
 	cfg := &domain.Config{}
 
 	// when — repair=true
-	_ = session.Doctor(cfg, stateDir, true, "")
+	_ = session.Doctor(context.Background(), cfg, stateDir, true, "")
 
 	// then — both watch.pid and watch.started should be removed
 	if _, err := os.Stat(pidPath); !errors.Is(err, fs.ErrNotExist) {
@@ -902,7 +903,7 @@ func TestDoctor_EventStoreCorruptLines(t *testing.T) {
 		[]byte(validEvent+"\n"+corruptLine+"\n"+validEvent+"\n"), 0644)
 
 	cfg := &domain.Config{}
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then: report should contain a warning about corrupt lines
 	found := false
@@ -959,7 +960,7 @@ func TestDoctor_EventStoreClean(t *testing.T) {
 		[]byte(validEvent+"\n"), 0644)
 
 	cfg := &domain.Config{}
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then: report should have OK for event store
 	found := false
