@@ -1,6 +1,7 @@
 package session_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ func TestDoctor_MissingRepoPath_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then
 	for _, issue := range report.Checks {
@@ -62,7 +63,7 @@ func TestDoctor_MissingEndpointDir_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then
 	for _, issue := range report.Checks {
@@ -102,7 +103,7 @@ func TestDoctor_OrphanedKind_HasHint(t *testing.T) {
 	}
 
 	// when
-	report := session.Doctor(cfg, stateDir, false, "")
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
 
 	// then
 	for _, issue := range report.Checks {
