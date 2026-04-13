@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/hironow/phonewave/internal/domain"
 )
 
@@ -223,6 +224,9 @@ func Doctor(ctx context.Context, cfg *domain.Config, stateDir string, repair boo
 	// Dead-letter check
 	checkDeadLetters(ctx, &report, stateDir)
 
+	// Fsnotify check — phonewave daemon depends on file watching
+	checkFsnotify(&report)
+
 	// Success rate (informational)
 	stats := ParseDeliveryStats(stateDir)
 	m := domain.DeliveryMetrics{Delivered: stats.Delivered, Failed: stats.Failed}
@@ -397,6 +401,20 @@ func checkDeadLetters(ctx context.Context, report *domain.DoctorReport, stateDir
 	} else {
 		report.AddOK("dead-letters", "no dead-lettered items")
 	}
+}
+
+// checkFsnotify verifies that the OS file watcher is available.
+// phonewave daemon depends on file watching for outbox monitoring.
+func checkFsnotify(report *domain.DoctorReport) {
+	w, err := fsnotify.NewWatcher()
+	if err != nil {
+		report.AddErrorWithHint("fsnotify",
+			fmt.Sprintf("cannot create file watcher: %v", err),
+			"on Linux, increase inotify limit: sysctl fs.inotify.max_user_watches=524288")
+		return
+	}
+	defer w.Close()
+	report.AddOK("fsnotify", "file watcher available")
 }
 
 func checkEventStoreIntegrity(ctx context.Context, report *domain.DoctorReport, stateDir string) {
