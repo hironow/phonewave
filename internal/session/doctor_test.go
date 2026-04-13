@@ -973,3 +973,29 @@ func TestDoctor_EventStoreClean(t *testing.T) {
 		t.Error("expected OK issue for clean event store, got none")
 	}
 }
+
+func TestDoctor_FsnotifyCheck(t *testing.T) {
+	// given — minimal config with valid state dir
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, ".phonewave")
+	os.MkdirAll(filepath.Join(stateDir, ".run"), 0755)
+	os.MkdirAll(filepath.Join(stateDir, "events"), 0755)
+	cfg := &domain.Config{}
+
+	// when
+	report := session.Doctor(context.Background(), cfg, stateDir, false, "")
+
+	// then — fsnotify check should be present and OK
+	found := false
+	for _, c := range report.Checks {
+		if c.Name == "fsnotify" {
+			found = true
+			if c.Status != domain.CheckOK {
+				t.Errorf("expected CheckOK for fsnotify, got %v: %s", c.Status, c.Message)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected fsnotify check in doctor report")
+	}
+}
