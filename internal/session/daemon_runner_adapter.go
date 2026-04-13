@@ -43,7 +43,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 	outboxDirs := CollectOutboxDirs(cfg)
 
 	stateDir := baseDir
-	if err := EnsureStateDir(filepath.Dir(baseDir)); err != nil {
+	if err := EnsurePhonewaveStateDir(filepath.Dir(baseDir)); err != nil {
 		return nil, fmt.Errorf("create state dir: %w", err)
 	}
 

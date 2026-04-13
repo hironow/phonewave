@@ -61,7 +61,7 @@ func MigrateConfigIfNeeded(projectRoot string) error {
 	}
 
 	// Update .gitignore to include !config.yaml
-	if err := EnsureStateDir(projectRoot); err != nil {
+	if err := EnsurePhonewaveStateDir(projectRoot); err != nil {
 		return fmt.Errorf("update state dir gitignore: %w", err)
 	}
 

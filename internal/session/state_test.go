@@ -15,7 +15,7 @@ func TestEnsureStateDir_CreatesGitignore(t *testing.T) {
 	base := t.TempDir()
 
 	// when
-	if err := session.EnsureStateDir(base); err != nil {
+	if err := session.EnsurePhonewaveStateDir(base); err != nil {
 		t.Fatalf("EnsureStateDir: %v", err)
 	}
 
@@ -38,10 +38,10 @@ func TestEnsureStateDir_GitignoreIdempotent(t *testing.T) {
 	base := t.TempDir()
 
 	// when: call twice
-	if err := session.EnsureStateDir(base); err != nil {
+	if err := session.EnsurePhonewaveStateDir(base); err != nil {
 		t.Fatalf("first EnsureStateDir: %v", err)
 	}
-	if err := session.EnsureStateDir(base); err != nil {
+	if err := session.EnsurePhonewaveStateDir(base); err != nil {
 		t.Fatalf("second EnsureStateDir: %v", err)
 	}
 
@@ -70,7 +70,7 @@ func TestEnsureStateDir_GitignoreAppendsMissing(t *testing.T) {
 	}
 
 	// when
-	if err := session.EnsureStateDir(base); err != nil {
+	if err := session.EnsurePhonewaveStateDir(base); err != nil {
 		t.Fatalf("EnsureStateDir: %v", err)
 	}
 
