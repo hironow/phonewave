@@ -25,7 +25,7 @@ func EnsurePhonewaveStateDir(base string) error {
 	stateDir := filepath.Join(base, domain.StateDir)
 
 	// Core directories (no mail dirs, no skills — phonewave is a courier)
-	if err := EnsureStateDir(stateDir); err != nil {
+	if _, err := EnsureStateDir(stateDir); err != nil {
 		return err
 	}
 
