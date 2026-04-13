@@ -17,7 +17,7 @@ func (a *InitAdapter) ScanAndInit(ctx context.Context, repoPaths []string, cfgPa
 	if err != nil {
 		return nil, err
 	}
-	if err := EnsureStateDir(filepath.Dir(filepath.Dir(cfgPath))); err != nil {
+	if err := EnsurePhonewaveStateDir(filepath.Dir(filepath.Dir(cfgPath))); err != nil {
 		return nil, fmt.Errorf("create state dir: %w", err)
 	}
 	if err := WriteConfig(cfgPath, result.Config); err != nil {
