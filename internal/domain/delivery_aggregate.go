@@ -18,6 +18,9 @@ func NewDeliveryAggregate(sessionID string) *DeliveryAggregate {
 	return &DeliveryAggregate{id: sessionID}
 }
 
+// ID returns the aggregate's delivery session identifier.
+func (a *DeliveryAggregate) ID() string { return a.id }
+
 // nextEvent creates an event tagged with this aggregate's identity and increments SeqNr.
 func (a *DeliveryAggregate) nextEvent(eventType EventType, data any, now time.Time) (Event, error) {
 	a.seqNr++
