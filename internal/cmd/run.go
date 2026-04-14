@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
@@ -63,5 +64,19 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return usecase.SetupAndRunDaemon(cmd.Context(), daemonCmd, logger, &platform.OTelPolicyMetrics{}, runner)
+	defer runner.Close()
+
+	if runner.OutboxCount() == 0 {
+		logger.Warn("No outbox directories to watch")
+		return nil
+	}
+
+	usecase.PrepareDaemonRunner(cmd.Context(), logger, &platform.OTelPolicyMetrics{}, runner)
+
+	logger.OK("phonewave daemon starting (%d routes, %d outboxes)", runner.RouteCount(), runner.OutboxCount())
+	if err := runner.Run(cmd.Context()); err != nil {
+		return fmt.Errorf("daemon: %w", err)
+	}
+	logger.OK("Daemon stopped")
+	return nil
 }
