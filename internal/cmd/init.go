@@ -8,7 +8,6 @@ import (
 	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/platform"
 	"github.com/hironow/phonewave/internal/session"
-	"github.com/hironow/phonewave/internal/usecase"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +32,7 @@ func newInitCmd() *cobra.Command {
 				}
 			}
 
-			// Parse raw inputs into domain primitives
+			// Validate inputs via domain primitives
 			repoPaths := make([]domain.RepoPath, 0, len(args))
 			for _, arg := range args {
 				rp, err := domain.NewRepoPath(arg)
@@ -42,17 +41,20 @@ func newInitCmd() *cobra.Command {
 				}
 				repoPaths = append(repoPaths, rp)
 			}
-			paths, err := domain.NewNonEmptyRepoPaths(repoPaths)
-			if err != nil {
+			if _, err := domain.NewNonEmptyRepoPaths(repoPaths); err != nil {
 				return err
 			}
-			cp, err := domain.NewConfigPath(cfgPath)
-			if err != nil {
+			if _, err := domain.NewConfigPath(cfgPath); err != nil {
 				return err
 			}
 
-			initCmd := domain.NewInitCommand(paths, cp)
-			result, err := usecase.RunInit(cmd.Context(), initCmd, &session.InitAdapter{})
+			// Convert to strings for session adapter
+			pathStrings := make([]string, len(args))
+			for i, rp := range repoPaths {
+				pathStrings[i] = rp.String()
+			}
+			adapter := &session.InitAdapter{}
+			result, err := adapter.ScanAndInit(cmd.Context(), pathStrings, cfgPath)
 			if err != nil {
 				return err
 			}
