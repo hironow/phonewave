@@ -16,6 +16,8 @@ type deliveryEventEmitter struct {
 	seqAlloc   port.SeqAllocator // nil = no SeqNr assignment
 	dispatcher port.EventDispatcher
 	logger     domain.Logger
+	deliveryID string // enriches events with CorrelationID
+	prevID     string // previous event ID for causation chain
 	ctx        context.Context //nolint:containedctx // stored for trace propagation into emit chain
 }
 
@@ -29,7 +31,7 @@ func NewDeliveryEventEmitter(
 	dispatcher port.EventDispatcher,
 	logger domain.Logger,
 ) port.DaemonEventEmitter {
-	return &deliveryEventEmitter{ctx: ctx, agg: agg, store: store, dispatcher: dispatcher, logger: logger}
+	return &deliveryEventEmitter{ctx: ctx, agg: agg, store: store, dispatcher: dispatcher, logger: logger, deliveryID: agg.ID()}
 }
 
 // SetSeqAllocator attaches a SeqAllocator for global SeqNr assignment.
@@ -37,8 +39,16 @@ func (e *deliveryEventEmitter) SetSeqAllocator(alloc port.SeqAllocator) {
 	e.seqAlloc = alloc
 }
 
-// emit persists the event and dispatches it (best-effort).
+// emit enriches the event with metadata, persists, and dispatches (best-effort).
 func (e *deliveryEventEmitter) emit(ev domain.Event) error {
+	// Metadata enrichment (consistent with sightjack/paintress/amadeus)
+	if e.deliveryID != "" {
+		ev.CorrelationID = e.deliveryID
+	}
+	if e.prevID != "" {
+		ev.CausationID = e.prevID
+	}
+
 	if e.seqAlloc != nil {
 		seq, err := e.seqAlloc.AllocSeqNr(e.ctx)
 		if err != nil {
@@ -51,6 +61,9 @@ func (e *deliveryEventEmitter) emit(ev domain.Event) error {
 			return err
 		}
 	}
+	// Update causation chain after successful store
+	e.prevID = ev.ID
+
 	if e.dispatcher != nil {
 		if err := e.dispatcher.Dispatch(e.ctx, ev); err != nil {
 			e.logger.Warn("policy dispatch %s: %v", ev.Type, err)
