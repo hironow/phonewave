@@ -3,6 +3,8 @@ package session_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
@@ -31,6 +33,52 @@ func TestEnsureStateDir_CreatesGitignore(t *testing.T) {
 			t.Errorf(".gitignore should contain %q, got: %q", entry, content)
 		}
 	}
+}
+
+func TestEnsurePhonewaveStateDir_Snapshot(t *testing.T) {
+	base := t.TempDir()
+
+	if err := session.EnsurePhonewaveStateDir(base); err != nil {
+		t.Fatalf("EnsurePhonewaveStateDir: %v", err)
+	}
+
+	stateDir := filepath.Join(base, domain.StateDir)
+	got := walkStateDir(t, stateDir)
+
+	want := []string{
+		".gitignore",
+		".run/",
+		"events/",
+		"insights/",
+	}
+
+	if !slices.Equal(want, got) {
+		t.Errorf("state dir snapshot mismatch\nwant: %v\ngot:  %v", want, got)
+	}
+}
+
+func walkStateDir(t *testing.T, stateDir string) []string {
+	t.Helper()
+	var paths []string
+	err := filepath.WalkDir(stateDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(stateDir, path)
+		if rel == "." {
+			return nil
+		}
+		if d.IsDir() {
+			rel += "/"
+		}
+		paths = append(paths, rel)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk state dir: %v", err)
+	}
+	sort.Strings(paths)
+	return paths
 }
 
 func TestEnsureStateDir_GitignoreIdempotent(t *testing.T) {
