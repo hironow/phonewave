@@ -154,7 +154,10 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	// When NOT all rows are flushed (partial flush), those missing targets
 	// are genuinely unflushed failures — do NOT record dedup for them.
 	var dedupRecordFailed bool
-	allDone, _ := ds.AllFlushedFor(dmailPath)
+	allDone, allFlushedErr := ds.AllFlushedFor(dmailPath)
+	if allFlushedErr != nil {
+		allDone = false
+	}
 	if dedup != nil {
 		newlyFlushedSet := make(map[string]bool, len(result.DeliveredTo))
 		var dedupTargets []string

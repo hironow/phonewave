@@ -61,8 +61,8 @@ func (d *Daemon) handleEvent(ctx context.Context, event fsnotify.Event) {
 
 	result, err := DeliverData(ctx, event.Name, data, d.opts.Routes, d.deliveryStore, d.dedupStore)
 	if err != nil {
-		kind, _ := domain.ExtractDMailKind(data)
-		if kind == "" {
+		kind, kindErr := domain.ExtractDMailKind(data)
+		if kindErr != nil || kind == "" {
 			kind = domain.UnknownKind
 		}
 		d.logger.Error("Deliver %s: %v", event.Name, err)

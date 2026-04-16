@@ -374,7 +374,10 @@ func (s *SQLiteDeliveryStore) deleteFlushedRows() (int, error) {
 		return 0, fmt.Errorf("delivery store: delete flushed: %w", err)
 	}
 
-	affected, _ := result.RowsAffected()
+	affected, rowsErr := result.RowsAffected()
+	if rowsErr != nil {
+		affected = 0
+	}
 
 	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
 		return 0, fmt.Errorf("delivery store: commit prune: %w", err)
