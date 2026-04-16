@@ -201,12 +201,15 @@ func collectSkillWarnings(ctx context.Context, cfg *domain.Config, filterRepoPat
 	}
 
 	// ResultTaskGroup.Wait() preserves submission order.
-	results, _ := group.Wait()
+	results, waitErr := group.Wait()
 	pool.StopAndWait()
 
 	var warnings []string
 	for _, ws := range results {
 		warnings = append(warnings, ws...)
+	}
+	if waitErr != nil {
+		warnings = append(warnings, fmt.Sprintf("skills_ref scan aborted: %v", waitErr))
 	}
 
 	span.SetAttributes(attribute.Int("skills_ref.problem.count", len(warnings)))
