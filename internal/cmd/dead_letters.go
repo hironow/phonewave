@@ -68,7 +68,7 @@ Pass --execute to actually delete dead-lettered items.`,
 				return fmt.Errorf("count dead letters: %w", err)
 			}
 
-			outputFmt, _ := cmd.Flags().GetString("output")
+			outputFmt := mustString(cmd, "output")
 			jsonOut := outputFmt == "json"
 
 			if count == 0 {

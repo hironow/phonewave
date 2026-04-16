@@ -59,7 +59,7 @@ Preserves: .phonewave/config.yaml and .phonewave/.gitignore`,
 				return nil
 			}
 
-			yes, _ := cmd.Flags().GetBool("yes")
+			yes := mustBool(cmd, "yes")
 			if !yes {
 				fmt.Fprintf(cmd.ErrOrStderr(), "The following will be deleted:\n")
 				for _, t := range targets {

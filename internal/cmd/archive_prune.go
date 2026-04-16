@@ -53,10 +53,10 @@ Pass --execute to actually remove the files.`,
 				return err
 			}
 			stateDir := filepath.Join(base, domain.StateDir)
-			outputFmt, _ := cmd.Flags().GetString("output")
+			outputFmt := mustString(cmd, "output")
 			errW := cmd.ErrOrStderr()
 
-			rebuildIndex, _ := cmd.Flags().GetBool("rebuild-index")
+			rebuildIndex := mustBool(cmd, "rebuild-index")
 			if rebuildIndex {
 				if execute {
 					return fmt.Errorf("--rebuild-index cannot be combined with --execute")
@@ -120,7 +120,7 @@ Pass --execute to actually remove the files.`,
 				return nil
 			}
 
-			yes, _ := cmd.Flags().GetBool("yes")
+			yes := mustBool(cmd, "yes")
 			if !yes {
 				fmt.Fprintf(errW, "\nDelete these %d file(s)? [y/N] ", len(files))
 				scanner := bufio.NewScanner(cmd.InOrStdin())

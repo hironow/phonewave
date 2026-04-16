@@ -43,18 +43,18 @@ func NewRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true, // nosemgrep: cobra-silence-errors-without-output — main.go prints err to os.Stderr when ExecuteContext fails [permanent]
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			noColor, _ := cmd.Flags().GetBool("no-color")
+			noColor := mustBool(cmd, "no-color")
 			if noColor {
 				os.Setenv("NO_COLOR", "1")
 			}
-			verbose, _ := cmd.Flags().GetBool("verbose")
+			verbose := mustBool(cmd, "verbose")
 			out := cmd.ErrOrStderr()
-			quiet, _ := cmd.Flags().GetBool("quiet")
+			quiet := mustBool(cmd, "quiet")
 			if quiet {
 				out = io.Discard
 			}
 			logger := platform.NewLogger(out, verbose)
-			outputFmt, _ := cmd.Flags().GetString("output")
+			outputFmt := mustString(cmd, "output")
 			if outputFmt != "json" {
 				logger.Header("phonewave", Version)
 				logger.Section(cmd.Name())

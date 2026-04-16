@@ -44,8 +44,8 @@ or rendering with terminal tools (sampler, wtf).`,
 			}
 
 			stateDir := configBase(cmd)
-			quiet, _ := cmd.Flags().GetBool("quiet")
-			verbose, _ := cmd.Flags().GetBool("verbose")
+			quiet := mustBool(cmd, "quiet")
+			verbose := mustBool(cmd, "verbose")
 			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose && !quiet)
 			store := session.NewEventStore(stateDir, logger)
 
