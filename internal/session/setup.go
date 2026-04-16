@@ -145,8 +145,11 @@ func Init(ctx context.Context, repoPaths []string) (*domain.InitResult, error) {
 	}
 
 	// ResultTaskGroup.Wait() preserves submission order.
-	scanResults, _ := group.Wait()
+	scanResults, waitErr := group.Wait()
 	pool.StopAndWait()
+	if waitErr != nil {
+		return nil, fmt.Errorf("repo scan tasks failed: %w", waitErr)
+	}
 
 	for _, r := range scanResults {
 		if r.err != nil {
@@ -253,8 +256,11 @@ func Sync(ctx context.Context, cfg *domain.Config) (*domain.SyncReport, error) {
 	}
 
 	// ResultTaskGroup.Wait() preserves submission order.
-	scanResults, _ := group.Wait()
+	scanResults, waitErr := group.Wait()
 	pool.StopAndWait()
+	if waitErr != nil {
+		return nil, fmt.Errorf("repo rescan tasks failed: %w", waitErr)
+	}
 
 	var newRepos []domain.RepoConfig
 	for _, r := range scanResults {
