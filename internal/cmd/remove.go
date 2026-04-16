@@ -37,7 +37,10 @@ func newRemoveCmd() *cobra.Command {
 				return fmt.Errorf("write config: %w", err)
 			}
 
-			absPath, _ := filepath.Abs(args[0])
+			absPath, err := filepath.Abs(args[0])
+			if err != nil {
+				return fmt.Errorf("resolve absolute path: %w", err)
+			}
 			logger.OK("Removed %s", absPath)
 			logger.OK("%d routes remaining", len(cfg.Routes))
 			printOrphanWarnings(logger, *orphans)

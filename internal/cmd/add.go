@@ -39,7 +39,10 @@ func newAddCmd() *cobra.Command {
 
 			result.RouteCount = len(cfg.Routes)
 
-			absPath, _ := filepath.Abs(args[0])
+			absPath, err := filepath.Abs(args[0])
+			if err != nil {
+				return fmt.Errorf("resolve absolute path: %w", err)
+			}
 			logger.OK("Added %s", absPath)
 			logger.OK("%d routes total", result.RouteCount)
 			printOrphanWarnings(logger, result.Orphans)
