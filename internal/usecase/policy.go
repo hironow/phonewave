@@ -17,7 +17,7 @@ type PolicyHandler func(ctx context.Context, event domain.Event) error
 // PolicyEngine dispatches domain events to registered POLICY handlers.
 // Dispatch is best-effort: handler errors are logged but never propagated,
 // ensuring event persistence is never rolled back due to policy failures.
-type PolicyEngine struct {
+type PolicyEngine struct { // nosemgrep: naming.ambiguous-suffix-struct-go -- PolicyEngine is intentional cross-tool architecture (identical in all 4 tools); rename breaks substrate [permanent]
 	handlers map[domain.EventType][]PolicyHandler
 	logger   domain.Logger
 }

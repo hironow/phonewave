@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// EventApplier applies domain events to update materialized projections.
+// EventApplier applies domain events to update materialized projections. // nosemgrep: clean-architecture.sql-in-domain-go -- false positive: comment text only, no actual SQL import or usage in domain layer [permanent]
 type EventApplier interface {
 	Apply(event Event) error
 	Rebuild(events []Event) error
