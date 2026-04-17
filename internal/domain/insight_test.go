@@ -43,18 +43,16 @@ func TestInsightFile_Marshal(t *testing.T) {
 		Kind:          "lumina",
 		Tool:          "paintress",
 		UpdatedAt:     now,
-		Entries: []domain.InsightEntry{
-			{
-				Title:       "test insight",
-				What:        "observed X",
-				Why:         "because Y",
-				How:         "do Z",
-				When:        "always",
-				Who:         "test",
-				Constraints: "none",
-			},
-		},
 	}
+	file.AddEntry(domain.InsightEntry{
+		Title:       "test insight",
+		What:        "observed X",
+		Why:         "because Y",
+		How:         "do Z",
+		When:        "always",
+		Who:         "test",
+		Constraints: "none",
+	})
 
 	data, err := file.Marshal()
 	if err != nil {
@@ -103,14 +101,15 @@ entries: 1
 	if file.Kind != "lumina" {
 		t.Errorf("expected kind lumina, got %s", file.Kind)
 	}
-	if len(file.Entries) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(file.Entries))
+	entries := file.All()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
 	}
-	if file.Entries[0].Title != "test insight" {
-		t.Errorf("expected title 'test insight', got %q", file.Entries[0].Title)
+	if entries[0].Title != "test insight" {
+		t.Errorf("expected title 'test insight', got %q", entries[0].Title)
 	}
-	if file.Entries[0].Extra["failure-type"] != "ci-red" {
-		t.Errorf("expected extra failure-type ci-red, got %q", file.Entries[0].Extra["failure-type"])
+	if entries[0].Extra["failure-type"] != "ci-red" {
+		t.Errorf("expected extra failure-type ci-red, got %q", entries[0].Extra["failure-type"])
 	}
 }
 

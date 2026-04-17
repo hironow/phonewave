@@ -45,11 +45,11 @@ func TestInsightWriter_WriteNew(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	if len(file.Entries) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(file.Entries))
+	if len(file.All()) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(file.All()))
 	}
-	if file.Entries[0].Title != "test insight" {
-		t.Errorf("expected title 'test insight', got %q", file.Entries[0].Title)
+	if file.All()[0].Title != "test insight" {
+		t.Errorf("expected title 'test insight', got %q", file.All()[0].Title)
 	}
 	if file.Kind != "test-kind" {
 		t.Errorf("expected kind 'test-kind', got %q", file.Kind)
@@ -78,14 +78,14 @@ func TestInsightWriter_AppendExisting(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(insightsDir, "multi.md"))
 	file, _ := domain.UnmarshalInsightFile(data)
 
-	if len(file.Entries) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(file.Entries))
+	if len(file.All()) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(file.All()))
 	}
-	if file.Entries[0].Title != "first" {
-		t.Errorf("first entry title: %q", file.Entries[0].Title)
+	if file.All()[0].Title != "first" {
+		t.Errorf("first entry title: %q", file.All()[0].Title)
 	}
-	if file.Entries[1].Title != "second" {
-		t.Errorf("second entry title: %q", file.Entries[1].Title)
+	if file.All()[1].Title != "second" {
+		t.Errorf("second entry title: %q", file.All()[1].Title)
 	}
 }
 
@@ -130,8 +130,8 @@ func TestInsightWriter_IdempotentAppend(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(insightsDir, "dedup.md"))
 	file, _ := domain.UnmarshalInsightFile(data)
 
-	if len(file.Entries) != 1 {
-		t.Errorf("expected 1 entry (idempotent), got %d", len(file.Entries))
+	if len(file.All()) != 1 {
+		t.Errorf("expected 1 entry (idempotent), got %d", len(file.All()))
 	}
 }
 
@@ -169,8 +169,8 @@ func TestInsightWriter_ReadEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read failed: %v", err)
 	}
-	if len(file.Entries) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(file.Entries))
+	if len(file.All()) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(file.All()))
 	}
 }
 
@@ -221,11 +221,11 @@ func TestInsightWriter_DeliveryFailureInsight(t *testing.T) {
 	if file.Tool != "phonewave" {
 		t.Errorf("expected tool 'phonewave', got %q", file.Tool)
 	}
-	if len(file.Entries) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(file.Entries))
+	if len(file.All()) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(file.All()))
 	}
 
-	e := file.Entries[0]
+	e := file.All()[0]
 	if !strings.Contains(e.Title, "delivery-failed-specification-") {
 		t.Errorf("expected title pattern, got: %s", e.Title)
 	}
@@ -271,7 +271,7 @@ func TestInsightWriter_DeliveryFailureIdempotent(t *testing.T) {
 	// then: only one entry (idempotent)
 	data, _ := os.ReadFile(filepath.Join(insightsDir, "delivery.md"))
 	file, _ := domain.UnmarshalInsightFile(data)
-	if len(file.Entries) != 1 {
-		t.Errorf("expected 1 entry (idempotent), got %d", len(file.Entries))
+	if len(file.All()) != 1 {
+		t.Errorf("expected 1 entry (idempotent), got %d", len(file.All()))
 	}
 }

@@ -49,13 +49,9 @@ func (w *InsightWriter) Append(filename, kind, tool string, entry domain.Insight
 	}
 
 	// Idempotency: skip if entry with same title already exists.
-	for _, existing := range file.Entries {
-		if existing.Title == entry.Title {
-			return nil
-		}
+	if !file.AddEntry(entry) {
+		return nil
 	}
-
-	file.Entries = append(file.Entries, entry)
 	file.UpdatedAt = time.Now()
 
 	data, err := file.Marshal()

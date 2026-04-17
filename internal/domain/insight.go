@@ -27,11 +27,28 @@ type InsightEntry struct {
 
 // InsightFile is the on-disk representation of an insight ledger file.
 type InsightFile struct {
-	SchemaVersion string         `yaml:"insight-schema-version"`
-	Kind          string         `yaml:"kind"`
-	Tool          string         `yaml:"tool"`
-	UpdatedAt     time.Time      `yaml:"updated_at"`
-	Entries       []InsightEntry `yaml:"-"` // parsed from Markdown body
+	SchemaVersion string    `yaml:"insight-schema-version"`
+	Kind          string    `yaml:"kind"`
+	Tool          string    `yaml:"tool"`
+	UpdatedAt     time.Time `yaml:"updated_at"`
+	entries       []InsightEntry
+}
+
+// All returns the entries in the insight file.
+func (f *InsightFile) All() []InsightEntry {
+	return f.entries
+}
+
+// AddEntry appends entry if no existing entry has the same Title.
+// Returns true if the entry was added, false if it was a duplicate.
+func (f *InsightFile) AddEntry(entry InsightEntry) bool {
+	for _, existing := range f.entries {
+		if existing.Title == entry.Title {
+			return false
+		}
+	}
+	f.entries = append(f.entries, entry)
+	return true
 }
 
 // insightFrontmatter is the YAML-only portion for marshal/unmarshal.
@@ -86,7 +103,7 @@ func (f InsightFile) Marshal() ([]byte, error) {
 		Kind:          f.Kind,
 		Tool:          f.Tool,
 		UpdatedAt:     f.UpdatedAt.Format(time.RFC3339),
-		EntryCount:    len(f.Entries),
+		EntryCount:    len(f.entries),
 	}
 	header, err := yaml.Marshal(fm)
 	if err != nil {
@@ -98,7 +115,7 @@ func (f InsightFile) Marshal() ([]byte, error) {
 	sb.Write(header)
 	sb.WriteString("---\n")
 
-	for i, entry := range f.Entries {
+	for i, entry := range f.entries {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
@@ -171,7 +188,7 @@ func UnmarshalInsightFile(data []byte) (*InsightFile, error) {
 				entry.Extra[key] = value
 			}
 		}
-		file.Entries = append(file.Entries, entry)
+		file.entries = append(file.entries, entry)
 	}
 
 	return file, nil

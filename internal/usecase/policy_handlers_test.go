@@ -439,7 +439,11 @@ func (s *stubInsightReader) Read(filename string) (*domain.InsightFile, error) {
 	if s == nil {
 		return nil, fmt.Errorf("no reader")
 	}
-	return &domain.InsightFile{Entries: s.entries}, nil
+	f := &domain.InsightFile{}
+	for _, e := range s.entries {
+		f.AddEntry(e)
+	}
+	return f, nil
 }
 
 func TestPolicyHandler_DeliveryFailed_DetectsRepeatFailure(t *testing.T) {
