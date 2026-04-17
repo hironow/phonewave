@@ -6,7 +6,7 @@ import (
 )
 
 // Route represents a derived routing rule for a D-Mail kind.
-type Route struct {
+type Route struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly routing aggregate; wrapping would require 20+ call-site migration with minimal safety benefit [permanent]
 	Kind  string   // D-Mail kind (e.g. "specification", "report", "design-feedback")
 	From  string   // source outbox path relative to repository (e.g. ".siren/outbox")
 	To    []string // target inbox paths relative to repository (e.g. [".expedition/inbox"])
@@ -14,7 +14,7 @@ type Route struct {
 }
 
 // OrphanReport contains kinds that are produced but not consumed, or vice versa.
-type OrphanReport struct {
+type OrphanReport struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 15+ call-site migration with minimal safety benefit [permanent]
 	UnconsumedKinds []string // produced but not consumed by any endpoint
 	UnproducedKinds []string // consumed but not produced by any endpoint
 }

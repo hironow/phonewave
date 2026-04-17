@@ -43,14 +43,14 @@ type DeliveryFlushed struct {
 }
 
 // StagedDelivery represents an unflushed delivery intent.
-type StagedDelivery struct {
+type StagedDelivery struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- raw bytes for unflushed delivery staging; wrapping adds no safety benefit [permanent]
 	DMailPath string
 	Target    string
 	Data      []byte
 }
 
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
-type DMailFrontmatter struct {
+type DMailFrontmatter struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON/YAML wire-format DTO; custom marshal would break D-Mail envelope compat [permanent]
 	SchemaVersion string            `yaml:"dmail-schema-version"`
 	Name          string            `yaml:"name"`
 	Kind          DMailKind         `yaml:"kind"`
@@ -62,14 +62,14 @@ type DMailFrontmatter struct {
 }
 
 // ResolvedRoute is a concrete route with absolute paths for delivery.
-type ResolvedRoute struct {
+type ResolvedRoute struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly routing aggregate; wrapping would require 15+ call-site migration with minimal safety benefit [permanent]
 	Kind       DMailKind
 	FromOutbox string   // absolute outbox directory path
 	ToInboxes  []string // absolute inbox directory paths
 }
 
 // DeliveryResult holds the outcome of a single D-Mail delivery.
-type DeliveryResult struct {
+type DeliveryResult struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 15+ call-site migration with minimal safety benefit [permanent]
 	SourcePath  string
 	Kind        DMailKind
 	DeliveredTo []string // inbox paths where the file was copied

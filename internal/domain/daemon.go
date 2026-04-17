@@ -24,7 +24,7 @@ func EffectiveIdleTimeout(timeout time.Duration) time.Duration {
 }
 
 // DaemonOptions configures the daemon behavior.
-type DaemonOptions struct {
+type DaemonOptions struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly options struct passed at daemon startup; wrapping adds no safety benefit [permanent]
 	Routes        []ResolvedRoute
 	OutboxDirs    []string
 	StateDir      string

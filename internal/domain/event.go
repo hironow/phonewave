@@ -87,7 +87,7 @@ func NewEvent(eventType EventType, data any, timestamp time.Time) (Event, error)
 }
 
 // ErrorEntry holds a single error queue record.
-type ErrorEntry struct {
+type ErrorEntry struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- raw bytes from error queue store; wrapping adds no safety benefit [permanent]
 	Name         string
 	Data         []byte
 	SourceOutbox string

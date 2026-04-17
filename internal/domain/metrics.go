@@ -44,7 +44,7 @@ type BucketMetrics struct {
 }
 
 // HealthTimeSeries is the READ MODEL for delivery health over a time window.
-type HealthTimeSeries struct {
+type HealthTimeSeries struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON wire-format READ MODEL for health time series; custom marshal would break JSON compat [permanent]
 	GeneratedAt time.Time       `json:"generated_at"`
 	Window      string          `json:"window"`
 	BucketSize  string          `json:"bucket_size"`
