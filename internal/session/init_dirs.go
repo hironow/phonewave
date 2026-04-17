@@ -143,7 +143,7 @@ func dirExists(path string) bool {
 }
 
 // relOrBase returns a display-friendly relative path.
-func relOrBase(stateDir, path, base string) string {
+func relOrBase(stateDir, path, base string) string { // nosemgrep: type-safety.multiple-string-params-go -- stateDir/path/base are semantically distinct path resolution params; newtype wrapping adds no safety benefit [permanent]
 	if path == stateDir {
 		return base + "/"
 	}

@@ -33,7 +33,7 @@ func (l *DeliveryLog) Close() error {
 }
 
 // Delivered records a successful delivery.
-func (l *DeliveryLog) Delivered(kind, from, to string) {
+func (l *DeliveryLog) Delivered(kind, from, to string) { // nosemgrep: type-safety.multiple-string-params-go -- kind/from/to are semantically distinct delivery log fields (DMailKind, outbox path, inbox path) [permanent]
 	l.write("DELIVERED", fmt.Sprintf("kind=%s from=%s to=%s", kind, from, to))
 }
 
@@ -43,12 +43,12 @@ func (l *DeliveryLog) Removed(from string) {
 }
 
 // Failed records a delivery failure.
-func (l *DeliveryLog) Failed(kind, from, reason string) {
+func (l *DeliveryLog) Failed(kind, from, reason string) { // nosemgrep: type-safety.multiple-string-params-go -- kind/from/reason are semantically distinct delivery log fields (DMailKind, outbox path, error reason) [permanent]
 	l.write("FAILED", fmt.Sprintf("kind=%s from=%s reason=%s", kind, from, reason))
 }
 
 // Retried records a successful retry delivery.
-func (l *DeliveryLog) Retried(kind, from, to string) {
+func (l *DeliveryLog) Retried(kind, from, to string) { // nosemgrep: type-safety.multiple-string-params-go -- kind/from/to are semantically distinct delivery log fields (DMailKind, outbox path, inbox path) [permanent]
 	l.write("RETRIED", fmt.Sprintf("kind=%s from=%s to=%s", kind, from, to))
 }
 

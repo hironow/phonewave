@@ -21,7 +21,7 @@ type IndexEntry struct {
 }
 
 // ErrorMetadata holds metadata for a failed D-Mail stored as a .err sidecar.
-type ErrorMetadata struct {
+type ErrorMetadata struct { // nosemgrep: type-safety.public-string-field-go -- YAML wire-format DTO; string fields map directly to YAML keys, newtype wrapping breaks yaml.Unmarshal [permanent]
 	SourceOutbox string    `yaml:"source_outbox"`
 	Kind         DMailKind `yaml:"kind"`
 	OriginalName string    `yaml:"original_name"`

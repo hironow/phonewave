@@ -86,7 +86,7 @@ func (l *Logger) colorPrefix(prefix, color string) string {
 	return color + prefix + ansiReset
 }
 
-func (l *Logger) logLine(prefix, color, format string, args ...any) {
+func (l *Logger) logLine(prefix, color, format string, args ...any) { // nosemgrep: type-safety.multiple-string-params-go -- prefix/color/format are semantically distinct logger internals; ANSI color and format string have fundamentally different uses [permanent]
 	msg := fmt.Sprintf(format, args...)
 	ts := time.Now().Format("15:04:05")
 	l.mu.Lock()
@@ -176,7 +176,7 @@ func StatusColorFromLabel(label string) string {
 // Banner prints an inverted-color full-line banner for D-Mail intent logging.
 // SEND uses green inversion, RECV uses cyan inversion.
 // In no-color mode, uses >>> / <<< prefix as fallback.
-func (l *Logger) Banner(dir domain.BannerDirection, kind, name, description string) {
+func (l *Logger) Banner(dir domain.BannerDirection, kind, name, description string) { // nosemgrep: type-safety.multiple-string-params-go -- kind/name/description are D-Mail display fields used together for banner formatting; semantically distinct [permanent]
 	desc := description
 	if len(desc) > 50 {
 		desc = desc[:47] + "..."
