@@ -108,8 +108,8 @@ type LoadResult struct {
 	CorruptLineCount int // number of lines skipped due to parse errors
 }
 
-// ValidateEvent checks structural validity of an Event before persistence.
-func ValidateEvent(e Event) error {
+// ParseEvent checks structural validity of an Event and returns it if valid.
+func ParseEvent(e Event) (Event, error) {
 	var errs []string
 	if e.SchemaVersion > CurrentEventSchemaVersion {
 		errs = append(errs, fmt.Sprintf("SchemaVersion %d exceeds current %d", e.SchemaVersion, CurrentEventSchemaVersion))
@@ -129,7 +129,7 @@ func ValidateEvent(e Event) error {
 		errs = append(errs, "Data must not be empty")
 	}
 	if len(errs) > 0 {
-		return errors.New("invalid event: " + strings.Join(errs, "; "))
+		return Event{}, errors.New("invalid event: " + strings.Join(errs, "; "))
 	}
-	return nil
+	return e, nil
 }

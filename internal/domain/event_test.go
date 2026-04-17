@@ -37,7 +37,7 @@ func TestNewEvent_CreatesValidEvent(t *testing.T) {
 	}
 }
 
-func TestValidateEvent_RejectsEmptyFields(t *testing.T) {
+func TestParseEvent_RejectsEmptyFields(t *testing.T) {
 	tests := []struct {
 		name  string
 		event domain.Event
@@ -49,7 +49,7 @@ func TestValidateEvent_RejectsEmptyFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := domain.ValidateEvent(tt.event); err == nil {
+			if _, err := domain.ParseEvent(tt.event); err == nil {
 				t.Error("expected validation error")
 			}
 		})
@@ -77,31 +77,31 @@ func TestEvent_SchemaVersion_ZeroIsLegacy(t *testing.T) {
 	}
 }
 
-func TestValidateEvent_RejectsFutureSchema(t *testing.T) {
+func TestParseEvent_RejectsFutureSchema(t *testing.T) {
 	ev, err := domain.NewEvent("test.event", map[string]string{"k": "v"}, time.Now())
 	if err != nil {
 		t.Fatalf("NewEvent: %v", err)
 	}
 	ev.SchemaVersion = domain.CurrentEventSchemaVersion + 1
-	if err := domain.ValidateEvent(ev); err == nil {
+	if _, err := domain.ParseEvent(ev); err == nil {
 		t.Error("expected error for future schema version")
 	}
 }
 
-func TestValidateEvent_AcceptsValidEvent(t *testing.T) {
+func TestParseEvent_AcceptsValidEvent(t *testing.T) {
 	e, _ := domain.NewEvent(domain.EventDeliveryCompleted, map[string]string{"k": "v"}, time.Now())
-	if err := domain.ValidateEvent(e); err != nil {
+	if _, err := domain.ParseEvent(e); err != nil {
 		t.Errorf("expected no error, got: %v", err)
 	}
 }
 
-func TestValidateEvent_RejectsUnknownType(t *testing.T) {
+func TestParseEvent_RejectsUnknownType(t *testing.T) {
 	ev, err := domain.NewEvent("totally.unknown.type", map[string]string{"k": "v"}, time.Now())
 	if err != nil {
 		t.Fatalf("NewEvent: %v", err)
 	}
-	if err := domain.ValidateEvent(ev); err == nil {
-		t.Error("expected ValidateEvent to reject unknown event type")
+	if _, err := domain.ParseEvent(ev); err == nil {
+		t.Error("expected ParseEvent to reject unknown event type")
 	}
 }
 

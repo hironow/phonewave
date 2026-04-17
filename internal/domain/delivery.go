@@ -100,12 +100,13 @@ func IsValidDMailKind(kind DMailKind) bool {
 // ErrDMailKindInvalid is returned when a D-Mail kind is not in the canonical set.
 var ErrDMailKindInvalid = errors.New("dmail: invalid kind")
 
-// ValidateKind checks that kind is one of the allowed D-Mail kinds.
-func ValidateKind(kind DMailKind) error {
-	if !IsValidDMailKind(kind) {
-		return fmt.Errorf("invalid D-Mail kind %q: %w", kind, ErrDMailKindInvalid)
+// ParseDMailKind validates raw against the canonical kind set and returns a typed DMailKind.
+func ParseDMailKind(raw string) (DMailKind, error) {
+	k := DMailKind(raw)
+	if !IsValidDMailKind(k) {
+		return "", fmt.Errorf("invalid D-Mail kind %q: %w", raw, ErrDMailKindInvalid)
 	}
-	return nil
+	return k, nil
 }
 
 // ExtractDMailKind reads a D-Mail file's YAML frontmatter and returns the kind.
@@ -123,10 +124,11 @@ func ExtractDMailKind(data []byte) (DMailKind, error) {
 	if fm.Kind == "" {
 		return "", errors.New("D-Mail missing required 'kind' field")
 	}
-	if err := ValidateKind(fm.Kind); err != nil {
+	kind, err := ParseDMailKind(string(fm.Kind))
+	if err != nil {
 		return "", err
 	}
-	return fm.Kind, nil
+	return kind, nil
 }
 
 // parseDMailFrontmatter extracts the YAML frontmatter from a D-Mail file.

@@ -47,7 +47,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	if kind == "" {
 		return nil, fmt.Errorf("parse D-Mail %s: D-Mail missing required 'kind' field", dmailPath)
 	}
-	if err := domain.ValidateKind(kind); err != nil {
+	if _, err := domain.ParseDMailKind(string(kind)); err != nil {
 		return nil, fmt.Errorf("parse D-Mail %s: %w", dmailPath, err)
 	}
 	metadata := domain.CorrectionMetadataFromMap(fm.Metadata)
