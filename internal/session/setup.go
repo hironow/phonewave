@@ -145,8 +145,11 @@ func Init(ctx context.Context, repoPaths []string) (*domain.InitResult, error) {
 	}
 
 	// ResultTaskGroup.Wait() preserves submission order.
-	scanResults, _ := group.Wait()
+	scanResults, waitErr := group.Wait()
 	pool.StopAndWait()
+	if waitErr != nil {
+		return nil, fmt.Errorf("repo scan tasks failed: %w", waitErr)
+	}
 
 	for _, r := range scanResults {
 		if r.err != nil {
@@ -188,7 +191,7 @@ func Add(ctx context.Context, cfg *domain.Config, repoPath string) (*domain.AddR
 
 	cfg.AddRepository(absPath, endpoints)
 	cfg.UpdateRoutes()
-	cfg.LastSynced = time.Now().UTC()
+	cfg.LastSynced = time.Now().UTC() // nosemgrep: immutability.no-pointer-field-mutation-go -- config mutation at Init/Sync time is intentional; immutable builder rewrite out of scope [permanent]
 
 	orphans := domain.DetectOrphansPerRepo(cfg)
 
@@ -210,7 +213,7 @@ func Remove(cfg *domain.Config, repoPath string) (*domain.OrphanReport, error) {
 	}
 
 	cfg.UpdateRoutes()
-	cfg.LastSynced = time.Now().UTC()
+	cfg.LastSynced = time.Now().UTC() // nosemgrep: immutability.no-pointer-field-mutation-go -- config mutation at Init/Sync time is intentional; immutable builder rewrite out of scope [permanent]
 
 	orphans := domain.DetectOrphansPerRepo(cfg)
 	return &orphans, nil
@@ -253,8 +256,11 @@ func Sync(ctx context.Context, cfg *domain.Config) (*domain.SyncReport, error) {
 	}
 
 	// ResultTaskGroup.Wait() preserves submission order.
-	scanResults, _ := group.Wait()
+	scanResults, waitErr := group.Wait()
 	pool.StopAndWait()
+	if waitErr != nil {
+		return nil, fmt.Errorf("repo rescan tasks failed: %w", waitErr)
+	}
 
 	var newRepos []domain.RepoConfig
 	for _, r := range scanResults {
@@ -264,9 +270,9 @@ func Sync(ctx context.Context, cfg *domain.Config) (*domain.SyncReport, error) {
 		newRepos = append(newRepos, r.repoConfig)
 	}
 
-	cfg.Repositories = newRepos
+	cfg.Repositories = newRepos // nosemgrep: immutability.no-pointer-field-mutation-go -- config mutation at Init/Sync time is intentional; immutable builder rewrite out of scope [permanent]
 	cfg.UpdateRoutes()
-	cfg.LastSynced = time.Now().UTC()
+	cfg.LastSynced = time.Now().UTC() // nosemgrep: immutability.no-pointer-field-mutation-go -- config mutation at Init/Sync time is intentional; immutable builder rewrite out of scope [permanent]
 
 	// Snapshot after re-scan and diff
 	newEndpoints := snapshotEndpoints(cfg)

@@ -21,8 +21,8 @@ func newInitCmd() *cobra.Command {
   phonewave init /absolute/path/to/repo
   phonewave init --force ./repo  # overwrite existing config`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, _ := cmd.Flags().GetBool("verbose")
-			force, _ := cmd.Flags().GetBool("force")
+			verbose := mustBool(cmd, "verbose")
+			force := mustBool(cmd, "force")
 			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
@@ -75,10 +75,10 @@ func newInitCmd() *cobra.Command {
 			logger.OK("Config written to %s", cfgPath)
 
 			// Write .otel.env if --otel-backend is set
-			otelBackend, _ := cmd.Flags().GetString("otel-backend")
+			otelBackend := mustString(cmd, "otel-backend")
 			if otelBackend != "" {
-				otelEntity, _ := cmd.Flags().GetString("otel-entity")
-				otelProject, _ := cmd.Flags().GetString("otel-project")
+				otelEntity := mustString(cmd, "otel-entity")
+				otelProject := mustString(cmd, "otel-project")
 				content, otelErr := platform.OtelEnvContent(otelBackend, otelEntity, otelProject)
 				if otelErr != nil {
 					return otelErr

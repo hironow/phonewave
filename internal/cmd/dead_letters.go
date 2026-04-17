@@ -68,7 +68,7 @@ Pass --execute to actually delete dead-lettered items.`,
 				return fmt.Errorf("count dead letters: %w", err)
 			}
 
-			outputFmt, _ := cmd.Flags().GetString("output")
+			outputFmt := mustString(cmd, "output")
 			jsonOut := outputFmt == "json"
 
 			if count == 0 {
@@ -82,7 +82,10 @@ Pass --execute to actually delete dead-lettered items.`,
 
 			if !execute {
 				if jsonOut {
-					data, _ := json.Marshal(map[string]int{"dead_letters": count, "purged": 0})
+					data, err := json.Marshal(map[string]int{"dead_letters": count, "purged": 0})
+					if err != nil {
+						return fmt.Errorf("marshal json: %w", err)
+					}
 					fmt.Fprintln(cmd.OutOrStdout(), string(data))
 				} else {
 					fmt.Fprintf(errW, "%d dead-lettered item(s) would be purged (use --execute to delete)\n", count)
@@ -113,7 +116,10 @@ Pass --execute to actually delete dead-lettered items.`,
 				return fmt.Errorf("purge dead letters: %w", err)
 			}
 			if jsonOut {
-				data, _ := json.Marshal(map[string]int{"dead_letters": count, "purged": purged})
+				data, err := json.Marshal(map[string]int{"dead_letters": count, "purged": purged})
+				if err != nil {
+					return fmt.Errorf("marshal json: %w", err)
+				}
 				fmt.Fprintln(cmd.OutOrStdout(), string(data))
 			} else {
 				fmt.Fprintf(errW, "Purged %d dead-lettered item(s).\n", purged)

@@ -81,8 +81,8 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 
 		result, deliverErr := DeliverData(ctx, dmailPath, data, routes, ds, dedup)
 		if deliverErr != nil {
-			kind, _ := domain.ExtractDMailKind(data)
-			if kind == "" {
+			kind, kindErr := domain.ExtractDMailKind(data)
+			if kindErr != nil || kind == "" {
 				kind = domain.UnknownKind
 			}
 			meta := domain.ErrorMetadata{

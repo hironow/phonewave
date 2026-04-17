@@ -18,7 +18,7 @@ func newAddCmd() *cobra.Command {
 		Example: `  phonewave add ./new-repo
   phonewave add /absolute/path/to/repo`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, _ := cmd.Flags().GetBool("verbose")
+			verbose := mustBool(cmd, "verbose")
 			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)
@@ -39,7 +39,10 @@ func newAddCmd() *cobra.Command {
 
 			result.RouteCount = len(cfg.Routes)
 
-			absPath, _ := filepath.Abs(args[0])
+			absPath, err := filepath.Abs(args[0])
+			if err != nil {
+				return fmt.Errorf("resolve absolute path: %w", err)
+			}
 			logger.OK("Added %s", absPath)
 			logger.OK("%d routes total", result.RouteCount)
 			printOrphanWarnings(logger, result.Orphans)

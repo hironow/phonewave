@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -19,6 +20,20 @@ import (
 
 	"github.com/hironow/phonewave/internal/platform"
 )
+
+func mergeResource(base *resource.Resource, extra *resource.Resource) *resource.Resource {
+	// resource.Merge returns a valid merged Resource even on ErrSchemaURLConflict
+	// (schema URL is cleared but attributes are preserved). Surface that merged
+	// Resource so service.name etc. reach the exporter; only fall back on nil.
+	merged, err := resource.Merge(base, extra)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "otel resource merge warning: %v\n", err)
+	}
+	if merged == nil {
+		return base
+	}
+	return merged
+}
 
 func initTracer(serviceName, ver string) func(context.Context) error {
 	platform.InitDetailLevel()
@@ -38,7 +53,7 @@ func initTracer(serviceName, ver string) func(context.Context) error {
 		return func(context.Context) error { return nil }
 	}
 
-	res, _ := resource.Merge(
+	res := mergeResource(
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
@@ -48,7 +63,7 @@ func initTracer(serviceName, ver string) func(context.Context) error {
 	)
 
 	if entity := os.Getenv("WANDB_ENTITY"); entity != "" {
-		res, _ = resource.Merge(res, resource.NewWithAttributes(
+		res = mergeResource(res, resource.NewWithAttributes(
 			semconv.SchemaURL,
 			attribute.String("wandb.entity", platform.SanitizeUTF8(entity)),
 			attribute.String("wandb.project", platform.SanitizeUTF8(os.Getenv("WANDB_PROJECT"))),
@@ -100,7 +115,7 @@ func initMeter(serviceName, ver string) func(context.Context) error {
 		return func(context.Context) error { return nil }
 	}
 
-	res, _ := resource.Merge(
+	res := mergeResource(
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,

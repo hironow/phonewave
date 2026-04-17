@@ -16,7 +16,7 @@ func newSyncCmd() *cobra.Command {
 		Args:    cobra.NoArgs,
 		Example: `  phonewave sync`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, _ := cmd.Flags().GetBool("verbose")
+			verbose := mustBool(cmd, "verbose")
 			logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 			cfgPath := configPath(cmd)

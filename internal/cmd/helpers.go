@@ -10,7 +10,7 @@ import (
 )
 
 func configPath(cmd *cobra.Command) string {
-	p, _ := cmd.Flags().GetString("config")
+	p := mustString(cmd, "config")
 	return p
 }
 

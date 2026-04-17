@@ -240,7 +240,10 @@ func (d *Daemon) Run(ctx context.Context) error {
 				backoff.RecordFailure()
 				if d.cb != nil && d.hasErrorQueue() {
 					// Zero successes with pending entries → target degradation
-					pending, _ := d.errorQueueStore().PendingCount(d.opts.MaxRetries)
+					pending, pendingErr := d.errorQueueStore().PendingCount(d.opts.MaxRetries)
+				if pendingErr != nil {
+					pending = 0
+				}
 					if pending > 0 {
 						d.cb.RecordDeliveryError(domain.DeliveryErrorInfo{Kind: domain.DeliveryErrorTransient})
 					}

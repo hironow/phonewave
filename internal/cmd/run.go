@@ -40,11 +40,11 @@ func newRunCmd() *cobra.Command {
 }
 
 func runDaemon(cmd *cobra.Command, args []string) error {
-	verbose, _ := cmd.Flags().GetBool("verbose")
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	retryInterval, _ := cmd.Flags().GetDuration("retry-interval")
-	maxRetries, _ := cmd.Flags().GetInt("max-retries")
-	idleTimeout, _ := cmd.Flags().GetDuration("idle-timeout")
+	verbose := mustBool(cmd, "verbose")
+	dryRun := mustBool(cmd, "dry-run")
+	retryInterval := mustDuration(cmd, "retry-interval")
+	maxRetries := mustInt(cmd, "max-retries")
+	idleTimeout := mustDuration(cmd, "idle-timeout")
 	logger := platform.NewLogger(cmd.ErrOrStderr(), verbose)
 
 	// Parse raw inputs into domain primitives

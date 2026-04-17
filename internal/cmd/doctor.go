@@ -34,8 +34,8 @@ the specified repo path and presents a unified report with cross-tool checks.`,
   # Auto-fix repairable issues
   phonewave doctor --repair`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			allMode, _ := cmd.Flags().GetBool("all")
-			outputFmt, _ := cmd.Flags().GetString("output")
+			allMode := mustBool(cmd, "all")
+			outputFmt := mustString(cmd, "output")
 			jsonOut := outputFmt == "json"
 
 			if allMode {
@@ -51,7 +51,7 @@ the specified repo path and presents a unified report with cross-tool checks.`,
 				return fmt.Errorf("repo-path argument requires --all flag")
 			}
 
-			repair, _ := cmd.Flags().GetBool("repair")
+			repair := mustBool(cmd, "repair")
 
 			cfgPath := configPath(cmd)
 			stateDir := configBase(cmd)
@@ -141,7 +141,7 @@ func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 
 	// Load config strictly from the target repo path (not cwd fallback).
 	// If repoPath has no phonewave config, report WARN — don't mix repos.
-	repair, _ := cmd.Flags().GetBool("repair")
+	repair := mustBool(cmd, "repair")
 	var cfg *domain.Config
 	var cfgPath string
 	var stateDir string
