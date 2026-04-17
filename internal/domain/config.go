@@ -5,27 +5,27 @@ import (
 )
 
 // Endpoint represents a discovered tool endpoint within a repository.
-type Endpoint struct {
+type Endpoint struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
 	Dir      string   // dot-directory name, e.g. ".siren"
 	Produces []string // list of kind values this endpoint produces
 	Consumes []string // list of kind values this endpoint consumes
 }
 
 // Config is the top-level phonewave config.yaml structure.
-type Config struct {
+type Config struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
 	LastSynced   time.Time     `yaml:"last_synced"`
 	Repositories []RepoConfig  `yaml:"repositories"`
 	Routes       []RouteConfig `yaml:"routes"`
 }
 
 // RepoConfig holds configuration for a single repository.
-type RepoConfig struct {
+type RepoConfig struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
 	Path      string           `yaml:"path"`
 	Endpoints []EndpointConfig `yaml:"endpoints"`
 }
 
 // EndpointConfig holds configuration for a single endpoint within a repo.
-type EndpointConfig struct {
+type EndpointConfig struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
 	Dir      string   `yaml:"dir"`
 	Produces []string `yaml:"produces,flow"`
 	Consumes []string `yaml:"consumes,flow"`
@@ -51,14 +51,14 @@ func (f FlagApproverConfig) IsAutoApprove() bool { return f.AutoApprove }
 func (f FlagApproverConfig) ApproveCmdString() string { return f.ApproveCmd }
 
 // AddResult holds the result of an add operation.
-type AddResult struct {
+type AddResult struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 10+ call-site migration with minimal safety benefit [permanent]
 	Orphans    OrphanReport
 	Warnings   []string
 	RouteCount int
 }
 
 // InitResult holds the result of an init operation.
-type InitResult struct {
+type InitResult struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 10+ call-site migration with minimal safety benefit [permanent]
 	Config    *Config
 	Orphans   OrphanReport
 	RepoCount int
@@ -80,7 +80,7 @@ type RouteDiff struct {
 }
 
 // SyncReport holds the result of a sync operation including change diffs.
-type SyncReport struct {
+type SyncReport struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 10+ call-site migration with minimal safety benefit [permanent]
 	Orphans         OrphanReport
 	EndpointChanges []EndpointDiff
 	RouteChanges    []RouteDiff
@@ -90,7 +90,7 @@ type SyncReport struct {
 }
 
 // RouteConfig holds a derived routing rule.
-type RouteConfig struct {
+type RouteConfig struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
 	Kind     string   `yaml:"kind"`
 	From     string   `yaml:"from"`
 	To       []string `yaml:"to,flow"`

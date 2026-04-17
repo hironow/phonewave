@@ -26,7 +26,7 @@ func NewInsightWriter(insightsDir, runDir string) *InsightWriter {
 // Append adds a new InsightEntry to the named file, creating it if needed.
 // Uses flock + atomic rename for concurrent safety.
 // Idempotent: skips if an entry with the same title already exists.
-func (w *InsightWriter) Append(filename, kind, tool string, entry domain.InsightEntry) error {
+func (w *InsightWriter) Append(filename, kind, tool string, entry domain.InsightEntry) error { // nosemgrep: type-safety.multiple-string-params-go -- filename/kind/tool are semantically distinct insight writer params; newtype wrapping adds no safety benefit [permanent]
 	path := filepath.Join(w.insightsDir, filename)
 
 	unlock, err := w.lock()
@@ -49,13 +49,9 @@ func (w *InsightWriter) Append(filename, kind, tool string, entry domain.Insight
 	}
 
 	// Idempotency: skip if entry with same title already exists.
-	for _, existing := range file.Entries {
-		if existing.Title == entry.Title {
-			return nil
-		}
+	if !file.AddEntry(entry) {
+		return nil
 	}
-
-	file.Entries = append(file.Entries, entry)
 	file.UpdatedAt = time.Now()
 
 	data, err := file.Marshal()

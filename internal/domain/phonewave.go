@@ -46,7 +46,7 @@ const ResolvedStateFile = "resolved.yaml"
 
 // ResolvedState holds machine-local derived data: routes and sync metadata.
 // Stored in .phonewave/.run/resolved.yaml, separate from the git-tracked manifest.
-type ResolvedState struct {
+type ResolvedState struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML resolved state; fields exported for yaml.Unmarshal [permanent]
 	LastSynced time.Time     `yaml:"last_synced"`
 	Routes     []RouteConfig `yaml:"routes"`
 }

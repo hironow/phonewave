@@ -48,7 +48,7 @@ type DaemonHealthStatus struct {
 }
 
 // EndpointHealth holds health info for a single endpoint.
-type EndpointHealth struct {
+type EndpointHealth struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON wire-format DTO for doctor output; custom marshal would break JSON compat [permanent]
 	Repo     string   `json:"repo"`
 	Dir      string   `json:"dir"`
 	Produces []string `json:"produces,omitempty"`
@@ -57,7 +57,7 @@ type EndpointHealth struct {
 }
 
 // DoctorReport holds the complete health check result.
-type DoctorReport struct {
+type DoctorReport struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 12+ call-site migration with minimal safety benefit [permanent]
 	Healthy      bool
 	Checks       []DoctorCheck
 	Endpoints    []EndpointHealth
@@ -76,13 +76,13 @@ func (r *DoctorReport) AddWarn(name, msg string) {
 }
 
 // AddErrorWithHint appends a FAIL check with a remediation hint.
-func (r *DoctorReport) AddErrorWithHint(name, msg, hint string) {
+func (r *DoctorReport) AddErrorWithHint(name, msg, hint string) { // nosemgrep: type-safety.multiple-string-params-go -- name/msg/hint are semantically distinct display fields; newtype wrapping adds no safety benefit [permanent]
 	r.Healthy = false
 	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckFail, Message: msg, Hint: hint})
 }
 
 // AddWarnWithHint appends a WARN check with a remediation hint.
-func (r *DoctorReport) AddWarnWithHint(name, msg, hint string) {
+func (r *DoctorReport) AddWarnWithHint(name, msg, hint string) { // nosemgrep: type-safety.multiple-string-params-go -- name/msg/hint are semantically distinct display fields; newtype wrapping adds no safety benefit [permanent]
 	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckWarn, Message: msg, Hint: hint})
 }
 

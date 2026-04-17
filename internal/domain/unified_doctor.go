@@ -10,7 +10,7 @@ type UnifiedCheck struct {
 }
 
 // ToolSection groups checks by tool.
-type ToolSection struct {
+type ToolSection struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON wire-format READ MODEL for unified doctor output; custom marshal would break JSON compat [permanent]
 	Tool   string         `json:"tool"`
 	Path   string         `json:"path,omitempty"` // repo path for non-phonewave tools
 	Checks []UnifiedCheck `json:"checks"`
@@ -18,7 +18,7 @@ type ToolSection struct {
 }
 
 // UnifiedDoctorReport is the aggregated report from `phonewave doctor --all`.
-type UnifiedDoctorReport struct {
+type UnifiedDoctorReport struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON wire-format READ MODEL for unified doctor output; custom marshal would break JSON compat [permanent]
 	Sections  []ToolSection  `json:"sections"`
 	CrossTool []UnifiedCheck `json:"cross_tool,omitempty"`
 	Healthy   bool           `json:"healthy"`

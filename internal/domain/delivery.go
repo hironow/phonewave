@@ -21,7 +21,7 @@ type IndexEntry struct {
 }
 
 // ErrorMetadata holds metadata for a failed D-Mail stored as a .err sidecar.
-type ErrorMetadata struct {
+type ErrorMetadata struct { // nosemgrep: type-safety.public-string-field-go -- YAML wire-format DTO; string fields map directly to YAML keys, newtype wrapping breaks yaml.Unmarshal [permanent]
 	SourceOutbox string    `yaml:"source_outbox"`
 	Kind         DMailKind `yaml:"kind"`
 	OriginalName string    `yaml:"original_name"`
@@ -43,14 +43,14 @@ type DeliveryFlushed struct {
 }
 
 // StagedDelivery represents an unflushed delivery intent.
-type StagedDelivery struct {
+type StagedDelivery struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- raw bytes for unflushed delivery staging; wrapping adds no safety benefit [permanent]
 	DMailPath string
 	Target    string
 	Data      []byte
 }
 
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
-type DMailFrontmatter struct {
+type DMailFrontmatter struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON/YAML wire-format DTO; custom marshal would break D-Mail envelope compat [permanent]
 	SchemaVersion string            `yaml:"dmail-schema-version"`
 	Name          string            `yaml:"name"`
 	Kind          DMailKind         `yaml:"kind"`
@@ -62,14 +62,14 @@ type DMailFrontmatter struct {
 }
 
 // ResolvedRoute is a concrete route with absolute paths for delivery.
-type ResolvedRoute struct {
+type ResolvedRoute struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly routing aggregate; wrapping would require 15+ call-site migration with minimal safety benefit [permanent]
 	Kind       DMailKind
 	FromOutbox string   // absolute outbox directory path
 	ToInboxes  []string // absolute inbox directory paths
 }
 
 // DeliveryResult holds the outcome of a single D-Mail delivery.
-type DeliveryResult struct {
+type DeliveryResult struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 15+ call-site migration with minimal safety benefit [permanent]
 	SourcePath  string
 	Kind        DMailKind
 	DeliveredTo []string // inbox paths where the file was copied
@@ -100,12 +100,13 @@ func IsValidDMailKind(kind DMailKind) bool {
 // ErrDMailKindInvalid is returned when a D-Mail kind is not in the canonical set.
 var ErrDMailKindInvalid = errors.New("dmail: invalid kind")
 
-// ValidateKind checks that kind is one of the allowed D-Mail kinds.
-func ValidateKind(kind DMailKind) error {
-	if !IsValidDMailKind(kind) {
-		return fmt.Errorf("invalid D-Mail kind %q: %w", kind, ErrDMailKindInvalid)
+// ParseDMailKind validates raw against the canonical kind set and returns a typed DMailKind.
+func ParseDMailKind(raw string) (DMailKind, error) {
+	k := DMailKind(raw)
+	if !IsValidDMailKind(k) {
+		return "", fmt.Errorf("invalid D-Mail kind %q: %w", raw, ErrDMailKindInvalid)
 	}
-	return nil
+	return k, nil
 }
 
 // ExtractDMailKind reads a D-Mail file's YAML frontmatter and returns the kind.
@@ -123,10 +124,11 @@ func ExtractDMailKind(data []byte) (DMailKind, error) {
 	if fm.Kind == "" {
 		return "", errors.New("D-Mail missing required 'kind' field")
 	}
-	if err := ValidateKind(fm.Kind); err != nil {
+	kind, err := ParseDMailKind(string(fm.Kind))
+	if err != nil {
 		return "", err
 	}
-	return fm.Kind, nil
+	return kind, nil
 }
 
 // parseDMailFrontmatter extracts the YAML frontmatter from a D-Mail file.

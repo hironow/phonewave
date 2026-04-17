@@ -158,16 +158,16 @@ description: "Unsupported schema version"
 	}
 }
 
-func TestValidateKind_CIResult(t *testing.T) {
+func TestParseDMailKind_CIResult(t *testing.T) {
 	// given
 	kind := "ci-result"
 
 	// when
-	err := domain.ValidateKind(domain.DMailKind(kind))
+	_, err := domain.ParseDMailKind(kind)
 
 	// then
 	if err != nil {
-		t.Errorf("domain.ValidateKind(%q) = %v, want nil", kind, err)
+		t.Errorf("domain.ParseDMailKind(%q) = %v, want nil", kind, err)
 	}
 }
 
@@ -197,25 +197,25 @@ Implementation needs revision.
 	}
 }
 
-func TestValidateKind_DesignFeedback(t *testing.T) {
-	if err := domain.ValidateKind("design-feedback"); err != nil {
+func TestParseDMailKind_DesignFeedback(t *testing.T) {
+	if _, err := domain.ParseDMailKind("design-feedback"); err != nil {
 		t.Errorf("expected design-feedback to be valid, got: %v", err)
 	}
 }
 
-func TestValidateKind_ImplementationFeedback(t *testing.T) {
-	if err := domain.ValidateKind("implementation-feedback"); err != nil {
+func TestParseDMailKind_ImplementationFeedback(t *testing.T) {
+	if _, err := domain.ParseDMailKind("implementation-feedback"); err != nil {
 		t.Errorf("expected implementation-feedback to be valid, got: %v", err)
 	}
 }
 
-func TestValidateKind_OldFeedback_Invalid(t *testing.T) {
-	if err := domain.ValidateKind("feedback"); err == nil {
+func TestParseDMailKind_OldFeedback_Invalid(t *testing.T) {
+	if _, err := domain.ParseDMailKind("feedback"); err == nil {
 		t.Error("expected feedback to be invalid after kind split")
 	}
 }
 
-func TestValidateKind(t *testing.T) {
+func TestParseDMailKind(t *testing.T) {
 	tests := []struct {
 		kind    string
 		wantErr bool
@@ -235,12 +235,12 @@ func TestValidateKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.kind, func(t *testing.T) {
-			err := domain.ValidateKind(domain.DMailKind(tt.kind))
+			_, err := domain.ParseDMailKind(tt.kind)
 			if tt.wantErr && err == nil {
-				t.Errorf("domain.ValidateKind(%q) = nil, want error", tt.kind)
+				t.Errorf("domain.ParseDMailKind(%q) = nil, want error", tt.kind)
 			}
 			if !tt.wantErr && err != nil {
-				t.Errorf("domain.ValidateKind(%q) = %v, want nil", tt.kind, err)
+				t.Errorf("domain.ParseDMailKind(%q) = %v, want nil", tt.kind, err)
 			}
 		})
 	}

@@ -131,7 +131,7 @@ func countRouteFailures(reader port.InsightReader, route string) int {
 		return 0
 	}
 	count := 0
-	for _, entry := range file.Entries {
+	for _, entry := range file.All() {
 		if entry.Extra["route"] == route {
 			count++
 		}

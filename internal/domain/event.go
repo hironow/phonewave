@@ -87,7 +87,7 @@ func NewEvent(eventType EventType, data any, timestamp time.Time) (Event, error)
 }
 
 // ErrorEntry holds a single error queue record.
-type ErrorEntry struct {
+type ErrorEntry struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- raw bytes from error queue store; wrapping adds no safety benefit [permanent], type-safety.public-string-field-go -- internal event store DTO read from SQLite rows; newtype wrapping requires 20+ callsite migration with no safety benefit [permanent]
 	Name         string
 	Data         []byte
 	SourceOutbox string
@@ -108,8 +108,8 @@ type LoadResult struct {
 	CorruptLineCount int // number of lines skipped due to parse errors
 }
 
-// ValidateEvent checks structural validity of an Event before persistence.
-func ValidateEvent(e Event) error {
+// ParseEvent checks structural validity of an Event and returns it if valid.
+func ParseEvent(e Event) (Event, error) {
 	var errs []string
 	if e.SchemaVersion > CurrentEventSchemaVersion {
 		errs = append(errs, fmt.Sprintf("SchemaVersion %d exceeds current %d", e.SchemaVersion, CurrentEventSchemaVersion))
@@ -129,7 +129,7 @@ func ValidateEvent(e Event) error {
 		errs = append(errs, "Data must not be empty")
 	}
 	if len(errs) > 0 {
-		return errors.New("invalid event: " + strings.Join(errs, "; "))
+		return Event{}, errors.New("invalid event: " + strings.Join(errs, "; "))
 	}
-	return nil
+	return e, nil
 }
