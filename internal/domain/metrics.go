@@ -7,7 +7,7 @@ import (
 )
 
 // DeliveryMetrics holds delivery counts for success rate calculation.
-type DeliveryMetrics struct {
+type DeliveryMetrics struct { // nosemgrep: structure.multiple-exported-structs-go -- metrics family (DeliveryMetrics/BucketMetrics/HealthTimeSeries) is cohesive time-series metrics type set [permanent]
 	Delivered int `json:"delivered"`
 	Failed    int `json:"failed"`
 	Retried   int `json:"retried"`
@@ -34,7 +34,7 @@ func FormatSuccessRate(rate float64, success, total int) string {
 }
 
 // BucketMetrics holds aggregated delivery metrics for a single time bucket.
-type BucketMetrics struct {
+type BucketMetrics struct { // nosemgrep: structure.multiple-exported-structs-go -- metrics family; see DeliveryMetrics [permanent]
 	Start        time.Time `json:"start"`
 	Delivered    int       `json:"delivered"`
 	Failed       int       `json:"failed"`

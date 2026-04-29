@@ -3,7 +3,7 @@ package domain
 import "time"
 
 // InitCommand represents the intent to initialize phonewave configuration.
-type InitCommand struct {
+type InitCommand struct { // nosemgrep: structure.multiple-exported-structs-go -- command family (InitCommand/RunDaemonCommand/AddRepoCommand/RemoveRepoCommand/SyncCommand/StatusCommand) is cohesive command-value-object set; all represent domain intents [permanent]
 	repoPaths  NonEmptyRepoPaths
 	configPath ConfigPath
 }
@@ -16,7 +16,7 @@ func (c InitCommand) RepoPaths() NonEmptyRepoPaths { return c.repoPaths }
 func (c InitCommand) ConfigPath() ConfigPath       { return c.configPath }
 
 // RunDaemonCommand represents the intent to start the phonewave daemon.
-type RunDaemonCommand struct {
+type RunDaemonCommand struct { // nosemgrep: structure.multiple-exported-structs-go -- command family; see InitCommand [permanent]
 	verbose       bool
 	dryRun        bool
 	retryInterval RetryInterval
@@ -43,7 +43,7 @@ func (c RunDaemonCommand) MaxRetriesInt() int           { return c.maxRetries.In
 func (c RunDaemonCommand) IdleTimeout() time.Duration   { return c.idleTimeout }
 
 // AddRepoCommand represents the intent to add a repository to phonewave.
-type AddRepoCommand struct {
+type AddRepoCommand struct { // nosemgrep: structure.multiple-exported-structs-go -- command family; see InitCommand [permanent]
 	repoPath RepoPath
 }
 
@@ -54,7 +54,7 @@ func NewAddRepoCommand(repoPath RepoPath) AddRepoCommand {
 func (c AddRepoCommand) RepoPath() RepoPath { return c.repoPath }
 
 // RemoveRepoCommand represents the intent to remove a repository from phonewave.
-type RemoveRepoCommand struct {
+type RemoveRepoCommand struct { // nosemgrep: structure.multiple-exported-structs-go -- command family; see InitCommand [permanent]
 	repoPath RepoPath
 }
 
@@ -65,7 +65,7 @@ func NewRemoveRepoCommand(repoPath RepoPath) RemoveRepoCommand {
 func (c RemoveRepoCommand) RepoPath() RepoPath { return c.repoPath }
 
 // SyncCommand represents the intent to synchronize all watched repositories.
-type SyncCommand struct{}
+type SyncCommand struct{} // nosemgrep: structure.multiple-exported-structs-go -- command family; see InitCommand [permanent]
 
 // StatusCommand represents the intent to display phonewave daemon status.
 type StatusCommand struct{}

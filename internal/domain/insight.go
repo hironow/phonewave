@@ -14,7 +14,7 @@ import (
 const InsightSchemaVersion = "1"
 
 // InsightEntry represents a single semantic insight with 6 required axes + optional extras.
-type InsightEntry struct {
+type InsightEntry struct { // nosemgrep: structure.multiple-exported-structs-go -- insight family (InsightEntry/InsightFile/InsightContext/InsightSummary) is cohesive insight-ledger type set [permanent]
 	Title       string
 	What        string
 	Why         string
@@ -26,7 +26,7 @@ type InsightEntry struct {
 }
 
 // InsightFile is the on-disk representation of an insight ledger file.
-type InsightFile struct {
+type InsightFile struct { // nosemgrep: structure.multiple-exported-structs-go -- insight family; see InsightEntry [permanent]
 	SchemaVersion string    `yaml:"insight-schema-version"`
 	Kind          string    `yaml:"kind"`
 	Tool          string    `yaml:"tool"`
@@ -61,7 +61,7 @@ type insightFrontmatter struct {
 }
 
 // InsightContext is the optional context field added to D-Mail envelopes.
-type InsightContext struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON/YAML wire-format DTO in D-Mail envelope; custom marshal would break envelope compat [permanent]
+type InsightContext struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- insight family; see InsightEntry [permanent]
 	Insights []InsightSummary `yaml:"insights,omitempty" json:"insights,omitempty"`
 }
 

@@ -64,7 +64,7 @@ const (
 	MetadataImprovementSchemaVersion = "improvement_schema_version"
 )
 
-type CorrectionMetadata struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON/YAML wire-format event metadata; custom marshal would break improvement event compat [permanent]
+type CorrectionMetadata struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- improvement family (CorrectionMetadata/ImprovementEvent) is cohesive improvement event type set [permanent]
 	SchemaVersion       string
 	FailureType         FailureType
 	Severity            Severity

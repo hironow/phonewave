@@ -5,27 +5,27 @@ import (
 )
 
 // Endpoint represents a discovered tool endpoint within a repository.
-type Endpoint struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
+type Endpoint struct { // nosemgrep: structure.multiple-exported-structs-go,structure.exported-struct-and-interface-go,first-class-collection.raw-slice-field-domain-go -- config family (Endpoint/Config/RepoConfig/EndpointConfig) are cohesive YAML config types; precede ApproverConfig interface in same file [permanent]
 	Dir      string   // dot-directory name, e.g. ".siren"
 	Produces []string // list of kind values this endpoint produces
 	Consumes []string // list of kind values this endpoint consumes
 }
 
 // Config is the top-level phonewave config.yaml structure.
-type Config struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
+type Config struct { // nosemgrep: structure.multiple-exported-structs-go,structure.exported-struct-and-interface-go,first-class-collection.raw-slice-field-domain-go -- config family; see Endpoint [permanent]
 	LastSynced   time.Time     `yaml:"last_synced"`
 	Repositories []RepoConfig  `yaml:"repositories"`
 	Routes       []RouteConfig `yaml:"routes"`
 }
 
 // RepoConfig holds configuration for a single repository.
-type RepoConfig struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
+type RepoConfig struct { // nosemgrep: structure.multiple-exported-structs-go,structure.exported-struct-and-interface-go,first-class-collection.raw-slice-field-domain-go -- config family; see Endpoint [permanent]
 	Path      string           `yaml:"path"`
 	Endpoints []EndpointConfig `yaml:"endpoints"`
 }
 
 // EndpointConfig holds configuration for a single endpoint within a repo.
-type EndpointConfig struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- internal YAML config; fields exported for yaml.Unmarshal [permanent]
+type EndpointConfig struct { // nosemgrep: structure.multiple-exported-structs-go,structure.exported-struct-and-interface-go,first-class-collection.raw-slice-field-domain-go -- config family; see Endpoint [permanent]
 	Dir      string   `yaml:"dir"`
 	Produces []string `yaml:"produces,flow"`
 	Consumes []string `yaml:"consumes,flow"`
@@ -39,7 +39,7 @@ type ApproverConfig interface {
 }
 
 // FlagApproverConfig adapts CLI flag values to the ApproverConfig interface.
-type FlagApproverConfig struct {
+type FlagApproverConfig struct { // nosemgrep: structure.multiple-exported-structs-go -- config family; see Endpoint [permanent]
 	AutoApprove bool
 	ApproveCmd  string
 }
@@ -51,14 +51,14 @@ func (f FlagApproverConfig) IsAutoApprove() bool { return f.AutoApprove }
 func (f FlagApproverConfig) ApproveCmdString() string { return f.ApproveCmd }
 
 // AddResult holds the result of an add operation.
-type AddResult struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 10+ call-site migration with minimal safety benefit [permanent]
+type AddResult struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- config family; see Endpoint [permanent]
 	Orphans    OrphanReport
 	Warnings   []string
 	RouteCount int
 }
 
 // InitResult holds the result of an init operation.
-type InitResult struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 10+ call-site migration with minimal safety benefit [permanent]
+type InitResult struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- config family; see Endpoint [permanent]
 	Config    *Config
 	Orphans   OrphanReport
 	RepoCount int
@@ -66,21 +66,21 @@ type InitResult struct { // nosemgrep: first-class-collection.raw-slice-field-do
 }
 
 // EndpointDiff describes a change to an endpoint during sync.
-type EndpointDiff struct {
+type EndpointDiff struct { // nosemgrep: structure.multiple-exported-structs-go -- config family; see Endpoint [permanent]
 	Repo   string
 	Dir    string
 	Change string // "added", "removed", "changed"
 }
 
 // RouteDiff describes a change to a route during sync.
-type RouteDiff struct {
+type RouteDiff struct { // nosemgrep: structure.multiple-exported-structs-go -- config family; see Endpoint [permanent]
 	Kind   string
 	From   string
 	Change string // "added", "removed"
 }
 
 // SyncReport holds the result of a sync operation including change diffs.
-type SyncReport struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly result view; wrapping would require 10+ call-site migration with minimal safety benefit [permanent]
+type SyncReport struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- config family; see Endpoint [permanent]
 	Orphans         OrphanReport
 	EndpointChanges []EndpointDiff
 	RouteChanges    []RouteDiff

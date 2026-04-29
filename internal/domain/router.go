@@ -6,7 +6,7 @@ import (
 )
 
 // Route represents a derived routing rule for a D-Mail kind.
-type Route struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly routing aggregate; wrapping would require 20+ call-site migration with minimal safety benefit [permanent]
+type Route struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- router family (Route/OrphanReport) is cohesive routing type set [permanent]
 	Kind  string   // D-Mail kind (e.g. "specification", "report", "design-feedback")
 	From  string   // source outbox path relative to repository (e.g. ".siren/outbox")
 	To    []string // target inbox paths relative to repository (e.g. [".expedition/inbox"])

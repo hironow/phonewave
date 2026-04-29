@@ -2,7 +2,7 @@ package domain
 
 // UnifiedCheck is the normalized check format across all 4 TAP tools.
 // Each tool's doctor output is converted to this shape for aggregation.
-type UnifiedCheck struct {
+type UnifiedCheck struct { // nosemgrep: structure.multiple-exported-structs-go -- unified doctor family (UnifiedCheck/ToolSection/UnifiedDoctorReport) is cohesive cross-tool doctor READ MODEL set [permanent]
 	Name    string `json:"name"`
 	Status  string `json:"status"` // "OK", "FAIL", "WARN", "SKIP", "FIX"
 	Message string `json:"message"`
@@ -10,7 +10,7 @@ type UnifiedCheck struct {
 }
 
 // ToolSection groups checks by tool.
-type ToolSection struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON wire-format READ MODEL for unified doctor output; custom marshal would break JSON compat [permanent]
+type ToolSection struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- unified doctor family; see UnifiedCheck [permanent]
 	Tool   string         `json:"tool"`
 	Path   string         `json:"path,omitempty"` // repo path for non-phonewave tools
 	Checks []UnifiedCheck `json:"checks"`
