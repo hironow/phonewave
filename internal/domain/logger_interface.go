@@ -1,7 +1,7 @@
 package domain
 
 // Logger provides structured log output. Implementations must be goroutine-safe.
-type Logger interface {
+type Logger interface { // nosemgrep: structure.multiple-exported-interfaces-go -- logger port family (Logger/BannerLogger) must co-locate; NopLogger null-object requires same package as Logger interface [permanent]
 	Info(format string, args ...any)
 	OK(format string, args ...any)
 	Warn(format string, args ...any)
@@ -10,7 +10,7 @@ type Logger interface {
 }
 
 // NopLogger is a no-op logger for testing and quiet mode.
-type NopLogger struct{}
+type NopLogger struct{} // nosemgrep: structure.exported-struct-and-interface-go -- logger port family; NopLogger null-object must co-locate with Logger and BannerLogger interfaces [permanent]
 
 func (*NopLogger) Info(string, ...any)  {}
 func (*NopLogger) OK(string, ...any)    {}

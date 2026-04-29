@@ -8,7 +8,7 @@ import (
 // SilentError wraps an error whose message has already been printed to stderr
 // by the command itself. main.go should suppress output for this error
 // while still honouring the exit code.
-type SilentError struct{ Err error }
+type SilentError struct{ Err error } // nosemgrep: structure.multiple-exported-structs-go -- phonewave domain family (SilentError/ResolvedState) are cohesive core domain types [permanent]
 
 func (e *SilentError) Error() string { return e.Err.Error() }
 func (e *SilentError) Unwrap() error { return e.Err }

@@ -10,7 +10,7 @@ import (
 )
 
 // IndexEntry represents one line in the archive index JSONL file.
-type IndexEntry struct {
+type IndexEntry struct { // nosemgrep: structure.multiple-exported-structs-go -- delivery family (IndexEntry/ErrorMetadata/DeliveryFlushed/StagedDelivery/DMailFrontmatter/ResolvedRoute/DeliveryResult) is cohesive D-Mail delivery type set [permanent]
 	Timestamp string `json:"ts"`
 	Operation string `json:"op"`
 	Issue     string `json:"issue"`
@@ -21,7 +21,7 @@ type IndexEntry struct {
 }
 
 // ErrorMetadata holds metadata for a failed D-Mail stored as a .err sidecar.
-type ErrorMetadata struct { // nosemgrep: type-safety.public-string-field-go -- YAML wire-format DTO; string fields map directly to YAML keys, newtype wrapping breaks yaml.Unmarshal [permanent]
+type ErrorMetadata struct { // nosemgrep: structure.multiple-exported-structs-go,type-safety.public-string-field-go -- delivery family; see IndexEntry [permanent]
 	SourceOutbox string    `yaml:"source_outbox"`
 	Kind         DMailKind `yaml:"kind"`
 	OriginalName string    `yaml:"original_name"`
@@ -37,20 +37,20 @@ const SupportedDMailSchemaVersion = "1"
 const UnknownKind = "unknown"
 
 // DeliveryFlushed represents a single target that was successfully flushed.
-type DeliveryFlushed struct {
+type DeliveryFlushed struct { // nosemgrep: structure.multiple-exported-structs-go -- delivery family; see IndexEntry [permanent]
 	DMailPath string
 	Target    string
 }
 
 // StagedDelivery represents an unflushed delivery intent.
-type StagedDelivery struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- raw bytes for unflushed delivery staging; wrapping adds no safety benefit [permanent]
+type StagedDelivery struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- delivery family; see IndexEntry [permanent]
 	DMailPath string
 	Target    string
 	Data      []byte
 }
 
 // DMailFrontmatter holds the parsed frontmatter of a D-Mail file.
-type DMailFrontmatter struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON/YAML wire-format DTO; custom marshal would break D-Mail envelope compat [permanent]
+type DMailFrontmatter struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- delivery family; see IndexEntry [permanent]
 	SchemaVersion string            `yaml:"dmail-schema-version"`
 	Name          string            `yaml:"name"`
 	Kind          DMailKind         `yaml:"kind"`
@@ -62,7 +62,7 @@ type DMailFrontmatter struct { // nosemgrep: first-class-collection.raw-slice-fi
 }
 
 // ResolvedRoute is a concrete route with absolute paths for delivery.
-type ResolvedRoute struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- read-mostly routing aggregate; wrapping would require 15+ call-site migration with minimal safety benefit [permanent]
+type ResolvedRoute struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- delivery family; see IndexEntry [permanent]
 	Kind       DMailKind
 	FromOutbox string   // absolute outbox directory path
 	ToInboxes  []string // absolute inbox directory paths

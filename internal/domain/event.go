@@ -57,7 +57,7 @@ func AllValidEventTypes() map[EventType]bool {
 const CurrentEventSchemaVersion uint8 = 1
 
 // Event is the immutable event envelope persisted to the event store.
-type Event struct {
+type Event struct { // nosemgrep: structure.multiple-exported-structs-go -- event family (Event/ErrorEntry/AppendResult/LoadResult) is cohesive ES event type set [permanent]
 	SchemaVersion uint8           `json:"schema_version,omitempty"`
 	ID            string          `json:"id"`
 	Type          EventType       `json:"type"`
@@ -87,7 +87,7 @@ func NewEvent(eventType EventType, data any, timestamp time.Time) (Event, error)
 }
 
 // ErrorEntry holds a single error queue record.
-type ErrorEntry struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- raw bytes from error queue store; wrapping adds no safety benefit [permanent], type-safety.public-string-field-go -- internal event store DTO read from SQLite rows; newtype wrapping requires 20+ callsite migration with no safety benefit [permanent]
+type ErrorEntry struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go,type-safety.public-string-field-go -- event family; see Event [permanent]
 	Name         string
 	Data         []byte
 	SourceOutbox string
@@ -98,7 +98,7 @@ type ErrorEntry struct { // nosemgrep: first-class-collection.raw-slice-field-do
 }
 
 // AppendResult captures metrics from an event store Append operation.
-type AppendResult struct {
+type AppendResult struct { // nosemgrep: structure.multiple-exported-structs-go -- event family; see Event [permanent]
 	BytesWritten int // total bytes written to event files
 }
 

@@ -33,7 +33,7 @@ func (s CheckStatus) StatusLabel() string {
 }
 
 // DoctorCheck holds the outcome of a single doctor check.
-type DoctorCheck struct {
+type DoctorCheck struct { // nosemgrep: structure.multiple-exported-structs-go -- doctor family (DoctorCheck/DaemonHealthStatus/EndpointHealth/DoctorReport) is cohesive health-check type set [permanent]
 	Name    string
 	Status  CheckStatus
 	Message string
@@ -41,14 +41,14 @@ type DoctorCheck struct {
 }
 
 // DaemonHealthStatus holds daemon-related health info.
-type DaemonHealthStatus struct {
+type DaemonHealthStatus struct { // nosemgrep: structure.multiple-exported-structs-go -- doctor family; see DoctorCheck [permanent]
 	Checked bool `json:"checked"`
 	Running bool `json:"running"`
 	PID     int  `json:"pid,omitempty"`
 }
 
 // EndpointHealth holds health info for a single endpoint.
-type EndpointHealth struct { // nosemgrep: first-class-collection.raw-slice-field-domain-go -- JSON wire-format DTO for doctor output; custom marshal would break JSON compat [permanent]
+type EndpointHealth struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go -- doctor family; see DoctorCheck [permanent]
 	Repo     string   `json:"repo"`
 	Dir      string   `json:"dir"`
 	Produces []string `json:"produces,omitempty"`

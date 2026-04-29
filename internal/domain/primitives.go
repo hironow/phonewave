@@ -25,7 +25,7 @@ func (m TrackingMode) IsWave() bool   { return m == ModeWave }
 func (m TrackingMode) String() string { return string(m) }
 
 // RepoPath is an always-valid, non-empty repository path.
-type RepoPath struct{ v string }
+type RepoPath struct{ v string } // nosemgrep: structure.multiple-exported-structs-go -- primitives family (RepoPath/ConfigPath/NonEmptyRepoPaths/RetryInterval/MaxRetries) is cohesive newtype primitive set [permanent]
 
 func NewRepoPath(raw string) (RepoPath, error) {
 	if raw == "" {
@@ -37,7 +37,7 @@ func NewRepoPath(raw string) (RepoPath, error) {
 func (r RepoPath) String() string { return r.v }
 
 // ConfigPath is an always-valid, non-empty configuration file path.
-type ConfigPath struct{ v string }
+type ConfigPath struct{ v string } // nosemgrep: structure.multiple-exported-structs-go -- primitives family; see RepoPath [permanent]
 
 func NewConfigPath(raw string) (ConfigPath, error) {
 	if raw == "" {
@@ -49,7 +49,7 @@ func NewConfigPath(raw string) (ConfigPath, error) {
 func (c ConfigPath) String() string { return c.v }
 
 // NonEmptyRepoPaths guarantees at least one RepoPath.
-type NonEmptyRepoPaths struct{ v []RepoPath }
+type NonEmptyRepoPaths struct{ v []RepoPath } // nosemgrep: structure.multiple-exported-structs-go -- primitives family; see RepoPath [permanent]
 
 func NewNonEmptyRepoPaths(paths []RepoPath) (NonEmptyRepoPaths, error) {
 	if len(paths) == 0 {
@@ -69,7 +69,7 @@ func (n NonEmptyRepoPaths) Strings() []string {
 }
 
 // RetryInterval is an always-valid, positive duration for retry intervals.
-type RetryInterval struct{ v time.Duration }
+type RetryInterval struct{ v time.Duration } // nosemgrep: structure.multiple-exported-structs-go -- primitives family; see RepoPath [permanent]
 
 func NewRetryInterval(d time.Duration) (RetryInterval, error) {
 	if d <= 0 {

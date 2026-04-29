@@ -22,7 +22,7 @@ const (
 )
 
 // InitEntry represents a single init action.
-type InitEntry struct {
+type InitEntry struct { // nosemgrep: structure.multiple-exported-structs-go -- init session family (InitEntry/InitResult) is cohesive init-action type set; must co-locate with Add factory method [permanent]
 	Path   string     // relative path (e.g. ".siren/config.yaml")
 	Action InitAction // what happened
 	Detail string     // optional detail (e.g. warning message)

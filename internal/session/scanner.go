@@ -19,13 +19,13 @@ const (
 )
 
 // DMailCapability represents a single D-Mail kind declaration.
-type DMailCapability struct {
+type DMailCapability struct { // nosemgrep: structure.multiple-exported-structs-go -- scanner family (DMailCapability/SkillMetadata/SkillFrontmatter) is cohesive SKILL.md parsing type set [permanent]
 	Kind        string `yaml:"kind"`
 	Description string `yaml:"description"`
 }
 
 // SkillMetadata holds D-Mail extension fields within SKILL.md metadata.
-type SkillMetadata struct {
+type SkillMetadata struct { // nosemgrep: structure.multiple-exported-structs-go -- scanner family; see DMailCapability [permanent]
 	SchemaVersion string            `yaml:"dmail-schema-version"`
 	Produces      []DMailCapability `yaml:"produces"`
 	Consumes      []DMailCapability `yaml:"consumes"`
