@@ -87,7 +87,7 @@ func NewEvent(eventType EventType, data any, timestamp time.Time) (Event, error)
 }
 
 // ErrorEntry holds a single error queue record.
-type ErrorEntry struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go,type-safety.public-string-field-go -- event family; see Event [permanent]
+type ErrorEntry struct { // nosemgrep: structure.multiple-exported-structs-go,first-class-collection.raw-slice-field-domain-go,domain-primitives.public-string-field-go -- event family; see Event [permanent]
 	Name         string
 	Data         []byte
 	SourceOutbox string

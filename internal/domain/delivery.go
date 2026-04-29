@@ -21,7 +21,7 @@ type IndexEntry struct { // nosemgrep: structure.multiple-exported-structs-go --
 }
 
 // ErrorMetadata holds metadata for a failed D-Mail stored as a .err sidecar.
-type ErrorMetadata struct { // nosemgrep: structure.multiple-exported-structs-go,type-safety.public-string-field-go -- delivery family; see IndexEntry [permanent]
+type ErrorMetadata struct { // nosemgrep: structure.multiple-exported-structs-go,domain-primitives.public-string-field-go -- delivery family; see IndexEntry [permanent]
 	SourceOutbox string    `yaml:"source_outbox"`
 	Kind         DMailKind `yaml:"kind"`
 	OriginalName string    `yaml:"original_name"`

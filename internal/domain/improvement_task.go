@@ -21,7 +21,7 @@ type ImprovementTask struct {
 }
 
 // NewImprovementTask creates a task with a unique ID and computed expiry.
-func NewImprovementTask(sourceEvent, targetAgent, action string, ft FailureType, sev Severity, ttl time.Duration) ImprovementTask { // nosemgrep: type-safety.multiple-string-params-go -- sourceEvent/targetAgent/action are semantically distinct task fields; newtype wrapping requires 10+ callsite migration with no safety benefit [permanent]
+func NewImprovementTask(sourceEvent, targetAgent, action string, ft FailureType, sev Severity, ttl time.Duration) ImprovementTask { // nosemgrep: domain-primitives.multiple-string-params-go -- sourceEvent/targetAgent/action are semantically distinct task fields; newtype wrapping requires 10+ callsite migration with no safety benefit [permanent]
 	now := time.Now().UTC()
 	return ImprovementTask{
 		ID:              uuid.New().String(),

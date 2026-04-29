@@ -76,13 +76,13 @@ func (r *DoctorReport) AddWarn(name, msg string) {
 }
 
 // AddErrorWithHint appends a FAIL check with a remediation hint.
-func (r *DoctorReport) AddErrorWithHint(name, msg, hint string) { // nosemgrep: type-safety.multiple-string-params-go -- name/msg/hint are semantically distinct display fields; newtype wrapping adds no safety benefit [permanent]
+func (r *DoctorReport) AddErrorWithHint(name, msg, hint string) { // nosemgrep: domain-primitives.multiple-string-params-go -- name/msg/hint are semantically distinct display fields; newtype wrapping adds no safety benefit [permanent]
 	r.Healthy = false
 	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckFail, Message: msg, Hint: hint})
 }
 
 // AddWarnWithHint appends a WARN check with a remediation hint.
-func (r *DoctorReport) AddWarnWithHint(name, msg, hint string) { // nosemgrep: type-safety.multiple-string-params-go -- name/msg/hint are semantically distinct display fields; newtype wrapping adds no safety benefit [permanent]
+func (r *DoctorReport) AddWarnWithHint(name, msg, hint string) { // nosemgrep: domain-primitives.multiple-string-params-go -- name/msg/hint are semantically distinct display fields; newtype wrapping adds no safety benefit [permanent]
 	r.Checks = append(r.Checks, DoctorCheck{Name: name, Status: CheckWarn, Message: msg, Hint: hint})
 }
 
