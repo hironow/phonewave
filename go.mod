@@ -3,11 +3,11 @@ module github.com/hironow/phonewave
 go 1.26
 
 require (
-	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/alitto/pond/v2 v2.7.1
 	github.com/creativeprojects/go-selfupdate v1.5.2
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/fsnotify/fsnotify v1.9.0
+	github.com/fsnotify/fsnotify v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
