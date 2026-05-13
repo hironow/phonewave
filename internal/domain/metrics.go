@@ -107,7 +107,7 @@ func AggregateHealthTimeSeries(events []Event, windowStart time.Time, bucketSize
 
 	result := HealthTimeSeries{
 		GeneratedAt: now,
-		Window:      fmt.Sprintf("%s", bucketSize*time.Duration(numBuckets)),
+		Window:      (bucketSize * time.Duration(numBuckets)).String(),
 		BucketSize:  bucketSize.String(),
 		Totals:      totals,
 	}

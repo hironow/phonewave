@@ -1,8 +1,8 @@
 package eventsource_test
 
 import (
-	"testing"
 	"context"
+	"testing"
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"

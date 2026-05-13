@@ -1,8 +1,8 @@
 package session_test
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"io"
 	"testing"
 	"time"

@@ -38,10 +38,10 @@ func snapshotRoutes(cfg *domain.Config) map[string]domain.RouteConfig {
 }
 
 // diffEndpoints computes the difference between old and new endpoint snapshots.
-func diffEndpoints(old, new_ map[string]domain.EndpointConfig) []domain.EndpointDiff {
+func diffEndpoints(old, latest map[string]domain.EndpointConfig) []domain.EndpointDiff {
 	var diffs []domain.EndpointDiff
 
-	for key, newEp := range new_ {
+	for key, newEp := range latest {
 		repo, dir := splitEndpointKey(key)
 		if oldEp, exists := old[key]; !exists {
 			diffs = append(diffs, domain.EndpointDiff{Repo: repo, Dir: dir, Change: "added"})
@@ -51,7 +51,7 @@ func diffEndpoints(old, new_ map[string]domain.EndpointConfig) []domain.Endpoint
 	}
 
 	for key := range old {
-		if _, exists := new_[key]; !exists {
+		if _, exists := latest[key]; !exists {
 			repo, dir := splitEndpointKey(key)
 			diffs = append(diffs, domain.EndpointDiff{Repo: repo, Dir: dir, Change: "removed"})
 		}
@@ -94,17 +94,17 @@ func slicesEqual(a, b []string) bool {
 }
 
 // diffRoutes computes the difference between old and new route snapshots.
-func diffRoutes(old, new_ map[string]domain.RouteConfig) []domain.RouteDiff {
+func diffRoutes(old, latest map[string]domain.RouteConfig) []domain.RouteDiff {
 	var diffs []domain.RouteDiff
 
-	for key, r := range new_ {
+	for key, r := range latest {
 		if _, exists := old[key]; !exists {
 			diffs = append(diffs, domain.RouteDiff{Kind: r.Kind, From: r.From, Change: "added"})
 		}
 	}
 
 	for key, r := range old {
-		if _, exists := new_[key]; !exists {
+		if _, exists := latest[key]; !exists {
 			diffs = append(diffs, domain.RouteDiff{Kind: r.Kind, From: r.From, Change: "removed"})
 		}
 	}
@@ -245,11 +245,7 @@ func Sync(ctx context.Context, cfg *domain.Config) (*domain.SyncReport, error) {
 
 			rc := domain.RepoConfig{Path: repoPath}
 			for _, ep := range endpoints {
-				rc.Endpoints = append(rc.Endpoints, domain.EndpointConfig{
-					Dir:      ep.Dir,
-					Produces: ep.Produces,
-					Consumes: ep.Consumes,
-				})
+				rc.Endpoints = append(rc.Endpoints, domain.EndpointConfig(ep))
 			}
 			return syncRepoResult{repoConfig: rc}
 		})

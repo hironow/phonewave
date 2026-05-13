@@ -77,10 +77,10 @@ type doctorCheckJSON struct {
 
 // doctorReportJSON is the JSON-serializable form of DoctorReport.
 type doctorReportJSON struct {
-	Healthy      bool                       `json:"healthy"`
-	Checks       []doctorCheckJSON          `json:"checks"`
-	Endpoints    []domain.EndpointHealth    `json:"endpoints,omitempty"`
-	DaemonStatus domain.DaemonHealthStatus  `json:"daemon_status"`
+	Healthy      bool                      `json:"healthy"`
+	Checks       []doctorCheckJSON         `json:"checks"`
+	Endpoints    []domain.EndpointHealth   `json:"endpoints,omitempty"`
+	DaemonStatus domain.DaemonHealthStatus `json:"daemon_status"`
 }
 
 // FormatDoctorJSON marshals a DoctorReport to indented JSON.

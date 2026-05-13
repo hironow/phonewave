@@ -16,8 +16,8 @@ type deliveryEventEmitter struct {
 	seqAlloc   port.SeqAllocator // nil = no SeqNr assignment
 	dispatcher port.EventDispatcher
 	logger     domain.Logger
-	deliveryID string // enriches events with CorrelationID
-	prevID     string // previous event ID for causation chain
+	deliveryID string          // enriches events with CorrelationID
+	prevID     string          // previous event ID for causation chain
 	ctx        context.Context //nolint:containedctx // stored for trace propagation into emit chain
 }
 

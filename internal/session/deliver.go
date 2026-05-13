@@ -79,7 +79,7 @@ func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []do
 	fileName := filepath.Base(dmailPath)
 	result := &domain.DeliveryResult{
 		SourcePath: dmailPath,
-		Kind: kind,
+		Kind:       kind,
 	}
 
 	// Stage delivery intent (transactional, dmailPath = full path for uniqueness)

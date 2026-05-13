@@ -33,4 +33,3 @@ type BannerLogger interface {
 	Header(toolName, version string)
 	Section(title string)
 }
-

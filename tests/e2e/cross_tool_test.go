@@ -223,12 +223,12 @@ func TestCrossTool_CorrectiveMetadataPreserved(t *testing.T) {
 	delivered := readFileInContainer(t, ctx, c, deliveredPath)
 
 	metadataFields := map[string]string{
-		"routing_mode":   "escalate",
-		"target_agent":   "paintress",
-		"provider_state": "active",
-		"correlation_id": "corr-e2e-001",
-		"trace_id":       "trace-e2e-001",
-		"owner_history":  "amadeus>paintress",
+		"routing_mode":    "escalate",
+		"target_agent":    "paintress",
+		"provider_state":  "active",
+		"correlation_id":  "corr-e2e-001",
+		"trace_id":        "trace-e2e-001",
+		"owner_history":   "amadeus>paintress",
 		"routing_history": "retry>escalate",
 	}
 	for key, want := range metadataFields {

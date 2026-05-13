@@ -102,11 +102,7 @@ type RouteConfig struct { // nosemgrep: first-class-collection.raw-slice-field-d
 func (c *Config) AddRepository(path string, endpoints []Endpoint) {
 	repo := RepoConfig{Path: path}
 	for _, ep := range endpoints {
-		repo.Endpoints = append(repo.Endpoints, EndpointConfig{
-			Dir:      ep.Dir,
-			Produces: ep.Produces,
-			Consumes: ep.Consumes,
-		})
+		repo.Endpoints = append(repo.Endpoints, EndpointConfig(ep))
 	}
 	c.Repositories = append(c.Repositories, repo)
 }
@@ -129,11 +125,7 @@ func (c *Config) UpdateRoutes() {
 	for _, repo := range c.Repositories {
 		var endpoints []Endpoint
 		for _, ep := range repo.Endpoints {
-			endpoints = append(endpoints, Endpoint{
-				Dir:      ep.Dir,
-				Produces: ep.Produces,
-				Consumes: ep.Consumes,
-			})
+			endpoints = append(endpoints, Endpoint(ep))
 		}
 		routes := DeriveRoutes(endpoints)
 		for _, r := range routes {
