@@ -145,7 +145,7 @@ type unflushedItem struct {
 //  2. Filesystem I/O (atomicWrite) outside any transaction
 //  3. Short write transaction per item to update status
 func (s *SQLiteDeliveryStore) FlushDeliveries(ctx context.Context) (results []domain.DeliveryFlushed, flushErr error) {
-	ctx, span := platform.Tracer.Start(ctx, "outbox.flush.deliveries") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
+	_, span := platform.Tracer.Start(ctx, "outbox.flush.deliveries") // nosemgrep: adr0003-otel-span-without-defer-end [permanent]
 	retryCount := 0
 	defer func() {
 		if flushErr != nil {

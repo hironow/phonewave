@@ -57,4 +57,3 @@ func PruneEventFiles(stateDir string, files []string) ([]string, error) {
 	}
 	return deleted, nil
 }
-

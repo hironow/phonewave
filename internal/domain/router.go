@@ -74,11 +74,7 @@ func DetectOrphansPerRepo(cfg *Config) OrphanReport {
 	for _, repo := range cfg.Repositories {
 		var endpoints []Endpoint
 		for _, ep := range repo.Endpoints {
-			endpoints = append(endpoints, Endpoint{
-				Dir:      ep.Dir,
-				Produces: ep.Produces,
-				Consumes: ep.Consumes,
-			})
+			endpoints = append(endpoints, Endpoint(ep))
 		}
 		report := DetectOrphans(endpoints)
 		for _, kind := range report.UnconsumedKinds {

@@ -46,9 +46,7 @@ func CheckRoutingConsistency(cfg *domain.Config) []domain.UnifiedCheck {
 		for _, repo := range cfg.Repositories {
 			var endpoints []domain.Endpoint
 			for _, ep := range repo.Endpoints {
-				endpoints = append(endpoints, domain.Endpoint{
-					Dir: ep.Dir, Produces: ep.Produces, Consumes: ep.Consumes,
-				})
+				endpoints = append(endpoints, domain.Endpoint(ep))
 			}
 			totalRoutes += len(domain.DeriveRoutes(endpoints))
 		}

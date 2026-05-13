@@ -34,7 +34,7 @@ func TestUpdateCmd_CheckFlag(t *testing.T) {
 		if sub.Name() == "update" {
 			f := sub.Flags().Lookup("check")
 			if f == nil {
-				t.Error("expected --check flag on update command")
+				t.Fatal("expected --check flag on update command")
 			}
 			if f.Shorthand != "C" {
 				t.Errorf("--check shorthand = %q, want %q", f.Shorthand, "C")

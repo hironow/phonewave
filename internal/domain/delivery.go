@@ -80,13 +80,13 @@ type DMailKind string
 
 // Canonical D-Mail kind constants.
 const (
-	KindSpecification    DMailKind = "specification"
-	KindReport           DMailKind = "report"
-	KindDesignFeedback   DMailKind = "design-feedback"
-	KindImplFeedback     DMailKind = "implementation-feedback"
-	KindConvergence      DMailKind = "convergence"
-	KindCIResult         DMailKind = "ci-result"
-	KindStallEscalation  DMailKind = "stall-escalation"
+	KindSpecification   DMailKind = "specification"
+	KindReport          DMailKind = "report"
+	KindDesignFeedback  DMailKind = "design-feedback"
+	KindImplFeedback    DMailKind = "implementation-feedback"
+	KindConvergence     DMailKind = "convergence"
+	KindCIResult        DMailKind = "ci-result"
+	KindStallEscalation DMailKind = "stall-escalation"
 )
 
 // validDMailKinds lists the allowed D-Mail kind values per schema v1.

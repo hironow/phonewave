@@ -30,7 +30,7 @@ type Daemon struct {
 	pool          pond.Pool
 	eventCh       chan fsnotify.Event // buffered channel for async event processing
 	session       *DaemonSession
-	bloomFilter   *domain.BloomFilter    // advisory dedup filter (nil = disabled)
+	bloomFilter   *domain.BloomFilter      // advisory dedup filter (nil = disabled)
 	cb            *platform.CircuitBreaker // delivery circuit breaker (nil = disabled)
 	dedupStore    port.DeliveryDedupStore  // exact-match dedup (nil = disabled)
 }
@@ -241,9 +241,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 				if d.cb != nil && d.hasErrorQueue() {
 					// Zero successes with pending entries → target degradation
 					pending, pendingErr := d.errorQueueStore().PendingCount(d.opts.MaxRetries)
-				if pendingErr != nil {
-					pending = 0
-				}
+					if pendingErr != nil {
+						pending = 0
+					}
 					if pending > 0 {
 						d.cb.RecordDeliveryError(domain.DeliveryErrorInfo{Kind: domain.DeliveryErrorTransient})
 					}
