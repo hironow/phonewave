@@ -1,0 +1,125 @@
+package platform_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/hironow/phonewave/internal/platform"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+)
+
+func TestRecordMCPInvocation_IncrementsCounterAndHistogram(t *testing.T) {
+	// given
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	origMeter := platform.Meter
+	platform.Meter = mp.Meter("test")
+	defer func() { platform.Meter = origMeter }()
+	ctx := context.Background()
+
+	// when
+	platform.RecordMCPInvocation(ctx, "phonewave.ping", "ok", 5*time.Millisecond)
+	platform.RecordMCPInvocation(ctx, "phonewave.outbox_status", "ok", 12*time.Millisecond)
+	platform.RecordMCPInvocation(ctx, "phonewave.ping", "ok", 3*time.Millisecond)
+
+	// then
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(ctx, &rm); err != nil {
+		t.Fatal(err)
+	}
+	if total := mcpSumCounter(t, rm, "mcp.tool.invocations"); total != 3 {
+		t.Errorf("invocations total = %d, want 3", total)
+	}
+	if count := mcpHistogramCount(t, rm, "mcp.tool.duration"); count != 3 {
+		t.Errorf("duration count = %d, want 3", count)
+	}
+}
+
+func TestRecordMCPInvocation_AttributesIncludeToolNameAndStatus(t *testing.T) {
+	// given
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	origMeter := platform.Meter
+	platform.Meter = mp.Meter("test")
+	defer func() { platform.Meter = origMeter }()
+	ctx := context.Background()
+
+	// when
+	platform.RecordMCPInvocation(ctx, "phonewave.inbox_status", "error", 2*time.Millisecond)
+
+	// then
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(ctx, &rm); err != nil {
+		t.Fatal(err)
+	}
+	foundTool, foundStatus := false, false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "mcp.tool.invocations" {
+				continue
+			}
+			sum := m.Data.(metricdata.Sum[int64])
+			for _, dp := range sum.DataPoints {
+				for _, attr := range dp.Attributes.ToSlice() {
+					if string(attr.Key) == "tool.name" && attr.Value.AsString() == "phonewave.inbox_status" {
+						foundTool = true
+					}
+					if string(attr.Key) == "result.status" && attr.Value.AsString() == "error" {
+						foundStatus = true
+					}
+				}
+			}
+		}
+	}
+	if !foundTool {
+		t.Error("expected tool.name=phonewave.inbox_status attribute on metric data point")
+	}
+	if !foundStatus {
+		t.Error("expected result.status=error attribute on metric data point")
+	}
+}
+
+// mcpSumCounter mirrors metrics_test.go::sumCounter but lives in this
+// external test package (= platform_test) since the white-box
+// metrics_test.go::sumCounter cannot be imported from here. Returns
+// the cumulative sum across all data points of the named counter.
+func mcpSumCounter(t *testing.T, rm metricdata.ResourceMetrics, name string) int64 {
+	t.Helper()
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == name {
+				sum := m.Data.(metricdata.Sum[int64])
+				var total int64
+				for _, dp := range sum.DataPoints {
+					total += dp.Value
+				}
+				return total
+			}
+		}
+	}
+	t.Fatalf("counter %q not found", name)
+	return 0
+}
+
+// mcpHistogramCount sums data point counts across the histogram metric
+// of the given name. Local helper namespaced to avoid collision.
+func mcpHistogramCount(t *testing.T, rm metricdata.ResourceMetrics, name string) uint64 {
+	t.Helper()
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			hist := m.Data.(metricdata.Histogram[float64])
+			var total uint64
+			for _, dp := range hist.DataPoints {
+				total += dp.Count
+			}
+			return total
+		}
+	}
+	t.Fatalf("histogram %q not found", name)
+	return 0
+}
