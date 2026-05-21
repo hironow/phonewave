@@ -1,86 +1,65 @@
 # Handover
 
-**Last updated:** 2026-05-21 (asia/tokyo, Phase 2d finalize)
+**Last updated:** 2026-05-22 (asia/tokyo, Phase 4 #2 dead-letter telemetry landed)
 **Updated by:** Claude Opus 4.7 session
 
 ## Current State
 
-`feat/jun15-mcp-pivot` long-lived branch 上で refs/issues/0027
-(jun15 MCP pivot v4) の Phase 2d (= phonewave optional visibility
-MCP) を 4 commit (scaffold + skeleton + docs/cli + ADR/handover)
-完了。 5 ツール pattern (paintress / sightjack / amadeus / dominator
-/ phonewave) symmetric を確立。
+jun15 MCP pivot (refs/issues/0027) **全 phase 完了 + archive 入り**。
+phonewave は LLM 非使用ツールだが、 cross-tool visibility のため
+optional MCP server を expose する pattern を Phase 2d で確立、 Phase 4
+#2 で dead-letter / oldest-age telemetry を追加。
 
-Phase 2d 完了内容:
+phonewave 固有の jun15 landmark:
 
-1. **`.semgrep/jun15-no-headless-llm.yaml`** (= 5 rule, preventive
-   gate のみ、 transitional exclude なし — phonewave は元から
-   `claude --print` 不使用)。
-2. **`phonewave mcp` MCP server** (`internal/session/mcp_server.go`)
-   = JSON-RPC 2.0 stdio、 4 MiB scanner buffer、 Phase 2d MVP として
-   `phonewave.ping` / `phonewave.outbox_status` /
-   `phonewave.inbox_status` を advertise + dispatch。 後 2 つは
-   visibility contract 固定 + stub。 5 test pass。
-3. **`phonewave mcp` cobra subcommand** (`internal/cmd/mcp.go`)
-   = 5 ツール全 attach Example 提示 + LLM 非使用 / 純粋 additive
-   旨を明示。
-4. **docs/cli regen** (= sub-D-1 相当、 docs/cli/phonewave_mcp.md
-   新規 + 14 既存 file の tab 形式 restore)。
-5. **ADR 0006-mcp-pivot.md** (= 5 ツール pattern 完成のための
-   architectural pin、 4 ツール ADR (paintress 0017 / sightjack
-   0018 / amadeus 0026 / dominator 0003) の symmetric counterpart)。
+- ADR 0006 (= `docs/adr/0006-mcp-pivot.md`) で architectural pin 固定
+- 3 MCP tool 全 real impl (= ping / outbox_status / inbox_status)
+- Phase 4 #2 (PR #149 `56e0b82`): `phonewave.outbox_status` /
+  `inbox_status` response に下記 2 field 追加:
+  - `dead_letter_count`: SQLite delivery store (`.run/delivery.db`)
+    の `DeadLetterCount()` を呼ぶ (db 不在 → 0)
+  - `oldest_age_seconds`: outbox / inbox dir 配下 file の最古 mtime
+    からの経過秒数 (空 → 0)
+- jun15 launch 前後の deadline 観察 (= dead-letter queue overflow /
+  D-Mail 滞留検出) に必要な指標を MCP 経由で session に提供
+- D-Mail consume には繋がない (= human-initiated constraint 維持)
+- `.semgrep/jun15-no-headless-llm.yaml` 5 rule は phonewave にも
+  permanent block で適用
 
 ## In Progress
 
-- branch: `feat/jun15-mcp-pivot` (= scaffold + 3 commit + ADR + 本
-  handover = 5 commit、 sub-D は必要時 post-merge fixup)
-- main merge は Phase 2d 完了後の PR 作成 + CI green +
-  squash-merge 待ち
-- 次 phase: refs/issues/0027 の Phase 2 (= 5 ツール横展開) 全完了
-  → Phase 3 finalize (= 公式 docs / migration guide / lessons
-  learned 集約) + MCP tool stubs の real implementation 化 +
-  cost monitoring 3 軸検証
+なし。 jun15 MCP pivot に関する作業は完了し refs 0027 は archive (=
+`tap/refs/HTMLification/docs/archive/0027-jun15-mcp-pivot.html`)。
 
 ## Next Actions
 
-1. `feat/jun15-mcp-pivot` に PR 作成 (= title: `feat(session):
-   Phase 2d phonewave optional MCP visibility (refs/issues/0027)`)
-2. CI を green まで監視 (= LLM 非使用なので docs-check 以外の
-   risk は小さい)
-3. squash-merge 完了後、 refs/issues/0027 を 5 ツール全完了に更新
-4. 次 phase へ (= real implementation + cost monitoring + Phase 3)
+なし (= Phase 4 #1-#4 全完了)。 後続作業候補は別 issue で fork:
+
+1. Phase 3 cost (c) Anthropic dashboard credit 0 verify (= 2026-06-15
+   launch 以降の operational evidence)
 
 ## Known Risks / Blockers
 
-- phonewave は LLM 使用なし + envelope decode なし + skill なしで
-  4 ツールに比べて軽量。 deprecate stub / 既存 test 削除 / e2e
-  t.Skip 等の cleanup work が全くないため CI fail の risk が低い。
-- ただし markdownlint と docgen が tab/space で互いに反発する quirk
-  に注意 (= docs/cli/ は docgen 出力 = tab 形式を canonical とする)。
+- phonewave は元々 LLM 非使用なので `claude --print` invocation 削除
+  は対象外、 daemon role (= D-Mail courier) は維持
+- `oldest_age_seconds` 計算は dir scan ベースなので large outbox では
+  O(N) コスト。 現状の D-Mail throughput では問題ない
 
 ## Context the Next Actor Needs
 
-- **canonical plan**: `refs/HTMLification/docs/issues/0027-jun15-mcp-pivot.html`
-- **paintress ADR 0017** / **sightjack ADR 0018** / **amadeus ADR 0026** / **dominator ADR 0003**
-- **phonewave ADR 0006**: `docs/adr/0006-mcp-pivot.md` (= 5 ツール
-  pattern 完成、 visibility-only)
-- **billing boundary 原則**: phonewave は LLM 非使用なので boundary
-  には触れないが、 5 ツール symmetric のために MCP server を追加
-  (= refs 0027 §4 'optional: visibility' 指定)
-- **semgrep gate**: `.semgrep/jun15-no-headless-llm.yaml` 5 rule、
-  preventive only (= 既存 違反 なし)
-- **MCP server tool 命名規約**: `<tool_name>.<verb>` (= 5 ツール
-  全 dot 区切り対称)
+- **canonical plan archive**: `tap/refs/HTMLification/docs/archive/0027-jun15-mcp-pivot.html`
+- **post-mortem**: `tap/refs/HTMLification/lessons/0027-jun15-mcp-pivot-post-mortem.html`
+- **billing boundary 原則**: LLM 発火は常に human-initiated、 daemon は route まで
+- **D-Mail 9-field envelope schema**: cross-tool contract base、 phonewave
+  は schema validation せず opaque file relay role に徹する
 
 ## Relevant Files and Commands
 
-- `docs/adr/0006-mcp-pivot.md` - 本 phase の architectural pin
-- `.semgrep/jun15-no-headless-llm.yaml` - billing-boundary gate (5
-  rule、 preventive only)
-- `internal/session/mcp_server.go` - phonewave MCP server (= Phase 2d
-  MVP scope、 3 tool stub)
+- `docs/adr/0006-mcp-pivot.md` - architectural pin
+- `.semgrep/jun15-no-headless-llm.yaml` - billing-boundary gate (5 rule)
+- `internal/session/mcp_server.go` - phonewave MCP server (3 tool real impl + dead-letter telemetry)
+- `internal/session/delivery_store.go` - SQLite delivery store (= `.run/delivery.db`)
 - `internal/cmd/mcp.go` - `phonewave mcp` cobra subcommand
-- `docs/cli/phonewave_mcp.md` - subcommand reference (= docgen 出力)
-- `just lint` - full lint
-- `just test` - phonewave test suite (= 全 pkg ok)
-- `just semgrep` - semgrep gate (= 0 findings 維持、 74 rules)
+- `just lint` - golangci-lint v2 + markdownlint (0 issues 維持)
+- `just semgrep` - semgrep gate (0 findings 維持)
+- `go test -count=1 ./...` - phonewave test suite
