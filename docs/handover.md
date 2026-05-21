@@ -28,15 +28,15 @@ test 削除 / e2e t.Skip 等の cleanup work は不要。
   Go CLI を MCP server data plane に縮約)
 - Phase 2d MVP scope (= refs 0027 §4 phonewave row、 optional
   visibility):
-  - [x] feat/jun15-mcp-pivot branch 作成 + scaffold commit (= 本 commit)
-  - [ ] MCP server endpoint (= `internal/session/mcp_server.go`)
+    - [x] feat/jun15-mcp-pivot branch 作成 + scaffold commit (= 本 commit)
+    - [ ] MCP server endpoint (= `internal/session/mcp_server.go`)
     skeleton + `phonewave mcp` cobra subcommand
-  - [ ] phonewave.ping / outbox_status / inbox_status 等の MCP
+    - [ ] phonewave.ping / outbox_status / inbox_status 等の MCP
     tool **interface fixed + stub** (= visibility のみ、 deprecate
     stub なし)
-  - [ ] docs(adr): `docs/adr/0006-mcp-pivot.md` 起票 + handover
+    - [ ] docs(adr): `docs/adr/0006-mcp-pivot.md` 起票 + handover
     finalize
-  - [ ] sub-D (post-merge): docs/cli regen if needed
+    - [ ] sub-D (post-merge): docs/cli regen if needed
 
 ## Next Actions
 
