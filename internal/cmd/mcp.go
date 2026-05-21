@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 
+	"github.com/hironow/phonewave/internal/domain"
 	"github.com/hironow/phonewave/internal/session"
 )
 
@@ -55,7 +59,12 @@ invocation paths.`,
   # Pipe a tools/list request manually (for debugging)
   echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | phonewave mcp`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srv := session.NewMCPServer(cmd.InOrStdin(), cmd.OutOrStdout(), nil)
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			configPath := filepath.Join(cwd, domain.StateDir, domain.ConfigFile)
+			srv := session.NewMCPServer(cmd.InOrStdin(), cmd.OutOrStdout(), nil).WithConfigPath(configPath)
 			return srv.Serve(cmd.Context())
 		},
 	}

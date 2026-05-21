@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -110,8 +112,8 @@ func TestMCPServer_RejectsUnknownTool(t *testing.T) {
 	}
 }
 
-func TestMCPServer_OutboxStatusStub_EchoesTool(t *testing.T) {
-	// given
+func TestMCPServer_OutboxStatus_UninitializedConfigPath(t *testing.T) {
+	// given: NewMCPServer without WithConfigPath.
 	in := strings.NewReader(`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"phonewave.outbox_status","arguments":{"tool":"paintress"}}}` + "\n")
 	var out bytes.Buffer
 	srv := session.NewMCPServer(in, &out, nil)
@@ -123,19 +125,22 @@ func TestMCPServer_OutboxStatusStub_EchoesTool(t *testing.T) {
 
 	// then
 	body := decodeFirstText(t, &out)
-	if got, _ := body["tool"].(string); got != "paintress" {
-		t.Errorf("tool = %v, want paintress", body["tool"])
-	}
-	if _, ok := body["contract"]; !ok {
-		t.Errorf("contract descriptor missing: %v", body)
+	if body["initialized"] != false {
+		t.Errorf("initialized = %v, want false (empty configPath)", body["initialized"])
 	}
 }
 
-func TestMCPServer_InboxStatusStub_EchoesTool(t *testing.T) {
-	// given
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"phonewave.inbox_status","arguments":{"tool":"sightjack"}}}` + "\n")
+func TestMCPServer_OutboxStatus_RealImpl_EmptyConfig(t *testing.T) {
+	// given: temp dir with empty config.yaml.
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte("repositories: []\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"phonewave.outbox_status","arguments":{"tool":"paintress"}}}` + "\n")
 	var out bytes.Buffer
-	srv := session.NewMCPServer(in, &out, nil)
+	srv := session.NewMCPServer(in, &out, nil).WithConfigPath(configPath)
 
 	// when
 	if err := srv.Serve(context.Background()); err != nil {
@@ -144,11 +149,44 @@ func TestMCPServer_InboxStatusStub_EchoesTool(t *testing.T) {
 
 	// then
 	body := decodeFirstText(t, &out)
-	if got, _ := body["tool"].(string); got != "sightjack" {
+	if body["initialized"] != true {
+		t.Errorf("initialized = %v, want true (body=%v)", body["initialized"], body)
+	}
+	if body["tool"] != "paintress" {
+		t.Errorf("tool = %v, want paintress", body["tool"])
+	}
+	if got, _ := body["total_depth"].(float64); int(got) != 0 {
+		t.Errorf("total_depth = %v, want 0 (empty config)", body["total_depth"])
+	}
+}
+
+func TestMCPServer_InboxStatus_RealImpl_EmptyConfig(t *testing.T) {
+	// given: temp dir with empty config.yaml.
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte("repositories: []\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"phonewave.inbox_status","arguments":{"tool":"sightjack"}}}` + "\n")
+	var out bytes.Buffer
+	srv := session.NewMCPServer(in, &out, nil).WithConfigPath(configPath)
+
+	// when
+	if err := srv.Serve(context.Background()); err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+
+	// then
+	body := decodeFirstText(t, &out)
+	if body["initialized"] != true {
+		t.Errorf("initialized = %v, want true", body["initialized"])
+	}
+	if body["tool"] != "sightjack" {
 		t.Errorf("tool = %v, want sightjack", body["tool"])
 	}
-	if _, ok := body["contract"]; !ok {
-		t.Errorf("contract descriptor missing: %v", body)
+	if got, _ := body["total_depth"].(float64); int(got) != 0 {
+		t.Errorf("total_depth = %v, want 0", body["total_depth"])
 	}
 }
 
