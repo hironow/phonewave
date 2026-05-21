@@ -107,6 +107,7 @@ func NewRootCommand() *cobra.Command {
 		newDeadLettersCmd(),
 		newVersionCmd(),
 		newUpdateCmd(),
+		newMCPCommand(),
 	)
 
 	return rootCmd

@@ -30,6 +30,7 @@ phonewave [flags]
 * [phonewave dead-letters](phonewave_dead-letters.md)	 - Manage dead-lettered delivery items
 * [phonewave doctor](phonewave_doctor.md)	 - Verify ecosystem health
 * [phonewave init](phonewave_init.md)	 - Scan repositories, discover tools, generate routing table
+* [phonewave mcp](phonewave_mcp.md)	 - Run phonewave as an MCP server over stdio (refs/issues/0027 Phase 2d MVP)
 * [phonewave metrics](phonewave_metrics.md)	 - Output delivery health time-series as JSON
 * [phonewave remove](phonewave_remove.md)	 - Remove a repository from the ecosystem
 * [phonewave run](phonewave_run.md)	 - Start the courier daemon
