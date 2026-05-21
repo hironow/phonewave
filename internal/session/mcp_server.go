@@ -153,7 +153,7 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) err
 	case "phonewave.ping":
 		result = textResult("pong")
 	case "phonewave.outbox_status":
-		result = realOutboxStatus(s.configPath, call.Arguments)
+		result = realOutboxStatus(ctx, s.configPath, call.Arguments)
 		status = "deprecated"
 	case "phonewave.inbox_status":
 		result = realInboxStatus(s.configPath, call.Arguments)
@@ -222,13 +222,63 @@ func jsonResult(data any) map[string]any {
 	return map[string]any{"content": []map[string]any{{"type": "text", "text": string(body)}}}
 }
 
+// scanDirDepth counts non-directory entries in dir and returns
+// (count, oldest_mtime). Missing dir returns (0, zero time). The
+// oldest mtime helps the session estimate queue age — useful for
+// detecting a stuck courier daemon.
+func scanDirDepth(dir string) (int, time.Time) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, time.Time{}
+	}
+	depth := 0
+	var oldest time.Time
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		depth++
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		mt := info.ModTime()
+		if oldest.IsZero() || mt.Before(oldest) {
+			oldest = mt
+		}
+	}
+	return depth, oldest
+}
+
+// loadDeadLetterCount opens the phonewave delivery store at
+// stateDir/.run/delivery.db and returns the dead-letter count
+// (= staged_delivery rows with retry_count >= maxDeliveryRetryCount).
+// Returns 0 when the DB does not exist (= phonewave hasn't run yet).
+func loadDeadLetterCount(ctx context.Context, stateDir string) (int, error) {
+	dbPath := filepath.Join(stateDir, ".run", "delivery.db")
+	if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
+		return 0, nil
+	}
+	store, err := NewSQLiteDeliveryStore(stateDir)
+	if err != nil {
+		return 0, fmt.Errorf("open delivery store: %w", err)
+	}
+	defer store.Close()
+	count, err := store.DeadLetterCount(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("delivery store dead-letter count: %w", err)
+	}
+	return count, nil
+}
+
 // realOutboxStatus loads the phonewave config and aggregates outbox
-// file counts across all configured repos' endpoints. The tool arg
-// is best-effort filter: when set, only endpoints whose RepoPath
-// contains the tool name are summed.
+// file counts across all configured repos' endpoints. Phase 4 adds
+// dead_letter_count (= SQLite delivery store query) +
+// oldest_age_seconds (= oldest outbox file mtime).
 //
-// Pattern: paintress.next_issue (= 83cb3ca) symmetric copy.
-func realOutboxStatus(configPath string, args json.RawMessage) map[string]any {
+// Pattern: paintress.next_issue (= 83cb3ca) symmetric copy +
+// Phase 4 follow-up dead-letter telemetry (refs/issues/0027).
+func realOutboxStatus(ctx context.Context, configPath string, args json.RawMessage) map[string]any {
 	var payload struct {
 		Tool string `json:"tool"`
 	}
@@ -252,6 +302,7 @@ func realOutboxStatus(configPath string, args json.RawMessage) map[string]any {
 	}
 	totalDepth := 0
 	endpoints := 0
+	var globalOldest time.Time
 	for _, repo := range cfg.Repositories {
 		if payload.Tool != "" && !strings.Contains(repo.Path, payload.Tool) {
 			continue
@@ -261,30 +312,39 @@ func realOutboxStatus(configPath string, args json.RawMessage) map[string]any {
 				continue
 			}
 			endpoints++
-			outboxDir := filepath.Join(repo.Path, ep.Dir, "outbox")
-			entries, err := os.ReadDir(outboxDir)
-			if err != nil {
-				continue
-			}
-			for _, e := range entries {
-				if !e.IsDir() {
-					totalDepth++
-				}
+			depth, oldest := scanDirDepth(filepath.Join(repo.Path, ep.Dir, "outbox"))
+			totalDepth += depth
+			if !oldest.IsZero() && (globalOldest.IsZero() || oldest.Before(globalOldest)) {
+				globalOldest = oldest
 			}
 		}
 	}
-	return jsonResult(map[string]any{
-		"initialized":    true,
-		"tool":           payload.Tool,
-		"endpoint_count": endpoints,
-		"total_depth":    totalDepth,
-		"note":           "Aggregated count across all configured outbox dirs. Dead-letter count + oldest-age telemetry deferred to Phase 4 follow-up (= read from .phonewave/.run SQLite delivery store).",
-	})
+
+	stateDir := filepath.Dir(configPath)
+	deadLetterCount, deadLetterErr := loadDeadLetterCount(ctx, stateDir)
+	oldestAgeSec := 0
+	if !globalOldest.IsZero() {
+		oldestAgeSec = int(time.Since(globalOldest).Seconds())
+	}
+	result := map[string]any{
+		"initialized":        true,
+		"tool":               payload.Tool,
+		"endpoint_count":     endpoints,
+		"total_depth":        totalDepth,
+		"dead_letter_count":  deadLetterCount,
+		"oldest_age_seconds": oldestAgeSec,
+	}
+	if deadLetterErr != nil {
+		result["dead_letter_error"] = deadLetterErr.Error()
+	}
+	return jsonResult(result)
 }
 
 // realInboxStatus loads the phonewave config and aggregates inbox
-// file counts across all configured repos' endpoints. Pattern mirror
-// of realOutboxStatus.
+// file counts across all configured repos' endpoints. Phase 4 adds
+// oldest_age_seconds (= oldest inbox file mtime). Inbox does not
+// have a SQLite-tracked dead-letter notion (= dead letters are an
+// outbox-side concept), so dead_letter_count is not included.
 func realInboxStatus(configPath string, args json.RawMessage) map[string]any {
 	var payload struct {
 		Tool string `json:"tool"`
@@ -309,6 +369,7 @@ func realInboxStatus(configPath string, args json.RawMessage) map[string]any {
 	}
 	totalDepth := 0
 	endpoints := 0
+	var globalOldest time.Time
 	for _, repo := range cfg.Repositories {
 		if payload.Tool != "" && !strings.Contains(repo.Path, payload.Tool) {
 			continue
@@ -318,24 +379,23 @@ func realInboxStatus(configPath string, args json.RawMessage) map[string]any {
 				continue
 			}
 			endpoints++
-			inboxDir := filepath.Join(repo.Path, ep.Dir, "inbox")
-			entries, err := os.ReadDir(inboxDir)
-			if err != nil {
-				continue
-			}
-			for _, e := range entries {
-				if !e.IsDir() {
-					totalDepth++
-				}
+			depth, oldest := scanDirDepth(filepath.Join(repo.Path, ep.Dir, "inbox"))
+			totalDepth += depth
+			if !oldest.IsZero() && (globalOldest.IsZero() || oldest.Before(globalOldest)) {
+				globalOldest = oldest
 			}
 		}
 	}
+	oldestAgeSec := 0
+	if !globalOldest.IsZero() {
+		oldestAgeSec = int(time.Since(globalOldest).Seconds())
+	}
 	return jsonResult(map[string]any{
-		"initialized":    true,
-		"tool":           payload.Tool,
-		"endpoint_count": endpoints,
-		"total_depth":    totalDepth,
-		"note":           "Aggregated count across all configured inbox dirs. Per-envelope seen/ack telemetry deferred to Phase 4 follow-up.",
+		"initialized":        true,
+		"tool":               payload.Tool,
+		"endpoint_count":     endpoints,
+		"total_depth":        totalDepth,
+		"oldest_age_seconds": oldestAgeSec,
 	})
 }
 
