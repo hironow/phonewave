@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hironow/phonewave/internal/domain"
@@ -33,11 +36,17 @@ import (
 // carries human-readable diagnostics (per the project stdout/stderr
 // separation invariant). Pattern follows paintress Phase 1
 // (ADR 0017) + sightjack Phase 2a (ADR 0018) + amadeus Phase 2b
-// (ADR 0026) + dominator Phase 2c (ADR 0003).
+// (ADR 0026) + dominator Phase 2c (ADR 0003) + paintress Phase 3
+// real impl (= 83cb3ca) WithContinent pattern.
+//
+// configPath is the phonewave config.yaml path used by real-impl
+// MCP tools to resolve outbox / inbox dirs across all configured
+// repositories. When empty, real-impl tools return uninitialized.
 type MCPServer struct {
-	in     io.Reader
-	out    io.Writer
-	logger domain.Logger
+	in         io.Reader
+	out        io.Writer
+	logger     domain.Logger
+	configPath string
 }
 
 // NewMCPServer wires explicit I/O so tests can drive the server
@@ -47,6 +56,15 @@ func NewMCPServer(in io.Reader, out io.Writer, logger domain.Logger) *MCPServer 
 		logger = &domain.NopLogger{}
 	}
 	return &MCPServer{in: in, out: out, logger: logger}
+}
+
+// WithConfigPath sets the phonewave config.yaml path used by
+// real-impl MCP tools. Returns s for chaining (= 5-tool symmetric
+// builder option: paintress.WithContinent / sightjack.WithBaseDir /
+// amadeus.WithGateDir / dominator.WithPassDir / phonewave.WithConfigPath).
+func (s *MCPServer) WithConfigPath(configPath string) *MCPServer {
+	s.configPath = configPath
+	return s
 }
 
 // jsonrpcMessage is the minimum JSON-RPC 2.0 envelope this skeleton
@@ -135,10 +153,10 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) err
 	case "phonewave.ping":
 		result = textResult("pong")
 	case "phonewave.outbox_status":
-		result = stubOutboxStatus(call.Arguments)
+		result = realOutboxStatus(s.configPath, call.Arguments)
 		status = "deprecated"
 	case "phonewave.inbox_status":
-		result = stubInboxStatus(call.Arguments)
+		result = realInboxStatus(s.configPath, call.Arguments)
 		status = "deprecated"
 	default:
 		platform.RecordMCPInvocation(ctx, call.Name, "error", time.Since(start))
@@ -204,41 +222,120 @@ func jsonResult(data any) map[string]any {
 	return map[string]any{"content": []map[string]any{{"type": "text", "text": string(body)}}}
 }
 
-// stubOutboxStatus echoes the requested tool with a placeholder
-// outbox depth payload so claude code clients can exercise the
-// contract end-to-end before the real courier daemon state lookup
-// wiring lands.
-func stubOutboxStatus(args json.RawMessage) map[string]any {
+// realOutboxStatus loads the phonewave config and aggregates outbox
+// file counts across all configured repos' endpoints. The tool arg
+// is best-effort filter: when set, only endpoints whose RepoPath
+// contains the tool name are summed.
+//
+// Pattern: paintress.next_issue (= 83cb3ca) symmetric copy.
+func realOutboxStatus(configPath string, args json.RawMessage) map[string]any {
 	var payload struct {
 		Tool string `json:"tool"`
 	}
 	if len(args) > 0 {
 		_ = json.Unmarshal(args, &payload)
 	}
+	if configPath == "" {
+		return jsonResult(map[string]any{
+			"initialized": false,
+			"reason":      "phonewave mcp config path not configured",
+			"tool":        payload.Tool,
+		})
+	}
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		return jsonResult(map[string]any{
+			"initialized": false,
+			"reason":      fmt.Sprintf("config load failed: %v", err),
+			"tool":        payload.Tool,
+		})
+	}
+	totalDepth := 0
+	endpoints := 0
+	for _, repo := range cfg.Repositories {
+		if payload.Tool != "" && !strings.Contains(repo.Path, payload.Tool) {
+			continue
+		}
+		for _, ep := range repo.Endpoints {
+			if len(ep.Produces) == 0 {
+				continue
+			}
+			endpoints++
+			outboxDir := filepath.Join(repo.Path, ep.Dir, "outbox")
+			entries, err := os.ReadDir(outboxDir)
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				if !e.IsDir() {
+					totalDepth++
+				}
+			}
+		}
+	}
 	return jsonResult(map[string]any{
-		"stub":     true,
-		"tool":     payload.Tool,
-		"status":   nil,
-		"reason":   "phase-2d-mvp: real outbox status lookup lands when the courier daemon state is exposed",
-		"contract": map[string]any{"tool": "string", "depth": "integer (pending messages)", "dead_letter_count": "integer", "oldest_age_seconds": "integer"},
+		"initialized":    true,
+		"tool":           payload.Tool,
+		"endpoint_count": endpoints,
+		"total_depth":    totalDepth,
+		"note":           "Aggregated count across all configured outbox dirs. Dead-letter count + oldest-age telemetry deferred to Phase 4 follow-up (= read from .phonewave/.run SQLite delivery store).",
 	})
 }
 
-// stubInboxStatus echoes the requested tool with a placeholder
-// inbox depth payload.
-func stubInboxStatus(args json.RawMessage) map[string]any {
+// realInboxStatus loads the phonewave config and aggregates inbox
+// file counts across all configured repos' endpoints. Pattern mirror
+// of realOutboxStatus.
+func realInboxStatus(configPath string, args json.RawMessage) map[string]any {
 	var payload struct {
 		Tool string `json:"tool"`
 	}
 	if len(args) > 0 {
 		_ = json.Unmarshal(args, &payload)
 	}
+	if configPath == "" {
+		return jsonResult(map[string]any{
+			"initialized": false,
+			"reason":      "phonewave mcp config path not configured",
+			"tool":        payload.Tool,
+		})
+	}
+	cfg, err := LoadConfig(configPath)
+	if err != nil {
+		return jsonResult(map[string]any{
+			"initialized": false,
+			"reason":      fmt.Sprintf("config load failed: %v", err),
+			"tool":        payload.Tool,
+		})
+	}
+	totalDepth := 0
+	endpoints := 0
+	for _, repo := range cfg.Repositories {
+		if payload.Tool != "" && !strings.Contains(repo.Path, payload.Tool) {
+			continue
+		}
+		for _, ep := range repo.Endpoints {
+			if len(ep.Consumes) == 0 {
+				continue
+			}
+			endpoints++
+			inboxDir := filepath.Join(repo.Path, ep.Dir, "inbox")
+			entries, err := os.ReadDir(inboxDir)
+			if err != nil {
+				continue
+			}
+			for _, e := range entries {
+				if !e.IsDir() {
+					totalDepth++
+				}
+			}
+		}
+	}
 	return jsonResult(map[string]any{
-		"stub":     true,
-		"tool":     payload.Tool,
-		"status":   nil,
-		"reason":   "phase-2d-mvp: real inbox status lookup lands when the courier daemon state is exposed",
-		"contract": map[string]any{"tool": "string", "depth": "integer (unconsumed messages)", "seen_count": "integer", "ack_count": "integer"},
+		"initialized":    true,
+		"tool":           payload.Tool,
+		"endpoint_count": endpoints,
+		"total_depth":    totalDepth,
+		"note":           "Aggregated count across all configured inbox dirs. Per-envelope seen/ack telemetry deferred to Phase 4 follow-up.",
 	})
 }
 
