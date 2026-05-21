@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hironow/phonewave/internal/session"
 )
@@ -147,7 +148,7 @@ func TestMCPServer_OutboxStatus_RealImpl_EmptyConfig(t *testing.T) {
 		t.Fatalf("Serve: %v", err)
 	}
 
-	// then
+	// then: Phase 4 fields present + zero values for empty config.
 	body := decodeFirstText(t, &out)
 	if body["initialized"] != true {
 		t.Errorf("initialized = %v, want true (body=%v)", body["initialized"], body)
@@ -157,6 +158,56 @@ func TestMCPServer_OutboxStatus_RealImpl_EmptyConfig(t *testing.T) {
 	}
 	if got, _ := body["total_depth"].(float64); int(got) != 0 {
 		t.Errorf("total_depth = %v, want 0 (empty config)", body["total_depth"])
+	}
+	if got, _ := body["dead_letter_count"].(float64); int(got) != 0 {
+		t.Errorf("dead_letter_count = %v, want 0 (no delivery.db yet)", body["dead_letter_count"])
+	}
+	if got, _ := body["oldest_age_seconds"].(float64); int(got) != 0 {
+		t.Errorf("oldest_age_seconds = %v, want 0 (empty outbox)", body["oldest_age_seconds"])
+	}
+}
+
+func TestMCPServer_OutboxStatus_Phase4_OldestAgeFromFile(t *testing.T) {
+	// given: temp dir with config + one repo with an outbox file (mtime
+	// adjusted to 60 seconds ago).
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	repoDir := filepath.Join(tmpDir, "repo")
+	endpointDir := filepath.Join(repoDir, "ep1")
+	outboxDir := filepath.Join(endpointDir, "outbox")
+	if err := os.MkdirAll(outboxDir, 0o755); err != nil {
+		t.Fatalf("mkdir outbox: %v", err)
+	}
+	msg := filepath.Join(outboxDir, "msg-1.yaml")
+	if err := os.WriteFile(msg, []byte("message_id: m1\n"), 0o644); err != nil {
+		t.Fatalf("write msg: %v", err)
+	}
+	pastTime := time.Now().Add(-60 * time.Second)
+	if err := os.Chtimes(msg, pastTime, pastTime); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	cfgYAML := "repositories:\n  - path: " + repoDir + "\n    endpoints:\n      - dir: ep1\n        produces: [test]\n"
+	if err := os.WriteFile(configPath, []byte(cfgYAML), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"phonewave.outbox_status","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	srv := session.NewMCPServer(in, &out, nil).WithConfigPath(configPath)
+
+	// when
+	if err := srv.Serve(context.Background()); err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+
+	// then
+	body := decodeFirstText(t, &out)
+	if got, _ := body["total_depth"].(float64); int(got) != 1 {
+		t.Errorf("total_depth = %v, want 1 (one msg-1.yaml)", body["total_depth"])
+	}
+	// oldest_age_seconds should be >= 60 (allow drift for slow test runs).
+	if got, _ := body["oldest_age_seconds"].(float64); int(got) < 60 {
+		t.Errorf("oldest_age_seconds = %v, want >= 60", body["oldest_age_seconds"])
 	}
 }
 
