@@ -185,7 +185,7 @@ func toolDescriptors() []map[string]any {
 		},
 		{
 			"name":        "phonewave.outbox_status",
-			"description": "Return outbox queue depth + dead-letter count for the given tool (Phase 2d: stub echoes the requested tool with a contract descriptor).",
+			"description": "Return outbox queue depth + dead-letter count (from the SQLite delivery store) + oldest age in seconds for the given source tool.",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -196,7 +196,7 @@ func toolDescriptors() []map[string]any {
 		},
 		{
 			"name":        "phonewave.inbox_status",
-			"description": "Return inbox queue depth + seen/ack counts for the given target tool (Phase 2d: stub echoes the requested tool with a contract descriptor).",
+			"description": "Return inbox queue depth + oldest age in seconds for the given target tool. Inbox has no dead-letter count (that is an outbox-side concept).",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
