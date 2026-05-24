@@ -17,9 +17,9 @@ import (
 // queue depth) as visibility tools alongside the other four tools'
 // MCP servers.
 //
-// Phase 2d MVP exposes phonewave.ping + 2 stubs (outbox_status,
-// inbox_status). Real tool wiring against the courier daemon state
-// lands in subsequent commits on feat/jun15-mcp-pivot.
+// Exposes phonewave.ping plus the courier data-plane visibility tools
+// outbox_status / inbox_status (real reads of the SQLite delivery
+// store + outbox/inbox queue depths across configured repositories).
 //
 // Note: phonewave does NOT invoke `claude -p` in any production
 // path, so this MCP server is purely additive (= visibility tools)
@@ -28,7 +28,7 @@ import (
 func newMCPCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "mcp",
-		Short: "Run phonewave as an MCP server over stdio (refs/issues/0027 Phase 2d MVP)",
+		Short: "Run phonewave as an MCP server over stdio (courier data-plane visibility tools)",
 		Long: `Start a Model Context Protocol server reading JSON-RPC 2.0
 messages on stdin and writing responses on stdout.
 
@@ -38,10 +38,10 @@ shelling out to 'phonewave status' / 'phonewave metrics'. The
 session can attach this MCP server alongside the other four tools'
 MCP servers (paintress / sightjack / amadeus / dominator).
 
-Phase 2d MVP scope: phonewave.ping + 2 stubs (phonewave.outbox_status,
-phonewave.inbox_status). Real wiring against the courier daemon
-state lookup ships in subsequent commits on the feat/jun15-mcp-pivot
-branch.
+Exposes phonewave.ping plus phonewave.outbox_status and
+phonewave.inbox_status, which read the courier daemon's runtime state
+(outbox/inbox queue depth + dead-letter count from the SQLite
+delivery store) across all configured repositories.
 
 phonewave never invoked 'claude -p' in any production path, so this
 MCP server is purely additive (= visibility) and complements the

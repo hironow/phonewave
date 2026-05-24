@@ -20,12 +20,13 @@ import (
 //
 // Note: phonewave is the courier daemon and never invoked `claude -p`
 // in production code. Its MCP server is purely additive (= visibility
-// tools: outbox_status / inbox_status), so the "deprecated" status
-// value here is reserved for future stub-flagged responses; current
-// tools only return "ok" or "error".
+// tools: outbox_status / inbox_status). Those two tools tag their
+// invocations with status="deprecated" as a cost-monitoring marker for
+// the post-2026-06-15 credit-pool split; phonewave.ping returns "ok".
 //
 // status values: "ok" (= JSON-RPC result returned)、 "error" (= JSON-RPC
-// error returned)、 "deprecated" (= stub returned with stub:true flag).
+// error returned)、 "deprecated" (= cost-monitoring marker on the
+// visibility tools; no stub flag is emitted).
 // duration is measured from request decode to response write.
 func RecordMCPInvocation(ctx context.Context, toolName, status string, duration time.Duration) {
 	attrs := metric.WithAttributes(

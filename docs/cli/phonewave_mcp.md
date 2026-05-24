@@ -1,6 +1,6 @@
 ## phonewave mcp
 
-Run phonewave as an MCP server over stdio (refs/issues/0027 Phase 2d MVP)
+Run phonewave as an MCP server over stdio (courier data-plane visibility tools)
 
 ### Synopsis
 
@@ -13,10 +13,10 @@ shelling out to 'phonewave status' / 'phonewave metrics'. The
 session can attach this MCP server alongside the other four tools'
 MCP servers (paintress / sightjack / amadeus / dominator).
 
-Phase 2d MVP scope: phonewave.ping + 2 stubs (phonewave.outbox_status,
-phonewave.inbox_status). Real wiring against the courier daemon
-state lookup ships in subsequent commits on the feat/jun15-mcp-pivot
-branch.
+Exposes phonewave.ping plus phonewave.outbox_status and
+phonewave.inbox_status, which read the courier daemon's runtime state
+(outbox/inbox queue depth + dead-letter count from the SQLite
+delivery store) across all configured repositories.
 
 phonewave never invoked 'claude -p' in any production path, so this
 MCP server is purely additive (= visibility) and complements the
