@@ -16,9 +16,9 @@ import (
 	"github.com/hironow/phonewave/internal/platform"
 )
 
-// MCPServer is a minimal stdio-based Model Context Protocol server
-// scaffolded for the refs/issues/0027 jun15 MCP pivot (Phase 2d,
-// optional visibility).
+// MCPServer is a stdio-based Model Context Protocol server for the
+// refs/issues/0027 jun15 MCP pivot, exposing phonewave's courier
+// data plane as visibility tools.
 //
 // Unlike the other four tools (paintress / sightjack / amadeus /
 // dominator), phonewave is the courier daemon and never invokes
@@ -202,11 +202,11 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) err
 	return err
 }
 
-// toolDescriptors returns the Phase 2d MVP tool set. Each entry pins
+// toolDescriptors returns the visibility tool set. Each entry pins
 // the interface (name, description, inputSchema) so claude code
-// clients see a stable contract. The handler bodies (stubOutboxStatus
-// / stubInboxStatus) are placeholders that ship in subsequent
-// commits with real domain wiring against the courier daemon state.
+// clients see a stable contract. The handler bodies (realOutboxStatus
+// / realInboxStatus) read the courier daemon state (outbox/inbox
+// queue depth + dead-letter count) from the configured repositories.
 func toolDescriptors() []map[string]any {
 	return []map[string]any{
 		{
