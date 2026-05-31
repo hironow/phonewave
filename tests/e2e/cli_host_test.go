@@ -249,7 +249,7 @@ func TestCLI_MCPServerToolsList(t *testing.T) {
 	execInContainer(t, ctx, c, []string{"mkdir", "-p", workDir})
 
 	input := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
-	
+
 	cmd := []string{"sh", "-c", fmt.Sprintf("echo '%s' | phonewave mcp", input)}
 	code, stdout := execInContainerNoFail(t, ctx, c, cmd)
 	if code != 0 {

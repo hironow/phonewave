@@ -294,7 +294,7 @@ func loadDeadLetterCount(ctx context.Context, stateDir string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("open delivery store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	count, err := store.DeadLetterCount(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("delivery store dead-letter count: %w", err)

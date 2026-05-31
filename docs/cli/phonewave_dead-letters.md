@@ -29,6 +29,5 @@ phonewave dead-letters [flags]
 
 ### SEE ALSO
 
-* [phonewave](phonewave.md)	 - D-Mail courier daemon
-* [phonewave dead-letters purge](phonewave_dead-letters_purge.md)	 - Purge dead-lettered delivery items
-
+* [phonewave](phonewave.md)  - D-Mail courier daemon
+* [phonewave dead-letters purge](phonewave_dead-letters_purge.md)  - Purge dead-lettered delivery items

@@ -43,13 +43,13 @@ func NewSQLiteErrorQueueStore(stateDir string) (*SQLiteErrorQueueStore, error) {
 		"PRAGMA busy_timeout=5000",
 	} {
 		if _, err := db.Exec(pragma); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("error queue store: %s: %w", pragma, err)
 		}
 	}
 
 	if err := createErrorQueueSchema(db); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
@@ -84,7 +84,7 @@ func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta domain.Er
 	if err != nil {
 		return fmt.Errorf("error queue store: get conn: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("error queue store: begin immediate: %w", err)
@@ -122,7 +122,7 @@ func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries
 	if err != nil {
 		return nil, fmt.Errorf("error queue store: get conn: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return nil, fmt.Errorf("error queue store: begin immediate: %w", err)
@@ -160,7 +160,7 @@ func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries
 	for rows.Next() {
 		var e domain.ErrorEntry
 		if err := rows.Scan(&e.Name, &e.Data, &e.SourceOutbox, &e.Kind, &e.OriginalName, &e.ErrorMessage, &e.RetryCount); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, fmt.Errorf("error queue store: scan row: %w", err)
 		}
 		entries = append(entries, e)
@@ -198,7 +198,7 @@ func (s *SQLiteErrorQueueStore) IncrementRetry(name string, newError string) err
 	if err != nil {
 		return fmt.Errorf("error queue store: get conn: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("error queue store: begin immediate: %w", err)
@@ -235,7 +235,7 @@ func (s *SQLiteErrorQueueStore) MarkResolved(name string) error {
 	if err != nil {
 		return fmt.Errorf("error queue store: get conn: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("error queue store: begin immediate: %w", err)

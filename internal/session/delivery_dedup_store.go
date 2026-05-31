@@ -36,12 +36,12 @@ func NewSQLiteDeliveryDedupStore(dbPath string) (*SQLiteDeliveryDedupStore, erro
 	db.SetMaxOpenConns(1)
 
 	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("delivery dedup store: set WAL: %w", err)
 	}
 
 	if err := createDeliveryDedupSchema(db); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("delivery dedup store: create schema: %w", err)
 	}
 

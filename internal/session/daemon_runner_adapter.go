@@ -82,7 +82,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 
 	dedupStore, err := NewSQLiteDeliveryDedupStore(filepath.Join(runDir, "delivery_dedup.db"))
 	if err != nil {
-		errorQueue.Close()
+		_ = errorQueue.Close()
 		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("create dedup store: %w", err)
@@ -99,7 +99,7 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 		IdleTimeout:   cmd.IdleTimeout(),
 	}, logger)
 	if err != nil {
-		errorQueue.Close()
+		_ = errorQueue.Close()
 		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("create daemon: %w", err)
@@ -109,8 +109,8 @@ func NewDaemonRunner(cmd domain.RunDaemonCommand, cfgPath, baseDir string, logge
 
 	dlog, err := NewDeliveryLog(stateDir)
 	if err != nil {
-		dedupStore.Close()
-		errorQueue.Close()
+		_ = dedupStore.Close()
+		_ = errorQueue.Close()
 		closeSeq()
 		unlock()
 		return nil, fmt.Errorf("open delivery log: %w", err)
@@ -189,10 +189,10 @@ func (a *daemonRunnerAdapter) Close() error {
 		a.closeSeq()
 	}
 	if a.dlog != nil {
-		a.dlog.Close()
+		_ = a.dlog.Close()
 	}
 	if a.errorQueue != nil {
-		a.errorQueue.Close()
+		_ = a.errorQueue.Close()
 	}
 	if a.unlock != nil {
 		a.unlock()

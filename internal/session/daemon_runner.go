@@ -58,14 +58,14 @@ func NewDaemon(opts domain.DaemonOptions, logger domain.Logger) (*Daemon, error)
 // closeDedupStore closes the dedup store if present.
 func (d *Daemon) closeDedupStore() {
 	if d.dedupStore != nil {
-		d.dedupStore.Close()
+		_ = d.dedupStore.Close()
 	}
 }
 
 // Run starts the daemon event loop. It blocks until ctx is cancelled.
 func (d *Daemon) Run(ctx context.Context) error {
 	defer d.pool.StopAndWait()
-	defer d.watcher.Close()
+	defer func() { _ = d.watcher.Close() }()
 
 	// Open delivery log
 	dlog, err := NewDeliveryLog(d.opts.StateDir)
@@ -73,7 +73,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return fmt.Errorf("open delivery log: %w", err)
 	}
 	d.dlog = dlog
-	defer d.dlog.Close()
+	defer func() { _ = d.dlog.Close() }()
 
 	// Open delivery store (Stage→Flush transactional delivery)
 	ds, err := NewDeliveryStore(d.opts.StateDir)
@@ -81,7 +81,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return fmt.Errorf("open delivery store: %w", err)
 	}
 	d.deliveryStore = ds
-	defer d.deliveryStore.Close()
+	defer func() { _ = d.deliveryStore.Close() }()
 
 	// Load Bloom filter for delivery dedup (advisory — nil is safe)
 	bf, bfErr := LoadDeliveryFilter(d.opts.StateDir)
@@ -128,14 +128,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
 		return fmt.Errorf("write PID file: %w", err)
 	}
-	defer os.Remove(pidPath)
+	defer func() { _ = os.Remove(pidPath) }()
 
 	// Write start timestamp for uptime tracking
 	startedPath := filepath.Join(d.opts.StateDir, "watch.started")
 	if err := os.WriteFile(startedPath, []byte(time.Now().UTC().Format(time.RFC3339)), 0644); err != nil {
 		return fmt.Errorf("write started file: %w", err)
 	}
-	defer os.Remove(startedPath)
+	defer func() { _ = os.Remove(startedPath) }()
 
 	d.runStartupScan(ctx)
 
@@ -370,5 +370,5 @@ func (d *Daemon) runStartupScan(ctx context.Context) {
 			}
 		})
 	}
-	scanGroup.Wait()
+	_ = scanGroup.Wait()
 }

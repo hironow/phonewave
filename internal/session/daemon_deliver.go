@@ -130,7 +130,7 @@ func (d *Daemon) enqueueDeliveryFailure(path string, data []byte, kind string, d
 		return
 	}
 	// Error queue write succeeded — safe to remove from outbox
-	os.Remove(path)
+	_ = os.Remove(path)
 }
 
 // retryPending claims pending error queue entries via SQLite and attempts
@@ -199,7 +199,7 @@ func (d *Daemon) retryPending(ctx context.Context) int {
 			successCh <- struct{}{}
 		})
 	}
-	retryGroup.Wait()
+	_ = retryGroup.Wait()
 	close(successCh)
 
 	successes := 0
