@@ -32,6 +32,8 @@ func Deliver(ctx context.Context, dmailPath string, routes []domain.ResolvedRout
 // Flush partial failures are handled internally by DeliveryStore retry_count.
 // If dedup is non-nil, per-target exact-match dedup is applied: already-delivered
 // targets are skipped, and newly delivered targets are recorded.
+//
+//nolint:gocyclo // transactional stage-and-flush orchestration flow with multi-branch error scenarios
 func DeliverData(ctx context.Context, dmailPath string, data []byte, routes []domain.ResolvedRoute, ds port.DeliveryStore, dedup port.DeliveryDedupStore) (*domain.DeliveryResult, error) {
 	fm, err := domain.ParseDMailFrontmatter(data)
 	if err != nil {

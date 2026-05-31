@@ -135,7 +135,7 @@ the specified repo path and presents a unified report with cross-tool checks.`,
 	return cmd
 }
 
-// runUnifiedDoctor orchestrates all 4 tool doctors and presents a unified report.
+//nolint:gocyclo // CLI flags parsing and interactive prompts orchestration is flat but highly branched
 func runUnifiedDoctor(cmd *cobra.Command, repoPath string, jsonOut bool) error {
 	ctx := cmd.Context()
 

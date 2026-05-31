@@ -63,6 +63,8 @@ func (d *Daemon) closeDedupStore() {
 }
 
 // Run starts the daemon event loop. It blocks until ctx is cancelled.
+//
+//nolint:gocyclo // flat daemon lifecycle loop with multi-resource setups and teardowns
 func (d *Daemon) Run(ctx context.Context) error {
 	defer d.pool.StopAndWait()
 	defer func() { _ = d.watcher.Close() }()
