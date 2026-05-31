@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"strings"
@@ -17,26 +18,64 @@ import (
 // execInContainer runs a command and returns stdout. Fails the test on non-zero exit.
 func execInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, cmd []string) string {
 	t.Helper()
-	exitCode, reader, err := c.Exec(ctx, cmd)
+	exitCode, stream, err := c.Exec(ctx, cmd)
 	if err != nil {
 		t.Fatalf("exec %v: %v", cmd, err)
 	}
-	output, _ := io.ReadAll(reader)
-	if exitCode != 0 {
-		t.Fatalf("exec %v exited %d: %s", cmd, exitCode, string(output))
+	stdout, stderr, err := decodeMuxStream(stream)
+	if err != nil {
+		t.Fatalf("decode multiplexed stream failed: %v", err)
 	}
-	return string(output)
+	if exitCode != 0 {
+		t.Fatalf("exec %v exited %d: stdout=%s, stderr=%s", cmd, exitCode, stdout, stderr)
+	}
+	return stdout
 }
 
 // execInContainerNoFail runs a command and returns exit code + output without failing.
 func execInContainerNoFail(t *testing.T, ctx context.Context, c testcontainers.Container, cmd []string) (int, string) {
 	t.Helper()
-	exitCode, reader, err := c.Exec(ctx, cmd)
+	exitCode, stream, err := c.Exec(ctx, cmd)
 	if err != nil {
 		t.Fatalf("exec %v: %v", cmd, err)
 	}
-	output, _ := io.ReadAll(reader)
-	return exitCode, string(output)
+	stdout, _, err := decodeMuxStream(stream)
+	if err != nil {
+		t.Fatalf("decode multiplexed stream failed: %v", err)
+	}
+	return exitCode, stdout
+}
+
+// decodeMuxStream parses Docker mux-streams into stdout and stderr strings.
+func decodeMuxStream(r io.Reader) (string, string, error) {
+	var stdout, stderr strings.Builder
+	header := make([]byte, 8)
+	for {
+		_, err := io.ReadFull(r, header)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", "", err
+		}
+
+		streamType := header[0]
+		dataLen := binary.BigEndian.Uint32(header[4:8])
+
+		data := make([]byte, dataLen)
+		_, err = io.ReadFull(r, data)
+		if err != nil {
+			return "", "", err
+		}
+
+		switch streamType {
+		case 1: // stdout
+			stdout.Write(data)
+		case 2: // stderr
+			stderr.Write(data)
+		}
+	}
+	return stdout.String(), stderr.String(), nil
 }
 
 // fileExistsInContainer checks if a file exists inside the container.
