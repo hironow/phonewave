@@ -3,155 +3,77 @@
 package e2e
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/fs"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/testcontainers/testcontainers-go"
 )
 
-// runPhonewave runs the phonewave binary with given args in the specified workdir.
-// Returns stdout, stderr, and error.
-func runPhonewave(t *testing.T, workDir string, args ...string) (string, string, error) {
+// runPhonewaveInContainer runs the phonewave binary inside the container.
+// Returns exitCode, stdout.
+func runPhonewaveInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, workDir string, args ...string) (int, string) {
 	t.Helper()
-	cmd := exec.Command(phonewaveBin(), args...)
-	cmd.Dir = workDir
-	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		t.Logf("phonewave %v failed: err=%v\nstdout: %s\nstderr: %s", args, err, stdout.String(), stderr.String())
-	}
-	return stdout.String(), stderr.String(), err
-}
-
-// setupEcosystemOnHost creates the 3-tool ecosystem in a tempdir.
-func setupEcosystemOnHost(t *testing.T, repoPath string) {
-	t.Helper()
-
-	type toolDef struct {
-		dir      string
-		produces string
-		consumes []string
-	}
-
-	tools := []toolDef{
-		{".siren", "specification", []string{"design-feedback"}},
-		{".expedition", "report", []string{"specification", "design-feedback"}},
-		{".gate", "design-feedback", []string{"report"}},
-	}
-
-	for _, tool := range tools {
-		for _, sub := range []string{"outbox", "inbox"} {
-			os.MkdirAll(filepath.Join(repoPath, tool.dir, sub), 0o755)
-		}
-
-		// dmail-sendable SKILL.md
-		sendableDir := filepath.Join(repoPath, tool.dir, "skills", "dmail-sendable")
-		os.MkdirAll(sendableDir, 0o755)
-		content := fmt.Sprintf("---\nname: dmail-sendable\ndescription: Produces D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: %s\n---\n", tool.produces)
-		os.WriteFile(filepath.Join(sendableDir, "SKILL.md"), []byte(content), 0o644)
-
-		// dmail-readable SKILL.md
-		readableDir := filepath.Join(repoPath, tool.dir, "skills", "dmail-readable")
-		os.MkdirAll(readableDir, 0o755)
-		var consumesYAML string
-		for i, k := range tool.consumes {
-			if i == 0 {
-				consumesYAML += fmt.Sprintf("    - kind: %s\n", k)
-			} else {
-				consumesYAML += fmt.Sprintf("    - kind: %s\n", k)
-			}
-		}
-		readableContent := fmt.Sprintf("---\nname: dmail-readable\ndescription: Consumes D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n%s---\n", consumesYAML)
-		os.WriteFile(filepath.Join(readableDir, "SKILL.md"), []byte(readableContent), 0o644)
-	}
-}
-
-// setupSecondRepoOnHost creates a second repo with .beacon and .monitor endpoints.
-func setupSecondRepoOnHost(t *testing.T, repoPath string) {
-	t.Helper()
-	tools := []struct {
-		dir, produces, consumes string
-	}{
-		{".beacon", "convergence", ""},
-		{".monitor", "", "convergence"},
-	}
-	for _, tool := range tools {
-		for _, sub := range []string{"outbox", "inbox"} {
-			os.MkdirAll(filepath.Join(repoPath, tool.dir, sub), 0o755)
-		}
-		if tool.produces != "" {
-			skillDir := filepath.Join(repoPath, tool.dir, "skills", "dmail-sendable")
-			os.MkdirAll(skillDir, 0o755)
-			content := fmt.Sprintf("---\nname: dmail-sendable\ndescription: Produces D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: %s\n---\n", tool.produces)
-			os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o644)
-		}
-		if tool.consumes != "" {
-			skillDir := filepath.Join(repoPath, tool.dir, "skills", "dmail-readable")
-			os.MkdirAll(skillDir, 0o755)
-			content := fmt.Sprintf("---\nname: dmail-readable\ndescription: Consumes D-Mail messages\nmetadata:\n  dmail-schema-version: \"1\"\n  consumes:\n    - kind: %s\n---\n", tool.consumes)
-			os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0o644)
-		}
-	}
+	cmd := []string{"sh", "-c", fmt.Sprintf("cd %s && phonewave %s", workDir, strings.Join(args, " "))}
+	return execInContainerNoFail(t, ctx, c, cmd)
 }
 
 func TestCLI_MultiRepoInit(t *testing.T) {
-	workDir := t.TempDir()
-	repo1 := filepath.Join(workDir, "repo1")
-	repo2 := filepath.Join(workDir, "repo2")
-	os.MkdirAll(repo1, 0o755)
-	os.MkdirAll(repo2, 0o755)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_multi_init"
+	repo1 := workDir + "/repo1"
+	repo2 := workDir + "/repo2"
 
-	setupEcosystemOnHost(t, repo1)
-	setupSecondRepoOnHost(t, repo2)
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repo1})
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repo2})
 
-	_, _, err := runPhonewave(t, workDir, "init", repo1, repo2)
-	if err != nil {
-		t.Fatalf("init failed: %v", err)
+	setupEcosystemInContainer(t, ctx, c, repo1)
+	setupSecondRepoInContainer(t, ctx, c, repo2)
+
+	code, output := runPhonewaveInContainer(t, ctx, c, workDir, "init", repo1, repo2)
+	if code != 0 {
+		t.Fatalf("init failed with code %d: %s", code, output)
 	}
 
-	config, err := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
-	if err != nil {
-		t.Fatalf("read config: %v", err)
-	}
-	if !strings.Contains(string(config), "repo1") {
+	config := readFileInContainer(t, ctx, c, workDir+"/.phonewave/config.yaml")
+	if !strings.Contains(config, "repo1") {
 		t.Error("config missing repo1")
 	}
-	if !strings.Contains(string(config), "repo2") {
+	if !strings.Contains(config, "repo2") {
 		t.Error("config missing repo2")
 	}
 
-	if _, err := os.Stat(filepath.Join(workDir, ".phonewave")); errors.Is(err, fs.ErrNotExist) {
+	if !dirExistsInContainer(t, ctx, c, workDir+"/.phonewave") {
 		t.Error("state directory .phonewave not created")
 	}
 }
 
 func TestCLI_AddRepo(t *testing.T) {
-	workDir := t.TempDir()
-	repo1 := filepath.Join(workDir, "repo1")
-	repo2 := filepath.Join(workDir, "repo2")
-	os.MkdirAll(repo1, 0o755)
-	os.MkdirAll(repo2, 0o755)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_add_repo"
+	repo1 := workDir + "/repo1"
+	repo2 := workDir + "/repo2"
 
-	setupEcosystemOnHost(t, repo1)
-	runPhonewave(t, workDir, "init", repo1)
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repo1})
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repo2})
 
-	configBefore, _ := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
+	setupEcosystemInContainer(t, ctx, c, repo1)
+	runPhonewaveInContainer(t, ctx, c, workDir, "init", repo1)
 
-	setupSecondRepoOnHost(t, repo2)
-	_, _, err := runPhonewave(t, workDir, "add", repo2)
-	if err != nil {
-		t.Fatalf("add failed: %v", err)
+	configBefore := readFileInContainer(t, ctx, c, workDir+"/.phonewave/config.yaml")
+
+	setupSecondRepoInContainer(t, ctx, c, repo2)
+	code, output := runPhonewaveInContainer(t, ctx, c, workDir, "add", repo2)
+	if code != 0 {
+		t.Fatalf("add failed with code %d: %s", code, output)
 	}
 
-	configAfter, _ := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
-	if !strings.Contains(string(configAfter), "repo2") {
+	configAfter := readFileInContainer(t, ctx, c, workDir+"/.phonewave/config.yaml")
+	if !strings.Contains(configAfter, "repo2") {
 		t.Error("config missing repo2 after add")
 	}
 	if len(configAfter) <= len(configBefore) {
@@ -160,172 +82,185 @@ func TestCLI_AddRepo(t *testing.T) {
 }
 
 func TestCLI_RemoveRepo(t *testing.T) {
-	workDir := t.TempDir()
-	repo1 := filepath.Join(workDir, "repo1")
-	repo2 := filepath.Join(workDir, "repo2")
-	os.MkdirAll(repo1, 0o755)
-	os.MkdirAll(repo2, 0o755)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_remove_repo"
+	repo1 := workDir + "/repo1"
+	repo2 := workDir + "/repo2"
 
-	setupEcosystemOnHost(t, repo1)
-	setupSecondRepoOnHost(t, repo2)
-	runPhonewave(t, workDir, "init", repo1, repo2)
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repo1})
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repo2})
 
-	_, _, err := runPhonewave(t, workDir, "remove", repo2)
-	if err != nil {
-		t.Fatalf("remove failed: %v", err)
+	setupEcosystemInContainer(t, ctx, c, repo1)
+	setupSecondRepoInContainer(t, ctx, c, repo2)
+	runPhonewaveInContainer(t, ctx, c, workDir, "init", repo1, repo2)
+
+	code, output := runPhonewaveInContainer(t, ctx, c, workDir, "remove", repo2)
+	if code != 0 {
+		t.Fatalf("remove failed with code %d: %s", code, output)
 	}
 
-	config, _ := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
-	if strings.Contains(string(config), "repo2") {
+	config := readFileInContainer(t, ctx, c, workDir+"/.phonewave/config.yaml")
+	if strings.Contains(config, "repo2") {
 		t.Error("config still contains repo2 after remove")
 	}
-	if !strings.Contains(string(config), "repo1") {
+	if !strings.Contains(config, "repo1") {
 		t.Error("config should still contain repo1")
 	}
 }
 
 func TestCLI_Sync(t *testing.T) {
-	workDir := t.TempDir()
-	repoPath := filepath.Join(workDir, "repo")
-	os.MkdirAll(repoPath, 0o755)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_sync"
+	repoPath := workDir + "/repo"
 
-	setupEcosystemOnHost(t, repoPath)
-	runPhonewave(t, workDir, "init", repoPath)
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repoPath})
+	setupEcosystemInContainer(t, ctx, c, repoPath)
+	runPhonewaveInContainer(t, ctx, c, workDir, "init", repoPath)
 
 	// Add a new endpoint
-	oracleDir := filepath.Join(repoPath, ".oracle")
+	oracleDir := repoPath + "/.oracle"
 	for _, sub := range []string{"outbox", "inbox"} {
-		os.MkdirAll(filepath.Join(oracleDir, sub), 0o755)
+		execInContainer(t, ctx, c, []string{"mkdir", "-p", oracleDir + "/" + sub})
 	}
-	skillDir := filepath.Join(oracleDir, "skills", "dmail-sendable")
-	os.MkdirAll(skillDir, 0o755)
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
-		[]byte("---\nname: dmail-sendable\ndescription: Oracle predictions\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: ci-result\n---\n"), 0o644)
+	skillDir := oracleDir + "/skills/dmail-sendable"
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", skillDir})
+	heredocWrite(t, ctx, c, skillDir+"/SKILL.md", "---\nname: dmail-sendable\ndescription: Oracle predictions\nmetadata:\n  dmail-schema-version: \"1\"\n  produces:\n    - kind: ci-result\n---\n")
 
-	_, _, err := runPhonewave(t, workDir, "sync")
-	if err != nil {
-		t.Fatalf("sync failed: %v", err)
+	code, output := runPhonewaveInContainer(t, ctx, c, workDir, "sync")
+	if code != 0 {
+		t.Fatalf("sync failed with code %d: %s", code, output)
 	}
 
-	config, _ := os.ReadFile(filepath.Join(workDir, ".phonewave", "config.yaml"))
-	if !strings.Contains(string(config), ".oracle") {
+	config := readFileInContainer(t, ctx, c, workDir+"/.phonewave/config.yaml")
+	if !strings.Contains(config, ".oracle") {
 		t.Error("config missing .oracle after sync")
 	}
 }
 
 func TestCLI_Doctor_Healthy(t *testing.T) {
-	workDir := t.TempDir()
-	repoPath := filepath.Join(workDir, "repo")
-	os.MkdirAll(repoPath, 0o755)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_doctor_healthy"
+	repoPath := workDir + "/repo"
 
-	setupEcosystemOnHost(t, repoPath)
-	runPhonewave(t, workDir, "init", repoPath)
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repoPath})
+	setupEcosystemInContainer(t, ctx, c, repoPath)
+	runPhonewaveInContainer(t, ctx, c, workDir, "init", repoPath)
 
-	stdout, stderr, err := runPhonewave(t, workDir, "doctor")
-	if err != nil {
-		t.Fatalf("doctor failed: %v", err)
+	code, output := runPhonewaveInContainer(t, ctx, c, workDir, "doctor")
+	if code != 0 {
+		t.Fatalf("doctor failed with code %d: %s", code, output)
 	}
 
-	combined := stdout + stderr
-	if !strings.Contains(combined, "All checks passed") {
-		t.Errorf("doctor output does not indicate healthy: %s", combined)
+	if !strings.Contains(output, "All checks passed") {
+		t.Errorf("doctor output does not indicate healthy: %s", output)
 	}
 }
 
 func TestCLI_Doctor_MissingDir(t *testing.T) {
-	workDir := t.TempDir()
-	repoPath := filepath.Join(workDir, "repo")
-	os.MkdirAll(repoPath, 0o755)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_doctor_missing"
+	repoPath := workDir + "/repo"
 
-	setupEcosystemOnHost(t, repoPath)
-	runPhonewave(t, workDir, "init", repoPath)
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repoPath})
+	setupEcosystemInContainer(t, ctx, c, repoPath)
+	runPhonewaveInContainer(t, ctx, c, workDir, "init", repoPath)
 
-	// Remove an endpoint directory
-	os.RemoveAll(filepath.Join(repoPath, ".siren"))
+	// Remove an endpoint directory inside container
+	execInContainer(t, ctx, c, []string{"rm", "-rf", repoPath + "/.siren"})
 
-	_, _, err := runPhonewave(t, workDir, "doctor")
-	if err == nil {
+	code, _ := runPhonewaveInContainer(t, ctx, c, workDir, "doctor")
+	if code == 0 {
 		t.Error("doctor should fail with missing directory")
 	}
 }
 
 func TestCLI_StatusStopped(t *testing.T) {
-	workDir := t.TempDir()
-	repoPath := filepath.Join(workDir, "repo")
-	os.MkdirAll(repoPath, 0o755)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_status_stopped"
+	repoPath := workDir + "/repo"
 
-	setupEcosystemOnHost(t, repoPath)
-	runPhonewave(t, workDir, "init", repoPath)
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repoPath})
+	setupEcosystemInContainer(t, ctx, c, repoPath)
+	runPhonewaveInContainer(t, ctx, c, workDir, "init", repoPath)
 
-	stdout, _, err := runPhonewave(t, workDir, "status")
-	if err != nil {
-		t.Fatalf("status failed: %v", err)
+	code, output := runPhonewaveInContainer(t, ctx, c, workDir, "status")
+	if code != 0 {
+		t.Fatalf("status failed with code %d: %s", code, output)
 	}
 
-	if !strings.Contains(stdout, "stopped") {
-		t.Errorf("status should show 'stopped' when daemon is not running: %s", stdout)
+	if !strings.Contains(output, "stopped") {
+		t.Errorf("status should show 'stopped' when daemon is not running: %s", output)
 	}
 }
 
 func TestCLI_ConfigFlag(t *testing.T) {
-	workDir := t.TempDir()
-	repoPath := filepath.Join(workDir, "repo")
-	os.MkdirAll(repoPath, 0o755)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_config_flag"
+	repoPath := workDir + "/repo"
 
-	setupEcosystemOnHost(t, repoPath)
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", repoPath})
+	setupEcosystemInContainer(t, ctx, c, repoPath)
 
-	customStateDir := filepath.Join(workDir, "custom", ".phonewave")
-	os.MkdirAll(customStateDir, 0o755)
-	customPath := filepath.Join(customStateDir, "config.yaml")
+	customStateDir := workDir + "/custom/.phonewave"
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", customStateDir})
+	customPath := customStateDir + "/config.yaml"
 
-	_, _, err := runPhonewave(t, workDir, "init", "--config", customPath, repoPath)
-	if err != nil {
-		t.Fatalf("init with --config failed: %v", err)
+	code, output := runPhonewaveInContainer(t, ctx, c, workDir, "init", "--config", customPath, repoPath)
+	if code != 0 {
+		t.Fatalf("init with --config failed with code %d: %s", code, output)
 	}
 
-	if _, err := os.Stat(customPath); errors.Is(err, fs.ErrNotExist) {
+	if !fileExistsInContainer(t, ctx, c, customPath) {
 		t.Fatal("config not created at custom path")
 	}
 
-	if _, err := os.Stat(customStateDir); errors.Is(err, fs.ErrNotExist) {
+	if !dirExistsInContainer(t, ctx, c, customStateDir) {
 		t.Error("state dir .phonewave not created at custom location")
 	}
 }
 
 func TestCLI_Version(t *testing.T) {
-	stdout, _, err := runPhonewave(t, t.TempDir(), "version")
-	if err != nil {
-		t.Fatalf("version failed: %v", err)
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_version"
+
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", workDir})
+	code, output := runPhonewaveInContainer(t, ctx, c, workDir, "version")
+	if code != 0 {
+		t.Fatalf("version failed with code %d: %s", code, output)
 	}
 
-	if !strings.Contains(stdout, "phonewave") {
-		t.Errorf("version output should contain 'phonewave': %s", stdout)
+	if !strings.Contains(output, "phonewave") {
+		t.Errorf("version output should contain 'phonewave': %s", output)
 	}
 }
 
 func TestCLI_MCPServerToolsList(t *testing.T) {
-	// given
+	ctx := context.Background()
+	c := buildTestContainer(t, ctx)
+	workDir := "/workspace/t_mcp"
+
+	execInContainer(t, ctx, c, []string{"mkdir", "-p", workDir})
+
 	input := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
-
-	// when
-	cmd := exec.Command(phonewaveBin(), "mcp")
-	cmd.Stdin = strings.NewReader(input)
-	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		t.Fatalf("mcp command failed: %v\nstderr: %s", err, stderr.String())
+	
+	cmd := []string{"sh", "-c", fmt.Sprintf("echo '%s' | phonewave mcp", input)}
+	code, stdout := execInContainerNoFail(t, ctx, c, cmd)
+	if code != 0 {
+		t.Fatalf("mcp command failed with code %d: %s", code, stdout)
 	}
 
-	// then
-	outStr := stdout.String()
-	idx := strings.Index(outStr, `{"jsonrpc"`)
+	idx := strings.Index(stdout, `{"jsonrpc"`)
 	if idx < 0 {
-		t.Fatalf("no JSON-RPC response found in stdout: %s", outStr)
+		t.Fatalf("no JSON-RPC response found in stdout: %s", stdout)
 	}
-	jsonStr := outStr[idx:]
+	jsonStr := stdout[idx:]
 
 	var resp struct {
 		JSONRPC string `json:"jsonrpc"`
@@ -367,4 +302,3 @@ func TestCLI_MCPServerToolsList(t *testing.T) {
 		}
 	}
 }
-
