@@ -33,7 +33,8 @@ func newRemoveCmd() *cobra.Command {
 				return err
 			}
 
-			if err := session.WriteConfig(cfgPath, cfg); err != nil {
+			err = session.WriteConfig(cfgPath, cfg)
+			if err != nil {
 				return fmt.Errorf("write config: %w", err)
 			}
 

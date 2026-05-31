@@ -82,7 +82,8 @@ Pass --execute to actually delete dead-lettered items.`,
 
 			if !execute {
 				if jsonOut {
-					data, err := json.Marshal(map[string]int{"dead_letters": count, "purged": 0})
+					var data []byte
+					data, err = json.Marshal(map[string]int{"dead_letters": count, "purged": 0})
 					if err != nil {
 						return fmt.Errorf("marshal json: %w", err)
 					}

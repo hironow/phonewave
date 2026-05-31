@@ -100,7 +100,8 @@ func (s *SQLiteDeliveryStore) StageDelivery(ctx context.Context, dmailPath strin
 	defer func() { _ = conn.Close() }()
 
 	lockStart := time.Now()
-	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	_, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE")
+	if err != nil {
 		return fmt.Errorf("delivery store: begin immediate: %w", err)
 	}
 	if platform.IsDetailDebug() {
@@ -229,7 +230,8 @@ func (s *SQLiteDeliveryStore) markFlushed(dmailPath, target string) error {
 	}
 	defer func() { _ = conn.Close() }()
 
-	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	_, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE")
+	if err != nil {
 		return err
 	}
 	committed := false
@@ -263,7 +265,8 @@ func (s *SQLiteDeliveryStore) incrementRetryCount(dmailPath, target string) erro
 	}
 	defer func() { _ = conn.Close() }()
 
-	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	_, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE")
+	if err != nil {
 		return err
 	}
 	committed := false
@@ -359,7 +362,8 @@ func (s *SQLiteDeliveryStore) deleteFlushedRows() (int, error) {
 	}
 	defer func() { _ = conn.Close() }()
 
-	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	_, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE")
+	if err != nil {
 		return 0, fmt.Errorf("delivery store: begin immediate: %w", err)
 	}
 	committed := false
