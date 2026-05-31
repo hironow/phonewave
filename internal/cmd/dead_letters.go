@@ -61,7 +61,7 @@ Pass --execute to actually delete dead-lettered items.`,
 			if err != nil {
 				return fmt.Errorf("open delivery store: %w", err)
 			}
-			defer store.Close()
+			defer func() { _ = store.Close() }()
 
 			count, err := store.DeadLetterCount(cmd.Context())
 			if err != nil {
