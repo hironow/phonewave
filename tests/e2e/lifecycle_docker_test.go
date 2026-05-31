@@ -15,7 +15,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// execInContainer runs a command and returns stdout. Fails the test on non-zero exit.
+// execInContainer runs a command and returns stdout+stderr. Fails the test on non-zero exit.
 func execInContainer(t *testing.T, ctx context.Context, c testcontainers.Container, cmd []string) string {
 	t.Helper()
 	exitCode, stream, err := c.Exec(ctx, cmd)
@@ -29,21 +29,21 @@ func execInContainer(t *testing.T, ctx context.Context, c testcontainers.Contain
 	if exitCode != 0 {
 		t.Fatalf("exec %v exited %d: stdout=%s, stderr=%s", cmd, exitCode, stdout, stderr)
 	}
-	return stdout
+	return stdout + stderr
 }
 
-// execInContainerNoFail runs a command and returns exit code + output without failing.
+// execInContainerNoFail runs a command and returns exit code + output (stdout+stderr) without failing.
 func execInContainerNoFail(t *testing.T, ctx context.Context, c testcontainers.Container, cmd []string) (int, string) {
 	t.Helper()
 	exitCode, stream, err := c.Exec(ctx, cmd)
 	if err != nil {
 		t.Fatalf("exec %v: %v", cmd, err)
 	}
-	stdout, _, err := decodeMuxStream(stream)
+	stdout, stderr, err := decodeMuxStream(stream)
 	if err != nil {
 		t.Fatalf("decode multiplexed stream failed: %v", err)
 	}
-	return exitCode, stdout
+	return exitCode, stdout + stderr
 }
 
 // decodeMuxStream parses Docker mux-streams into stdout and stderr strings.
