@@ -261,6 +261,10 @@ func TestCLI_MCPServerToolsList(t *testing.T) {
 		t.Fatalf("no JSON-RPC response found in stdout: %s", stdout)
 	}
 	jsonStr := stdout[idx:]
+	lastBrace := strings.LastIndex(jsonStr, "}")
+	if lastBrace >= 0 {
+		jsonStr = jsonStr[:lastBrace+1]
+	}
 
 	var resp struct {
 		JSONRPC string `json:"jsonrpc"`
