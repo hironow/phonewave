@@ -86,7 +86,8 @@ func (s *SQLiteErrorQueueStore) Enqueue(name string, data []byte, meta domain.Er
 	}
 	defer func() { _ = conn.Close() }()
 
-	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	_, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE")
+	if err != nil {
 		return fmt.Errorf("error queue store: begin immediate: %w", err)
 	}
 	committed := false
@@ -124,7 +125,8 @@ func (s *SQLiteErrorQueueStore) ClaimPendingRetries(claimerID string, maxRetries
 	}
 	defer func() { _ = conn.Close() }()
 
-	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	_, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE")
+	if err != nil {
 		return nil, fmt.Errorf("error queue store: begin immediate: %w", err)
 	}
 	committed := false
@@ -200,7 +202,8 @@ func (s *SQLiteErrorQueueStore) IncrementRetry(name string, newError string) err
 	}
 	defer func() { _ = conn.Close() }()
 
-	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	_, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE")
+	if err != nil {
 		return fmt.Errorf("error queue store: begin immediate: %w", err)
 	}
 	committed := false
@@ -237,7 +240,8 @@ func (s *SQLiteErrorQueueStore) MarkResolved(name string) error {
 	}
 	defer func() { _ = conn.Close() }()
 
-	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	_, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE")
+	if err != nil {
 		return fmt.Errorf("error queue store: begin immediate: %w", err)
 	}
 	committed := false

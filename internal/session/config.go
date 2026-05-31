@@ -129,13 +129,15 @@ func WriteConfig(path string, cfg *domain.Config) error {
 		return err
 	}
 	header := "# phonewave configuration\n# Run 'phonewave init --force' to regenerate\n\n"
-	if err := os.WriteFile(path, []byte(header+string(mdata)), 0644); err != nil {
+	err = os.WriteFile(path, []byte(header+string(mdata)), 0644)
+	if err != nil {
 		return err
 	}
 
 	// Write resolved state (configDir IS the state dir)
 	runDir := filepath.Join(configDir, ".run")
-	if err := os.MkdirAll(runDir, 0755); err != nil {
+	err = os.MkdirAll(runDir, 0755)
+	if err != nil {
 		return fmt.Errorf("create .run dir: %w", err)
 	}
 	rs := domain.ResolvedState{
