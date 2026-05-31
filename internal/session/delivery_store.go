@@ -45,19 +45,19 @@ func NewSQLiteDeliveryStore(stateDir string) (*SQLiteDeliveryStore, error) {
 		"PRAGMA auto_vacuum=INCREMENTAL",
 	} {
 		if _, err := db.Exec(pragma); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("delivery store: %s: %w", pragma, err)
 		}
 	}
 
 	if err := createDeliverySchema(db); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
 	// Set file permissions after creation
 	if err := os.Chmod(dbPath, 0o600); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("delivery store: chmod: %w", err)
 	}
 
@@ -97,7 +97,7 @@ func (s *SQLiteDeliveryStore) StageDelivery(ctx context.Context, dmailPath strin
 	if err != nil {
 		return fmt.Errorf("delivery store: get conn: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	lockStart := time.Now()
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
@@ -207,7 +207,7 @@ func (s *SQLiteDeliveryStore) collectUnflushed() ([]unflushedItem, error) {
 	if err != nil {
 		return nil, fmt.Errorf("delivery store: select unflushed: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []unflushedItem
 	for rows.Next() {
@@ -227,7 +227,7 @@ func (s *SQLiteDeliveryStore) markFlushed(dmailPath, target string) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return err
@@ -261,7 +261,7 @@ func (s *SQLiteDeliveryStore) incrementRetryCount(dmailPath, target string) erro
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return err
@@ -297,7 +297,7 @@ func (s *SQLiteDeliveryStore) RecoverUnflushed() ([]domain.StagedDelivery, error
 	if err != nil {
 		return nil, fmt.Errorf("delivery store: recover unflushed: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []domain.StagedDelivery
 	for rows.Next() {
@@ -357,7 +357,7 @@ func (s *SQLiteDeliveryStore) deleteFlushedRows() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("delivery store: get conn: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return 0, fmt.Errorf("delivery store: begin immediate: %w", err)

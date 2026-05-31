@@ -47,5 +47,4 @@ phonewave dead-letters purge [flags]
 
 ### SEE ALSO
 
-* [phonewave dead-letters](phonewave_dead-letters.md)	 - Manage dead-lettered delivery items
-
+* [phonewave dead-letters](phonewave_dead-letters.md)  - Manage dead-lettered delivery items

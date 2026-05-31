@@ -25,7 +25,7 @@ func ParseDeliveryStats(stateDir string) DeliveryStats24h {
 	if err != nil {
 		return DeliveryStats24h{}
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	cutoff := time.Now().UTC().Add(-24 * time.Hour)
 	var stats DeliveryStats24h
@@ -114,7 +114,7 @@ func Status(cfg *domain.Config, stateDir string) domain.StatusReport {
 
 	// Count pending errors from SQLite error queue
 	if eq, eqErr := NewErrorQueueStore(stateDir); eqErr == nil {
-		defer eq.Close()
+		defer func() { _ = eq.Close() }()
 		if count, cErr := eq.PendingCount(1<<31 - 1); cErr == nil {
 			report.PendingErrors = count
 		}

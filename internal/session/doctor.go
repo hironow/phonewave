@@ -242,11 +242,19 @@ func Doctor(ctx context.Context, cfg *domain.Config, stateDir string, repair boo
 	if repair && !report.DaemonStatus.Running {
 		pidPath := filepath.Join(stateDir, "watch.pid")
 		if _, err := os.Stat(pidPath); err == nil {
-			os.Remove(pidPath)
+			if err := os.Remove(pidPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				report.AddWarnWithHint("stale-pid",
+					fmt.Sprintf("failed to remove stale PID file: %v", err),
+					"check file permissions on .phonewave/watch.pid")
+			}
 			// Also remove watch.started to avoid inconsistent state
 			// (stopped daemon showing stale uptime)
 			startedPath := filepath.Join(stateDir, "watch.started")
-			os.Remove(startedPath) // best-effort; ignore error if file doesn't exist
+			if err := os.Remove(startedPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				report.AddWarnWithHint("stale-pid",
+					fmt.Sprintf("failed to remove stale start marker: %v", err),
+					"check file permissions on .phonewave/watch.started")
+			}
 		}
 	}
 
@@ -387,7 +395,7 @@ func checkDeadLetters(ctx context.Context, report *domain.DoctorReport, stateDir
 			"check file permissions on .phonewave/.run/delivery.db")
 		return
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	count, err := store.DeadLetterCount(ctx)
 	if err != nil {
@@ -406,14 +414,14 @@ func checkDeadLetters(ctx context.Context, report *domain.DoctorReport, stateDir
 // checkFsnotify verifies that the OS file watcher is available.
 // phonewave daemon depends on file watching for outbox monitoring.
 func checkFsnotify(report *domain.DoctorReport) {
-	w, err := fsnotify.NewWatcher()
+	w, err := fsnotify.NewWatcher() // nosemgrep: adr0005-fsnotify-watcher-without-close -- watcher is closed via deferred close below [permanent]
 	if err != nil {
 		report.AddErrorWithHint("fsnotify",
 			fmt.Sprintf("cannot create file watcher: %v", err),
 			"on Linux, increase inotify limit: sysctl fs.inotify.max_user_watches=524288")
 		return
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 	report.AddOK("fsnotify", "file watcher available")
 }
 

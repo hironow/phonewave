@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -100,7 +101,9 @@ func ScanAndDeliver(ctx context.Context, outboxDir string, routes []domain.Resol
 				if saveErr := errorQueue.Enqueue(name, data, meta); saveErr != nil {
 					logger.Error("Error queue enqueue: %v", saveErr)
 				} else {
-					os.Remove(dmailPath)
+					if rmErr := os.Remove(dmailPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+						logger.Error("remove delivered outbox file: %v", rmErr)
+					}
 				}
 			}
 			errs = append(errs, fmt.Errorf("deliver %s: %w", dmailPath, deliverErr))
