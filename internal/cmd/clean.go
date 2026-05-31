@@ -67,7 +67,7 @@ Preserves: .phonewave/config.yaml and .phonewave/.gitignore`,
 				}
 				fmt.Fprintf(cmd.ErrOrStderr(), "\nDelete? [y/N]: ")
 				var answer string
-				fmt.Fscanln(cmd.InOrStdin(), &answer)
+				_, _ = fmt.Fscanln(cmd.InOrStdin(), &answer)
 				if answer != "y" && answer != "Y" {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Aborted.\n")
 					return nil

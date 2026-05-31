@@ -64,7 +64,7 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	defer runner.Close()
+	defer func() { _ = runner.Close() }()
 
 	if runner.OutboxCount() == 0 {
 		logger.Warn("No outbox directories to watch")

@@ -37,5 +37,6 @@ func NewImprovementTask(sourceEvent, targetAgent, action string, ft FailureType,
 
 // Expired returns true if the task's validity window has passed.
 func (t ImprovementTask) Expired() bool {
-	return time.Now().UTC().After(t.ExpiresAt)
+	now := time.Now().UTC()
+	return now.After(t.ExpiresAt) || now.Equal(t.ExpiresAt)
 }

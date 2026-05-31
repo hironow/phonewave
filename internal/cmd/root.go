@@ -45,7 +45,7 @@ func NewRootCommand() *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			noColor := mustBool(cmd, "no-color")
 			if noColor {
-				os.Setenv("NO_COLOR", "1")
+				_ = os.Setenv("NO_COLOR", "1")
 			}
 			verbose := mustBool(cmd, "verbose")
 			out := cmd.ErrOrStderr()
@@ -78,10 +78,10 @@ func NewRootCommand() *cobra.Command {
 		cobra.OnFinalize(func() {
 			endRootSpan()
 			if shutdownMeterFn != nil {
-				shutdownMeterFn(context.Background())
+				_ = shutdownMeterFn(context.Background())
 			}
 			if shutdownTracerFn != nil {
-				shutdownTracerFn(context.Background())
+				_ = shutdownTracerFn(context.Background())
 			}
 		})
 	})
