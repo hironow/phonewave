@@ -71,7 +71,7 @@ func (a *StdinApprover) RequestApproval(ctx context.Context, message string) (bo
 	case r := <-ch:
 		answer := strings.TrimSpace(strings.ToLower(r.line))
 		if answer == "" && r.err != nil {
-			return false, nil
+			return false, nil //nolint:nilerr // EOF or read failure on empty input returns false (denied) without error
 		}
 		return answer == "y" || answer == "yes", nil
 	}
