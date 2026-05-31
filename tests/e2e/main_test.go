@@ -76,6 +76,9 @@ func repoRoot() string {
 // phonewave returns the path to the phonewave binary.
 // In CI, it's installed to /usr/local/bin; locally, use `which`.
 func phonewaveBin() string {
+	if env := os.Getenv("PHONEWAVE_BIN"); env != "" {
+		return env
+	}
 	if p, err := exec.LookPath("phonewave"); err == nil {
 		return p
 	}
