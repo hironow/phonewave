@@ -76,7 +76,7 @@ endpoint and verifies the exporter completes without error. Skipped when
 ## GenAI Semantic Conventions
 
 phonewave does not invoke LLMs directly and does not emit `gen_ai.*` span attributes.
-Tools that invoke Claude (sightjack, paintress, amadeus) emit:
+After the MCP pivot, the five-tool data plane does not start headless model subprocesses. Any `gen_ai.*` telemetry belongs to the surrounding Claude Code session or compatibility fixtures, not to phonewave courier execution.
 
 - `gen_ai.operation.name=chat`
 - `gen_ai.system=anthropic`
@@ -84,7 +84,7 @@ Tools that invoke Claude (sightjack, paintress, amadeus) emit:
 
 ## Cross-Tool OTel Conformance
 
-All 4 tools (phonewave, sightjack, paintress, amadeus) share a common OTel emission contract.
+All 5 tools (phonewave, sightjack, paintress, amadeus, dominator) share a common OTel emission contract.
 Each tool's telemetry tests verify conformance to prevent drift.
 
 ### Root Span
@@ -94,15 +94,17 @@ Each tool's telemetry tests verify conformance to prevent drift.
 | Span name | Yes | Tool-specific operation name |
 | `otel.status_code` | Yes | OK on success, ERROR on failure |
 
-### claude.invoke Span (sightjack, paintress, amadeus only)
+### Claude Code Session Telemetry
+
+Historical `claude.invoke` / `gen_ai.*` spans are retained only where a repository parses Claude Code session streams or compatibility fixtures. MCP data-plane commands do not start a headless model subprocess.
 
 | Attribute | Required | Description |
 |-----------|----------|-------------|
-| `claude.model` | Yes | Model name (e.g. "opus") |
-| `claude.timeout_sec` | Yes | Timeout in seconds (context deadline or config) |
-| `gen_ai.operation.name` | Yes | Always "chat" |
-| `gen_ai.system` | Yes | Always "anthropic" |
-| `gen_ai.request.model` | Yes | Model name |
+| `claude.model` | Compatibility | Model name from a session stream or fixture |
+| `claude.timeout_sec` | Compatibility | Timeout from a session stream or fixture |
+| `gen_ai.operation.name` | Compatibility | Chat operation name when session telemetry is present |
+| `gen_ai.system` | Compatibility | Provider identifier when session telemetry is present |
+| `gen_ai.request.model` | Compatibility | Model name when session telemetry is present |
 
 ### Verification
 

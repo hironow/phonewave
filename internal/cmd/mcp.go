@@ -11,8 +11,8 @@ import (
 )
 
 // newMCPCommand exposes `phonewave mcp` as a stdio MCP server entry
-// point for the refs/issues/0027 jun15 MCP pivot Phase 2d. A claude
-// code interactive session loads this binary via --mcp-config to
+// point for the refs/issues/0027 jun15 MCP pivot Phase 2d. A Claude
+// Code interactive session loads this binary via --mcp-config to
 // query phonewave's runtime data plane (outbox / inbox / dead-letter
 // queue depth) as visibility tools alongside the other four tools'
 // MCP servers.
