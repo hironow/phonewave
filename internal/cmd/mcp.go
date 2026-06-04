@@ -32,7 +32,7 @@ func newMCPCommand() *cobra.Command {
 		Long: `Start a Model Context Protocol server reading JSON-RPC 2.0
 messages on stdin and writing responses on stdout.
 
-Designed for embedding in a claude code interactive session via
+Designed for embedding in a Claude Code interactive session via
 --mcp-config to query phonewave's courier daemon state without
 shelling out to 'phonewave status' / 'phonewave metrics'. The
 session can attach this MCP server alongside the other four tools'
@@ -47,7 +47,7 @@ phonewave never invoked 'claude -p' in any production path, so this
 MCP server is purely additive (= visibility) and complements the
 other four tools' MCP servers which replace deprecated LLM
 invocation paths.`,
-		Example: `  # Launch claude code with all five MCP servers attached
+		Example: `  # Launch Claude Code with all five MCP servers attached
   claude --mcp-config '{
     "paintress":{"command":"paintress","args":["mcp"]},
     "sightjack":{"command":"sightjack","args":["mcp"]},
