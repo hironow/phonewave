@@ -25,10 +25,10 @@ import (
 // `claude -p`. This MCP server therefore does NOT replace any
 // deprecated LLM invocation path; instead it exposes phonewave's
 // runtime data plane (outbox / inbox / dead-letter queue depth) as
-// visibility tools that a claude code session can query while the
+// visibility tools that a Claude Code session can query while the
 // other four tools' MCP servers handle their own data planes.
 //
-// Wire it into a claude code interactive session via --mcp-config so
+// Wire it into a Claude Code interactive session via --mcp-config so
 // session-driven workflows can read phonewave queue depths without
 // shelling out to the CLI.
 //
@@ -147,7 +147,7 @@ func (s *MCPServer) handle(ctx context.Context, line []byte) error {
 const mcpProtocolVersion = "2024-11-05"
 
 // initializeResult builds the MCP initialize handshake response. The
-// claude code session sends `initialize` first; without a valid reply
+// Claude Code session sends `initialize` first; without a valid reply
 // it never proceeds to tools/list. The server advertises its supported
 // protocol version + the tools capability.
 func initializeResult() map[string]any {
@@ -203,7 +203,7 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) err
 }
 
 // toolDescriptors returns the visibility tool set. Each entry pins
-// the interface (name, description, inputSchema) so claude code
+// the interface (name, description, inputSchema) so Claude Code
 // clients see a stable contract. The handler bodies (realOutboxStatus
 // / realInboxStatus) read the courier daemon state (outbox/inbox
 // queue depth + dead-letter count) from the configured repositories.
