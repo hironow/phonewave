@@ -1,1 +1,14 @@
 gitignore: true
+ignores:
+  - dist/**
+  - docs/cli/**
+  - node_modules/**
+  - .venv/**
+  - .siren/**
+  - .expedition/**
+  - .gate/**
+  - .pass/**
+  - internal/**/testdata/**
+  - testdata/**
+  - tests/**/fixtures/**
+  - tests/**/testdata/**
