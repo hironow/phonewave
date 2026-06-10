@@ -4,6 +4,8 @@
 
 Phonewave watches outbox directories via fsnotify, reads YAML frontmatter to determine the `kind` of each D-Mail, routes it to the correct inbox(es) based on an auto-derived routing table, and removes the source file after successful delivery. Failed deliveries are saved to an error queue with automatic retry.
 
+Post jun15 MCP pivot, phonewave is the **only tool in the ecosystem that still runs as a daemon**: it is pure transport and never invokes an LLM, so `phonewave run` survived the pivot unchanged. An optional `phonewave mcp` server exposes read-only courier visibility (ping / outbox_status / inbox_status) to Claude Code sessions (ADR 0006).
+
 ```bash
 phonewave init ./repo-a ./repo-b ./repo-c
 phonewave run -v
@@ -35,14 +37,17 @@ This maps to the courier daemon's design:
 
 ## D-Mail Protocol
 
-Phonewave is the courier layer for the D-Mail protocol. Four tools participate in the ecosystem:
+Phonewave is the courier layer for the D-Mail protocol. Five tools participate in the ecosystem:
 
 | Tool | Role | Endpoint |
 |------|------|----------|
 | **sightjack** | Designer / Protocol spec owner | `.siren/` |
 | **paintress** | Implementer | `.expedition/` |
 | **amadeus** | Verifier | `.gate/` |
+| **dominator** | NFR judge | `.pass/` |
 | **phonewave** | Courier / Coordinator | (no endpoint — routes between others) |
+
+As pure transport, phonewave is not a Rival Contract actor — the contract docs live in the four producer/consumer tools.
 
 Each tool declares its D-Mail capabilities in `SKILL.md` manifests:
 
@@ -157,6 +162,9 @@ Running `phonewave` requires an explicit subcommand. Use `phonewave run` to star
 | `status` | Show daemon state and delivery stats |
 | `clean` | Remove runtime state |
 | `archive-prune` | Prune old archived D-Mail files |
+| `dead-letters` | Manage dead-lettered delivery items |
+| `metrics` | Output delivery health time-series as JSON |
+| `mcp` | Run as a read-only courier visibility MCP server (stdio) |
 | `version` | Print version info |
 | `update` | Self-update to the latest release |
 
