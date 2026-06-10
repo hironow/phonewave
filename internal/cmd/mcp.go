@@ -17,7 +17,7 @@ import (
 // queue depth) as visibility tools alongside the other four tools'
 // MCP servers.
 //
-// Exposes phonewave.ping plus the courier data-plane visibility tools
+// Exposes ping plus the courier data-plane visibility tools
 // outbox_status / inbox_status (real reads of the SQLite delivery
 // store + outbox/inbox queue depths across configured repositories).
 //
@@ -38,8 +38,8 @@ shelling out to 'phonewave status' / 'phonewave metrics'. The
 session can attach this MCP server alongside the other four tools'
 MCP servers (paintress / sightjack / amadeus / dominator).
 
-Exposes phonewave.ping plus phonewave.outbox_status and
-phonewave.inbox_status, which read the courier daemon's runtime state
+Exposes ping plus outbox_status and
+inbox_status, which read the courier daemon's runtime state
 (outbox/inbox queue depth + dead-letter count from the SQLite
 delivery store) across all configured repositories.
 

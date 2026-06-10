@@ -59,3 +59,6 @@
 | [0002](0002-testcontainers-docker-e2e.md) | testcontainers-go Docker E2E testing strategy | MY-363 |
 | [0003](0003-signal-context-propagation.md) | Signal context propagation and daemon lifecycle | MY-363 |
 | [0004](0004-config-relative-state-directory.md) | Config-relative state directory | MY-363 |
+| [0005](0005-relay-preserve-actor-type.md) | phonewave relay-preserve actor type & deferred daemon-emit injection (Phase β-4) | - |
+| [0006](0006-mcp-pivot.md) | MCP pivot: phonewave optional visibility MCP server | - |
+| [0007](0007-mcp-surface-alignment.md) | MCP surface alignment (dot-free names, instructions, delivery stats, telemetry label) | - |

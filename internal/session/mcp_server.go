@@ -155,6 +155,10 @@ func initializeResult() map[string]any {
 		"protocolVersion": mcpProtocolVersion,
 		"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
 		"serverInfo":      map[string]any{"name": "phonewave", "version": "0.1.0"},
+		// instructions feed Claude Code's deferred tool loading (Tool
+		// Search): only tool names + this summary are in context at
+		// startup, so it must say what the server is FOR.
+		"instructions": "phonewave is the D-Mail courier daemon and its visibility surface for the tap 5-tool ecosystem: query queue depths, dead-letter counts and 24h delivery stats (outbox_status / inbox_status) to check whether emitted d-mails were delivered. Do NOT start `phonewave run` from the session — the daemon runs independently as the only surviving daemon post jun15 pivot.",
 	}
 }
 
@@ -165,7 +169,7 @@ func initializeResult() map[string]any {
 //
 // phonewave's tools are visibility-only (outbox / inbox queue depth
 // reads) and never invoked claude -p in production, so status="ok"
-// is the steady-state value. status="deprecated" is reserved for
+// is the steady-state value. status="visibility" marks the
 // future stub responses that ship a stub:true flag.
 func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) error {
 	start := time.Now()
@@ -181,14 +185,14 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) err
 	status := "ok"
 	var result map[string]any
 	switch call.Name {
-	case "phonewave.ping":
+	case "ping":
 		result = textResult("pong")
-	case "phonewave.outbox_status":
+	case "outbox_status":
 		result = realOutboxStatus(ctx, s.configPath, call.Arguments)
-		status = "deprecated"
-	case "phonewave.inbox_status":
+		status = "visibility"
+	case "inbox_status":
 		result = realInboxStatus(s.configPath, call.Arguments)
-		status = "deprecated"
+		status = "visibility"
 	default:
 		platform.RecordMCPInvocation(ctx, call.Name, "error", time.Since(start))
 		return s.respondError(msg.ID, -32601, fmt.Sprintf("unknown tool: %s", call.Name))
@@ -210,13 +214,13 @@ func (s *MCPServer) handleToolsCall(ctx context.Context, msg jsonrpcMessage) err
 func toolDescriptors() []map[string]any {
 	return []map[string]any{
 		{
-			"name":        "phonewave.ping",
+			"name":        "ping",
 			"description": "Health check. Returns 'pong'.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{}},
 		},
 		{
-			"name":        "phonewave.outbox_status",
-			"description": "Return outbox queue depth + dead-letter count (from the SQLite delivery store) + oldest age in seconds for the given source tool.",
+			"name":        "outbox_status",
+			"description": "Return outbox queue depth + dead-letter count (SQLite delivery store) + oldest age in seconds + 24h delivery stats (delivered/failed/retried — answers whether emitted d-mails were delivered) for the given source tool.",
 			"inputSchema": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
@@ -226,7 +230,7 @@ func toolDescriptors() []map[string]any {
 			},
 		},
 		{
-			"name":        "phonewave.inbox_status",
+			"name":        "inbox_status",
 			"description": "Return inbox queue depth + oldest age in seconds for the given target tool. Inbox has no dead-letter count (that is an outbox-side concept).",
 			"inputSchema": map[string]any{
 				"type": "object",
@@ -357,6 +361,9 @@ func realOutboxStatus(ctx context.Context, configPath string, args json.RawMessa
 	if !globalOldest.IsZero() {
 		oldestAgeSec = int(time.Since(globalOldest).Seconds())
 	}
+	// 24h delivery stats answer "did my d-mail get delivered?" (refs
+	// issue 0034) — derived from delivery.log next to config.yaml.
+	stats := ParseDeliveryStats(filepath.Dir(configPath))
 	result := map[string]any{
 		"initialized":        true,
 		"tool":               payload.Tool,
@@ -364,6 +371,9 @@ func realOutboxStatus(ctx context.Context, configPath string, args json.RawMessa
 		"total_depth":        totalDepth,
 		"dead_letter_count":  deadLetterCount,
 		"oldest_age_seconds": oldestAgeSec,
+		"delivered_24h":      stats.Delivered,
+		"failed_24h":         stats.Failed,
+		"retried_24h":        stats.Retried,
 	}
 	if deadLetterErr != nil {
 		result["dead_letter_error"] = deadLetterErr.Error()

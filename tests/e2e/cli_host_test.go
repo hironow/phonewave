@@ -289,9 +289,9 @@ func TestCLI_MCPServerToolsList(t *testing.T) {
 	}
 
 	expectedTools := map[string]bool{
-		"phonewave.ping":          false,
-		"phonewave.outbox_status": false,
-		"phonewave.inbox_status":  false,
+		"ping":          false,
+		"outbox_status": false,
+		"inbox_status":  false,
 	}
 
 	for _, tool := range resp.Result.Tools {

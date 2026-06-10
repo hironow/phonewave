@@ -20,9 +20,9 @@ func TestRecordMCPInvocation_IncrementsCounterAndHistogram(t *testing.T) {
 	ctx := context.Background()
 
 	// when
-	platform.RecordMCPInvocation(ctx, "phonewave.ping", "ok", 5*time.Millisecond)
-	platform.RecordMCPInvocation(ctx, "phonewave.outbox_status", "ok", 12*time.Millisecond)
-	platform.RecordMCPInvocation(ctx, "phonewave.ping", "ok", 3*time.Millisecond)
+	platform.RecordMCPInvocation(ctx, "ping", "ok", 5*time.Millisecond)
+	platform.RecordMCPInvocation(ctx, "outbox_status", "ok", 12*time.Millisecond)
+	platform.RecordMCPInvocation(ctx, "ping", "ok", 3*time.Millisecond)
 
 	// then
 	var rm metricdata.ResourceMetrics
@@ -47,7 +47,7 @@ func TestRecordMCPInvocation_AttributesIncludeToolNameAndStatus(t *testing.T) {
 	ctx := context.Background()
 
 	// when
-	platform.RecordMCPInvocation(ctx, "phonewave.inbox_status", "error", 2*time.Millisecond)
+	platform.RecordMCPInvocation(ctx, "inbox_status", "error", 2*time.Millisecond)
 
 	// then
 	var rm metricdata.ResourceMetrics
@@ -63,7 +63,7 @@ func TestRecordMCPInvocation_AttributesIncludeToolNameAndStatus(t *testing.T) {
 			sum := m.Data.(metricdata.Sum[int64])
 			for _, dp := range sum.DataPoints {
 				for _, attr := range dp.Attributes.ToSlice() {
-					if string(attr.Key) == "tool.name" && attr.Value.AsString() == "phonewave.inbox_status" {
+					if string(attr.Key) == "tool.name" && attr.Value.AsString() == "inbox_status" {
 						foundTool = true
 					}
 					if string(attr.Key) == "result.status" && attr.Value.AsString() == "error" {
@@ -74,7 +74,7 @@ func TestRecordMCPInvocation_AttributesIncludeToolNameAndStatus(t *testing.T) {
 		}
 	}
 	if !foundTool {
-		t.Error("expected tool.name=phonewave.inbox_status attribute on metric data point")
+		t.Error("expected tool.name=inbox_status attribute on metric data point")
 	}
 	if !foundStatus {
 		t.Error("expected result.status=error attribute on metric data point")
