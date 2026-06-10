@@ -22,6 +22,10 @@
 - [phonewave doctor](cli/phonewave_doctor.md) — Verify ecosystem health
 - [phonewave clean](cli/phonewave_clean.md) — Remove runtime state from .phonewave/
 - [phonewave archive-prune](cli/phonewave_archive-prune.md) — Prune expired event files
+- [phonewave dead-letters](cli/phonewave_dead-letters.md) — Manage dead-lettered delivery items
+- [phonewave dead-letters purge](cli/phonewave_dead-letters_purge.md) — Purge dead-lettered items
+- [phonewave metrics](cli/phonewave_metrics.md) — Output delivery health time-series as JSON
+- [phonewave mcp](cli/phonewave_mcp.md) — Run the read-only courier visibility MCP server
 - [phonewave version](cli/phonewave_version.md) — Print version, commit, and build information
 - [phonewave update](cli/phonewave_update.md) — Self-update phonewave to the latest release
 
