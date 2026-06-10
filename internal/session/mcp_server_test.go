@@ -41,9 +41,9 @@ func TestMCPServer_ListsAllPhase2dTools(t *testing.T) {
 		t.Fatalf("tools list missing: %v", result["tools"])
 	}
 	want := map[string]bool{
-		"phonewave.ping":          false,
-		"phonewave.outbox_status": false,
-		"phonewave.inbox_status":  false,
+		"ping":          false,
+		"outbox_status": false,
+		"inbox_status":  false,
 	}
 	for _, t0 := range tools {
 		entry, _ := t0.(map[string]any)
@@ -60,7 +60,7 @@ func TestMCPServer_ListsAllPhase2dTools(t *testing.T) {
 
 func TestMCPServer_CallsPingTool(t *testing.T) {
 	// given
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"phonewave.ping","arguments":{}}}` + "\n")
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"ping","arguments":{}}}` + "\n")
 	var out bytes.Buffer
 	srv := session.NewMCPServer(in, &out, nil)
 
@@ -115,7 +115,7 @@ func TestMCPServer_RejectsUnknownTool(t *testing.T) {
 
 func TestMCPServer_OutboxStatus_UninitializedConfigPath(t *testing.T) {
 	// given: NewMCPServer without WithConfigPath.
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"phonewave.outbox_status","arguments":{"tool":"paintress"}}}` + "\n")
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"outbox_status","arguments":{"tool":"paintress"}}}` + "\n")
 	var out bytes.Buffer
 	srv := session.NewMCPServer(in, &out, nil)
 
@@ -139,7 +139,7 @@ func TestMCPServer_OutboxStatus_RealImpl_EmptyConfig(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"phonewave.outbox_status","arguments":{"tool":"paintress"}}}` + "\n")
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"outbox_status","arguments":{"tool":"paintress"}}}` + "\n")
 	var out bytes.Buffer
 	srv := session.NewMCPServer(in, &out, nil).WithConfigPath(configPath)
 
@@ -191,7 +191,7 @@ func TestMCPServer_OutboxStatus_Phase4_OldestAgeFromFile(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"phonewave.outbox_status","arguments":{}}}` + "\n")
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"outbox_status","arguments":{}}}` + "\n")
 	var out bytes.Buffer
 	srv := session.NewMCPServer(in, &out, nil).WithConfigPath(configPath)
 
@@ -219,7 +219,7 @@ func TestMCPServer_InboxStatus_RealImpl_EmptyConfig(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"phonewave.inbox_status","arguments":{"tool":"sightjack"}}}` + "\n")
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"inbox_status","arguments":{"tool":"sightjack"}}}` + "\n")
 	var out bytes.Buffer
 	srv := session.NewMCPServer(in, &out, nil).WithConfigPath(configPath)
 
@@ -341,5 +341,64 @@ func TestMCPServer_NotificationsInitialized_NoResponse(t *testing.T) {
 	// then: notifications must not produce a response
 	if strings.TrimSpace(out.String()) != "" {
 		t.Errorf("notification must produce no response, got: %q", out.String())
+	}
+}
+
+func TestMCPServer_OutboxStatus_Includes24hDeliveryStats(t *testing.T) {
+	// given: config + delivery.log with one fresh DELIVERED and one
+	// fresh FAILED line (refs issue 0034: "did my d-mail get
+	// delivered?" must be answerable via MCP)
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte("repositories: []\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	logBody := now + " DELIVERED a.md -> inbox\n" + now + " FAILED b.md route missing\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "delivery.log"), []byte(logBody), 0o644); err != nil {
+		t.Fatalf("write delivery.log: %v", err)
+	}
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"outbox_status","arguments":{"tool":"paintress"}}}` + "\n")
+	var out bytes.Buffer
+	srv := session.NewMCPServer(in, &out, nil).WithConfigPath(configPath)
+
+	// when
+	if err := srv.Serve(context.Background()); err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+
+	// then
+	body := decodeFirstText(t, &out)
+	if got, _ := body["delivered_24h"].(float64); int(got) != 1 {
+		t.Errorf("delivered_24h = %v, want 1 (body=%v)", body["delivered_24h"], body)
+	}
+	if got, _ := body["failed_24h"].(float64); int(got) != 1 {
+		t.Errorf("failed_24h = %v, want 1", body["failed_24h"])
+	}
+}
+
+func TestMCPServer_Initialize_AdvertisesInstructions(t *testing.T) {
+	// given
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"claude-code","version":"1.0"}}}` + "\n")
+	var out bytes.Buffer
+	srv := session.NewMCPServer(in, &out, nil)
+
+	// when
+	if err := srv.Serve(context.Background()); err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+
+	// then: Tool Search deferred loading reads instructions at startup
+	var resp struct {
+		Result struct {
+			Instructions string `json:"instructions"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !strings.Contains(resp.Result.Instructions, "courier") {
+		t.Errorf("instructions = %q, want a one-paragraph courier role summary", resp.Result.Instructions)
 	}
 }
