@@ -29,8 +29,8 @@ phonewave run [flags]
 ### Options
 
 ```
-  -n, --dry-run                   Detect events without delivering
-  -h, --help                      help for run
+  -n, --dry-run[=true|false]      Detect events without delivering
+  -h, --help[=true|false]         help for run
       --idle-timeout duration     idle timeout — exit after no activity (0 = 24h safety cap, negative = disable) (default 30m0s)
   -m, --max-retries int           Maximum retry attempts per failed D-Mail (default 10)
   -r, --retry-interval duration   Error queue retry interval (0 to disable) (default 1m0s)
@@ -39,12 +39,12 @@ phonewave run [flags]
 ### Options inherited from parent commands
 
 ```
-  -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
-      --linear          Use Linear MCP for issue tracking (default: wave-centric mode)
-      --no-color        Disable colored output (respects NO_COLOR env)
-  -o, --output string   Output format: text, json (default "text")
-  -q, --quiet           Suppress all stderr output
-  -v, --verbose         Log all delivery events to stderr
+  -c, --config string           Path to phonewave config file (default ".phonewave/config.yaml")
+      --linear[=true|false]     Use Linear MCP for issue tracking (default: wave-centric mode)
+      --no-color[=true|false]   Disable colored output (respects NO_COLOR env)
+  -o, --output string           Output format: text, json (default "text")
+  -q, --quiet[=true|false]      Suppress all stderr output
+  -v, --verbose[=true|false]    Log all delivery events to stderr
 ```
 
 ### SEE ALSO

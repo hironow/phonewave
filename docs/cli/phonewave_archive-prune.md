@@ -39,23 +39,23 @@ phonewave archive-prune [path] [flags]
 ### Options
 
 ```
-  -d, --days int        Retention days (default 30)
-  -n, --dry-run         Dry-run mode (default behavior, explicit for scripting)
-  -x, --execute         Execute pruning (default: dry-run)
-  -h, --help            help for archive-prune
-      --rebuild-index   Rebuild archive index from state directory
-  -y, --yes             Skip confirmation prompt
+  -d, --days int                     Retention days (default 30)
+  -n, --dry-run[=true|false]         Dry-run mode (default behavior, explicit for scripting)
+  -x, --execute[=true|false]         Execute pruning (default: dry-run)
+  -h, --help[=true|false]            help for archive-prune
+      --rebuild-index[=true|false]   Rebuild archive index from state directory
+  -y, --yes[=true|false]             Skip confirmation prompt
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
-      --linear          Use Linear MCP for issue tracking (default: wave-centric mode)
-      --no-color        Disable colored output (respects NO_COLOR env)
-  -o, --output string   Output format: text, json (default "text")
-  -q, --quiet           Suppress all stderr output
-  -v, --verbose         Log all delivery events to stderr
+  -c, --config string           Path to phonewave config file (default ".phonewave/config.yaml")
+      --linear[=true|false]     Use Linear MCP for issue tracking (default: wave-centric mode)
+      --no-color[=true|false]   Disable colored output (respects NO_COLOR env)
+  -o, --output string           Output format: text, json (default "text")
+  -q, --quiet[=true|false]      Suppress all stderr output
+  -v, --verbose[=true|false]    Log all delivery events to stderr
 ```
 
 ### SEE ALSO

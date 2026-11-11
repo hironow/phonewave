@@ -21,8 +21,8 @@ phonewave init <repo-path> [repo-path...] [flags]
 ### Options
 
 ```
-      --force                 overwrite existing configuration
-  -h, --help                  help for init
+      --force[=true|false]    overwrite existing configuration
+  -h, --help[=true|false]     help for init
       --otel-backend string   OTel backend: jaeger, weave
       --otel-entity string    Weave entity/team (required for weave)
       --otel-project string   Weave project (required for weave)
@@ -31,12 +31,12 @@ phonewave init <repo-path> [repo-path...] [flags]
 ### Options inherited from parent commands
 
 ```
-  -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
-      --linear          Use Linear MCP for issue tracking (default: wave-centric mode)
-      --no-color        Disable colored output (respects NO_COLOR env)
-  -o, --output string   Output format: text, json (default "text")
-  -q, --quiet           Suppress all stderr output
-  -v, --verbose         Log all delivery events to stderr
+  -c, --config string           Path to phonewave config file (default ".phonewave/config.yaml")
+      --linear[=true|false]     Use Linear MCP for issue tracking (default: wave-centric mode)
+      --no-color[=true|false]   Disable colored output (respects NO_COLOR env)
+  -o, --output string           Output format: text, json (default "text")
+  -q, --quiet[=true|false]      Suppress all stderr output
+  -v, --verbose[=true|false]    Log all delivery events to stderr
 ```
 
 ### SEE ALSO
