@@ -20,18 +20,18 @@ phonewave add <repo-path> [flags]
 ### Options
 
 ```
-  -h, --help   help for add
+  -h, --help[=true|false]   help for add
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -c, --config string   Path to phonewave config file (default ".phonewave/config.yaml")
-      --linear          Use Linear MCP for issue tracking (default: wave-centric mode)
-      --no-color        Disable colored output (respects NO_COLOR env)
-  -o, --output string   Output format: text, json (default "text")
-  -q, --quiet           Suppress all stderr output
-  -v, --verbose         Log all delivery events to stderr
+  -c, --config string           Path to phonewave config file (default ".phonewave/config.yaml")
+      --linear[=true|false]     Use Linear MCP for issue tracking (default: wave-centric mode)
+      --no-color[=true|false]   Disable colored output (respects NO_COLOR env)
+  -o, --output string           Output format: text, json (default "text")
+  -q, --quiet[=true|false]      Suppress all stderr output
+  -v, --verbose[=true|false]    Log all delivery events to stderr
 ```
 
 ### SEE ALSO
